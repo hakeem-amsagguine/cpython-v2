@@ -255,6 +255,33 @@ exit:
     return return_value;
 }
 
+PyDoc_STRVAR(unicodedata_UCD_grapheme_cluster_break__doc__,
+"grapheme_cluster_break($self, chr, /)\n"
+"--\n"
+"\n"
+"Returns the GraphemeBreakProperty assigned to the character chr as string.");
+
+#define UNICODEDATA_UCD_GRAPHEME_CLUSTER_BREAK_METHODDEF    \
+    {"grapheme_cluster_break", (PyCFunction)unicodedata_UCD_grapheme_cluster_break, METH_O, unicodedata_UCD_grapheme_cluster_break__doc__},
+
+static PyObject *
+unicodedata_UCD_grapheme_cluster_break_impl(PyObject *self, int chr);
+
+static PyObject *
+unicodedata_UCD_grapheme_cluster_break(PyObject *self, PyObject *arg)
+{
+    PyObject *return_value = NULL;
+    int chr;
+
+    if (!PyArg_Parse(arg, "C:grapheme_cluster_break", &chr)) {
+        goto exit;
+    }
+    return_value = unicodedata_UCD_grapheme_cluster_break_impl(self, chr);
+
+exit:
+    return return_value;
+}
+
 PyDoc_STRVAR(unicodedata_UCD_decomposition__doc__,
 "decomposition($self, chr, /)\n"
 "--\n"
@@ -379,4 +406,33 @@ unicodedata_UCD_lookup(PyObject *self, PyObject *arg)
 exit:
     return return_value;
 }
-/*[clinic end generated code: output=7ec9a3c8fbfd3c3a input=a9049054013a1b77]*/
+
+PyDoc_STRVAR(unicodedata_UCD_iter_graphemes__doc__,
+"iter_graphemes($self, unistr, /)\n"
+"--\n"
+"\n"
+"Returns an iterator to iterate over grapheme clusters in unistr.\n"
+"\n"
+"It uses extended grapheme cluster rules from TR29.");
+
+#define UNICODEDATA_UCD_ITER_GRAPHEMES_METHODDEF    \
+    {"iter_graphemes", (PyCFunction)unicodedata_UCD_iter_graphemes, METH_O, unicodedata_UCD_iter_graphemes__doc__},
+
+static PyObject *
+unicodedata_UCD_iter_graphemes_impl(PyObject *self, PyObject *unistr);
+
+static PyObject *
+unicodedata_UCD_iter_graphemes(PyObject *self, PyObject *arg)
+{
+    PyObject *return_value = NULL;
+    PyObject *unistr;
+
+    if (!PyArg_Parse(arg, "U:iter_graphemes", &unistr)) {
+        goto exit;
+    }
+    return_value = unicodedata_UCD_iter_graphemes_impl(self, unistr);
+
+exit:
+    return return_value;
+}
+/*[clinic end generated code: output=88c185f6e080eec9 input=a9049054013a1b77]*/
