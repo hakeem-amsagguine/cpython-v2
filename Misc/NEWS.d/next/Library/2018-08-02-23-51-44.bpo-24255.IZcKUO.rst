@@ -1,0 +1,2 @@
+Replaces debug level logic in http client with logging. Original patch by
+Eryn Wells. Enhanced by Sanyam Khurana.
