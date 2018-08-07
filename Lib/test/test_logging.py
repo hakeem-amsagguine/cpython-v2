@@ -1889,9 +1889,7 @@ class HTTPHandlerTest(BaseTest):
 
     def test_output(self):
         # The log message sent to the HTTPHandler is properly received.
-        logger = logging.getLogger("http")
-        root_logger = self.root_logger
-        root_logger.removeHandler(self.root_logger.handlers[0])
+        logger = logging.getLogger("httplogger")
         for secure in (False, True):
             addr = ('localhost', 0)
             if secure:
@@ -1921,7 +1919,7 @@ class HTTPHandlerTest(BaseTest):
                                                        context=context,
                                                        credentials=('foo', 'bar'))
             self.log_data = None
-            root_logger.addHandler(self.h_hdlr)
+            logger.addHandler(self.h_hdlr)
 
             for method in ('GET', 'POST'):
                 self.h_hdlr.method = method
@@ -1935,12 +1933,12 @@ class HTTPHandlerTest(BaseTest):
                     d = parse_qs(self.log_data.query)
                 else:
                     d = parse_qs(self.post_data.decode('utf-8'))
-                self.assertEqual(d['name'], ['http'])
+                self.assertEqual(d['name'], ['httplogger'])
                 self.assertEqual(d['funcName'], ['test_output'])
                 self.assertEqual(d['msg'], [msg])
 
             self.server.stop(2.0)
-            self.root_logger.removeHandler(self.h_hdlr)
+            logger.removeHandler(self.h_hdlr)
             self.h_hdlr.close()
 
 
