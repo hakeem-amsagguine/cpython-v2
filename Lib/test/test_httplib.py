@@ -3,6 +3,8 @@ from http import client
 import io
 import itertools
 import os
+import sys
+import logging
 import array
 import socket
 import threading
@@ -352,12 +354,16 @@ class HeaderTests(TestCase):
         )
         sock = FakeSocket(body)
         resp = client.HTTPResponse(sock, debuglevel=1)
+        logging.basicConfig(level=logging.INFO)
         with support.captured_stdout() as output:
+            output_handler = logging.StreamHandler(output)
+            _logger = logging.getLogger('http.client')
+            _logger.addHandler(output_handler)
             resp.begin()
         lines = output.getvalue().splitlines()
-        self.assertEqual(lines[0], "reply: 'HTTP/1.1 200 OK\\r\\n'")
-        self.assertEqual(lines[1], "header: First: val")
-        self.assertEqual(lines[2], "header: Second: val")
+        self.assertEqual(lines[0], "Received response: 200 OK")
+        self.assertEqual(lines[1], "Received header: ('First': 'val')")
+        self.assertEqual(lines[2], "Received header: ('Second': 'val')")
 
 
 class TransferEncodingTest(TestCase):
@@ -1928,7 +1934,11 @@ class TunnelTests(TestCase):
         self.conn._create_connection = self._create_connection(response_text)
         self.conn.set_tunnel('destination.com')
 
+        logging.basicConfig(level=logging.INFO)
         with support.captured_stdout() as output:
+            output_handler = logging.StreamHandler(output)
+            _logger = logging.getLogger('http.client')
+            _logger.addHandler(output_handler)
             self.conn.request('PUT', '/', '')
         lines = output.getvalue().splitlines()
         self.assertIn('header: {}'.format(expected_header), lines)

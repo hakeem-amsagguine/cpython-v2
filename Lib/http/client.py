@@ -320,9 +320,9 @@ class HTTPResponse(io.BufferedIOBase):
 
         self.headers = self.msg = parse_headers(self.fp)
 
-        if _log.isEnabledFor(logging.DEBUG):
+        if _log.isEnabledFor(logging.INFO):
             for hdr in self.headers:
-                _log.debug("Received header: ('%s': '%s')", hdr, self.headers[hdr])
+                _log.info("Received header: ('%s': '%s')", hdr, self.headers[hdr])
 
         # are we using the chunked-style of transfer encoding?
         tr_enc = self.headers.get("transfer-encoding")
@@ -1065,7 +1065,7 @@ class HTTPConnection:
             for chunk in chunks:
                 if not chunk:
                     if self.debuglevel > 0:
-                        print('Zero length chunk ignored')
+                        _log.info('Zero length chunk ignored')
                     continue
 
                 if encode_chunked and self._http_vsn == 11:
@@ -1334,7 +1334,11 @@ class HTTPConnection:
         if self.__state != _CS_REQ_SENT or self.__response:
             raise ResponseNotReady(self.__state)
 
-        response = self.response_class(self.sock, method=self._method)
+        if self.debuglevel > 0:
+            response = self.response_class(
+                self.sock, self.debuglevel, method=self._method)
+        else:
+            response = self.response_class(self.sock, method=self._method)
 
         try:
             try:
