@@ -938,6 +938,9 @@ class HTTPConnection:
             if line in (b'\r\n', b'\n', b''):
                 break
 
+            if self.debuglevel > 0:
+                _log.info('header: {}'.format(line.decode()))
+
     def connect(self):
         """Connect to the host and port specified in __init__."""
         _log.debug('Opening socket to %s:%s', self.host, self.port)
