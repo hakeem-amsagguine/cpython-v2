@@ -261,6 +261,8 @@ class HTTPResponse(io.BufferedIOBase):
         line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
         if len(line) > _MAXLINE:
             raise LineTooLong("status line")
+        if self.debuglevel > 0:
+            _log.info("reply: {}".format(repr(line)))
         if not line:
             # Presumably, the server closed the connection before
             # sending a valid response.
@@ -307,6 +309,9 @@ class HTTPResponse(io.BufferedIOBase):
                 skip = skip.strip()
                 if not skip:
                     break
+
+                if self.debuglevel > 0:
+                    _log.info("header: {}".format(skip))
 
         self.code = self.status = status
         self.reason = reason.strip()
