@@ -185,7 +185,6 @@ pymain_run_interactive_hook(void)
 error:
     PySys_WriteStderr("Failed calling sys.__interactivehook__\n");
     PyErr_Print();
-    PyErr_Clear();
 }
 
 
@@ -267,7 +266,6 @@ error:
     Py_XDECREF(sys_path0);
     PySys_WriteStderr("Failed checking if argv[0] is an import path entry\n");
     PyErr_Print();
-    PyErr_Clear();
     return NULL;
 }
 
@@ -1081,7 +1079,6 @@ pymain_run_startup(_PyMain *pymain, _PyCoreConfig *config, PyCompilerFlags *cf)
         PyErr_SetFromErrnoWithFilename(PyExc_OSError,
                         startup);
         PyErr_Print();
-        PyErr_Clear();
         return;
     }
 
@@ -1129,14 +1126,16 @@ pymain_run_file(_PyMain *pymain, _PyCoreConfig *config, PyCompilerFlags *cf)
                 "%ls: '%ls' is a directory, cannot continue\n",
                 config->program, filename);
         pymain->status = 1;
-        goto done;
+        fclose(fp);
+        return;
     }
 
     /* call pending calls like signal handlers (SIGINT) */
     if (Py_MakePendingCalls() == -1) {
         PyErr_Print();
         pymain->status = 1;
-        goto done;
+        fclose(fp);
+        return;
     }
 
     PyObject *unicode, *bytes = NULL;
@@ -1155,12 +1154,10 @@ pymain_run_file(_PyMain *pymain, _PyCoreConfig *config, PyCompilerFlags *cf)
         filename_str = "<filename encoding error>";
     }
 
-    int run = PyRun_AnyFileExFlags(fp, filename_str, 0, cf);
+    /* PyRun_AnyFileExFlags(closeit=1) calls fclose(fp) before running code */
+    int run = PyRun_AnyFileExFlags(fp, filename_str, 1, cf);
     Py_XDECREF(bytes);
     pymain->status = (run != 0);
-
-done:
-    fclose(fp);
 }
 
 
@@ -1289,6 +1286,7 @@ static int
 pymain_read_conf(_PyMain *pymain, _PyCoreConfig *config,
                  _PyCmdline *cmdline)
 {
+    int init_utf8_mode = Py_UTF8Mode;
     _PyCoreConfig save_config = _PyCoreConfig_INIT;
     char *oldloc = NULL;
     int res = -1;
@@ -1321,6 +1319,10 @@ pymain_read_conf(_PyMain *pymain, _PyCoreConfig *config,
                                        "reading the configuration");
             goto done;
         }
+
+        /* bpo-34207: Py_DecodeLocale(), Py_EncodeLocale() and similar
+           functions depend on Py_UTF8Mode. */
+        Py_UTF8Mode = config->utf8_mode;
 
         if (pymain_init_cmdline_argv(pymain, config, cmdline) < 0) {
             goto done;
@@ -1386,6 +1388,7 @@ done:
         setlocale(LC_ALL, oldloc);
         PyMem_RawFree(oldloc);
     }
+    Py_UTF8Mode = init_utf8_mode ;
     return res;
 }
 

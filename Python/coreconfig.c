@@ -69,10 +69,13 @@ _Py_wstrlist_copy(int len, wchar_t **list)
     assert((len > 0 && list != NULL) || len == 0);
     size_t size = len * sizeof(list[0]);
     wchar_t **list_copy = PyMem_RawMalloc(size);
+    if (list_copy == NULL) {
+        return NULL;
+    }
     for (int i=0; i < len; i++) {
         wchar_t* arg = _PyMem_RawWcsdup(list[i]);
         if (arg == NULL) {
-            _Py_wstrlist_clear(i, list);
+            _Py_wstrlist_clear(i, list_copy);
             return NULL;
         }
         list_copy[i] = arg;
@@ -367,6 +370,8 @@ _PyCoreConfig_SetGlobalConfig(const _PyCoreConfig *config)
 static _PyInitError
 config_init_program_name(_PyCoreConfig *config)
 {
+    assert(config->program_name == NULL);
+
     /* If Py_SetProgramName() was called, use its value */
     const wchar_t *program_name = _Py_path_config.program_name;
     if (program_name != NULL) {
@@ -665,16 +670,18 @@ config_read_env_vars(_PyCoreConfig *config)
         config->malloc_stats = 1;
     }
 
-    const char *env = _PyCoreConfig_GetEnv(config, "PYTHONCOERCECLOCALE");
-    if (env) {
-        if (strcmp(env, "0") == 0) {
-            config->coerce_c_locale = 0;
-        }
-        else if (strcmp(env, "warn") == 0) {
-            config->coerce_c_locale_warn = 1;
-        }
-        else {
-            config->coerce_c_locale = 1;
+    if (config->coerce_c_locale < 0) {
+        const char *env = _PyCoreConfig_GetEnv(config, "PYTHONCOERCECLOCALE");
+        if (env) {
+            if (strcmp(env, "0") == 0) {
+                config->coerce_c_locale = 0;
+            }
+            else if (strcmp(env, "warn") == 0) {
+                config->coerce_c_locale_warn = 1;
+            }
+            else {
+                config->coerce_c_locale = 1;
+            }
         }
     }
 
@@ -820,10 +827,6 @@ config_read_complex_options(_PyCoreConfig *config)
 static void
 config_init_locale(_PyCoreConfig *config)
 {
-    if (config->utf8_mode >= 0 && config->coerce_c_locale >= 0) {
-        return;
-    }
-
     if (_Py_LegacyLocaleDetected()) {
         /* POSIX locale: enable C locale coercion and UTF-8 Mode */
         if (config->utf8_mode < 0) {
@@ -832,7 +835,6 @@ config_init_locale(_PyCoreConfig *config)
         if (config->coerce_c_locale < 0) {
             config->coerce_c_locale = 1;
         }
-        return;
     }
 }
 
@@ -909,7 +911,9 @@ _PyCoreConfig_Read(_PyCoreConfig *config)
         }
     }
 
-    config_init_locale(config);
+    if (config->utf8_mode < 0 || config->coerce_c_locale < 0) {
+        config_init_locale(config);
+    }
 
     if (config->_install_importlib) {
         err = _PyCoreConfig_InitPathConfig(config);
