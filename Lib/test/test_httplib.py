@@ -1879,11 +1879,13 @@ class HTTPResponseTest(TestCase):
         header = self.resp.getheader('No-Such-Header',default=42)
         self.assertEqual(header, 42)
 
+
 class TunnelTests(TestCase):
+
     def setUp(self):
         response_text = (
-            'HTTP/1.0 200 OK\r\n\r\n' # Reply to CONNECT
-            'HTTP/1.1 200 OK\r\n' # Reply to HEAD
+            'HTTP/1.0 200 OK\r\n\r\n'  # Reply to CONNECT
+            'HTTP/1.1 200 OK\r\n'  # Reply to HEAD
             'Content-Length: 42\r\n\r\n'
         )
         self.host = 'proxy.com'
