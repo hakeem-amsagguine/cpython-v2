@@ -348,9 +348,9 @@ class HeaderTests(TestCase):
 
     def test_headers_debuglevel(self):
         body = (
-            b'HTTP/1.1 200 OK\r\n'
-            b'First: val\r\n'
-            b'Second: val\r\n'
+            b'200 OK'
+            b'First: val'
+            b'Second: val'
         )
         sock = FakeSocket(body)
         resp = client.HTTPResponse(sock, debuglevel=1)
