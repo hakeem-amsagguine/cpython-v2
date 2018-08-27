@@ -128,6 +128,17 @@ class FakeSocketHTTPConnection(client.HTTPConnection):
         return FakeSocket(*self.fake_socket_args)
 
 class HeaderTests(TestCase):
+
+    def setUp(self):
+        self.handlers = logging.root.handlers
+        self.saved_handlers = logging._handlers.copy()
+        self.saved_handler_list = logging._handlerList[:]
+
+    def tearDown(self):
+        logging._handlers.clear()
+        logging._handlers.update(self.saved_handlers)
+        logging._handlerList[:] = self.saved_handler_list
+
     def test_auto_headers(self):
         # Some headers are added automatically, but should not be added by
         # .request() if they are explicitly set.
@@ -1878,8 +1889,14 @@ class TunnelTests(TestCase):
         self.host = 'proxy.com'
         self.conn = client.HTTPConnection(self.host)
         self.conn._create_connection = self._create_connection(response_text)
+        self.handlers = logging.root.handlers
+        self.saved_handlers = logging._handlers.copy()
+        self.saved_handler_list = logging._handlerList[:]
 
     def tearDown(self):
+        logging._handlers.clear()
+        logging._handlers.update(self.saved_handlers)
+        logging._handlerList[:] = self.saved_handler_list
         self.conn.close()
 
     def _create_connection(self, response_text):
