@@ -348,9 +348,9 @@ class HeaderTests(TestCase):
 
     def test_headers_debuglevel(self):
         body = (
-            b'200 OK'
-            b'First: val'
-            b'Second: val'
+            b'HTTP/1.1 200 OK\r\n'
+            b'First: val\r\n'
+            b'Second: val\r\n'
         )
         sock = FakeSocket(body)
         resp = client.HTTPResponse(sock, debuglevel=1)
@@ -361,9 +361,10 @@ class HeaderTests(TestCase):
             _logger.addHandler(output_handler)
             resp.begin()
         lines = output.getvalue().splitlines()
-        self.assertEqual(lines[0], "Received response: 200 OK")
-        self.assertEqual(lines[1], "Received header: ('First': 'val')")
-        self.assertEqual(lines[2], "Received header: ('Second': 'val')")
+        self.assertEqual(lines[0], "reply: 'HTTP/1.1 200 OK\\r\\n'")
+        self.assertEqual(lines[1], "Received response: 200 OK")
+        self.assertEqual(lines[2], "Received header: ('First': 'val')")
+        self.assertEqual(lines[3], "Received header: ('Second': 'val')")
 
 
 class TransferEncodingTest(TestCase):
