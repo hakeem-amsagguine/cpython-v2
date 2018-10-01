@@ -3,7 +3,7 @@ import unittest
 from test import support
 from io import StringIO
 from pstats import SortKey
-
+from pstats import _build_minimal_path_by_full_path
 import pstats
 import cProfile
 
@@ -98,6 +98,67 @@ class StatsTestCase(unittest.TestCase):
     def test_SortKey_enum(self):
         self.assertEqual(SortKey.FILENAME, 'filename')
         self.assertNotEqual(SortKey.FILENAME, SortKey.CALLS)
+
+class BuildMinimalPathTests(unittest.TestCase):
+    def test_non_unique(self):
+        self.assertEqual(
+            _build_minimal_path_by_full_path([
+                'foo/bar',
+                'foo/bar',
+            ]),
+            {
+                'foo/bar': 'bar',
+            },
+        )
+
+    def test_needs_no_minimizing(self):
+        self.assertEqual(
+            _build_minimal_path_by_full_path([
+                'foo',
+                'bar',
+            ]),
+            {
+                'foo': 'foo',
+                'bar': 'bar',
+            },
+        )
+
+    def test_normal_case(self):
+        self.assertEqual(
+            _build_minimal_path_by_full_path([
+                'foo/bar',
+                'baz/bar',
+                'apple/orange',
+            ]),
+            {
+                'foo/bar': 'foo/bar',
+                'baz/bar': 'baz/bar',
+                'apple/orange': 'orange',
+            }
+        )
+
+    def test_intermediate(self):
+        self.assertEqual(
+            _build_minimal_path_by_full_path([
+                'apple/mango/orange/grape/melon',
+                'apple/mango/lemon/grape/melon',
+            ]),
+            {
+                'apple/mango/orange/grape/melon': 'orange/grape/melon',
+                'apple/mango/lemon/grape/melon': 'lemon/grape/melon',
+            }
+        )
+
+    def test_dunder_init_special_case(self):
+        self.assertEqual(
+            _build_minimal_path_by_full_path([
+                'apple/mango/orange/grape/__init__.py',
+            ]),
+            {
+                'apple/mango/orange/grape/__init__.py': 'grape/__init__.py',
+            }
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
