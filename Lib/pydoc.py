@@ -71,6 +71,7 @@ import tokenize
 import urllib.parse
 import warnings
 from collections import deque
+from html import escape as html_escape
 from reprlib import Repr
 from traceback import format_exception_only
 
@@ -430,9 +431,6 @@ class HTMLRepr(Repr):
         self.maxdict = 10
         self.maxstring = self.maxother = 100
 
-    def escape(self, text):
-        return replace(text, '&', '&amp;', '<', '&lt;', '>', '&gt;')
-
     def repr(self, object):
         return Repr.repr(self, object)
 
@@ -441,7 +439,7 @@ class HTMLRepr(Repr):
             methodname = 'repr_' + '_'.join(type(x).__name__.split())
             if hasattr(self, methodname):
                 return getattr(self, methodname)(x, level)
-        return self.escape(cram(stripid(repr(x)), self.maxother))
+        return html_escape(cram(stripid(repr(x)), self.maxother))
 
     def repr_string(self, x, level):
         test = cram(x, self.maxstring)
@@ -449,18 +447,18 @@ class HTMLRepr(Repr):
         if '\\' in test and '\\' not in replace(testrepr, r'\\', ''):
             # Backslashes are only literal in the string and are never
             # needed to make any special characters, so show a raw string.
-            return 'r' + testrepr[0] + self.escape(test) + testrepr[0]
+            return 'r' + testrepr[0] + html_escape(test) + testrepr[0]
         return re.sub(r'((\\[\\abfnrtv\'"]|\\[0-9]..|\\x..|\\u....)+)',
                       r'<font color="#c040c0">\1</font>',
-                      self.escape(testrepr))
+                      html_escape(testrepr, quote=False))
 
     repr_str = repr_string
 
     def repr_instance(self, x, level):
         try:
-            return self.escape(cram(stripid(repr(x)), self.maxstring))
+            return html_escape(cram(stripid(repr(x)), self.maxstring))
         except:
-            return self.escape('<%s instance>' % x.__class__.__name__)
+            return html_escape('<%s instance>' % x.__class__.__name__)
 
     repr_unicode = repr_string
 
@@ -471,7 +469,6 @@ class HTMLDoc(Doc):
 
     _repr_instance = HTMLRepr()
     repr = _repr_instance.repr
-    escape = _repr_instance.escape
 
     def page(self, title, contents):
         """Format an HTML page."""
@@ -523,7 +520,7 @@ class HTMLDoc(Doc):
 
     def preformat(self, text):
         """Format literal preformatted text."""
-        text = self.escape(text.expandtabs())
+        text = html_escape(text.expandtabs(), quote=False)
         return replace(text, '\n\n', '\n \n', '\n\n', '\n \n',
                              ' ', '&nbsp;', '\n', '<br>\n')
 
@@ -582,7 +579,7 @@ class HTMLDoc(Doc):
     def markup(self, text, escape=None, funcs={}, classes={}, methods={}):
         """Mark up some plain text, given a context of symbols to look for.
         Each context dictionary maps object names to anchor names."""
-        escape = escape or self.escape
+        escape = escape or html_escape
         results = []
         here = 0
         pattern = re.compile(r'\b((http|ftp)://\S+[\w/]|'
@@ -667,9 +664,9 @@ class HTMLDoc(Doc):
             version = str(object.__version__)
             if version[:11] == '$' + 'Revision: ' and version[-1:] == '$':
                 version = version[11:-1].strip()
-            info.append('version %s' % self.escape(version))
+            info.append('version %s' % html_escape(version))
         if hasattr(object, '__date__'):
-            info.append(self.escape(str(object.__date__)))
+            info.append(html_escape(str(object.__date__)))
         if info:
             head = head + ' (%s)' % ', '.join(info)
         docloc = self.getdocloc(object)
@@ -2072,6 +2069,11 @@ module "pydoc_data.topics" could not be found.
         topic, _, xrefs = target.partition(' ')
         self.showtopic(topic, xrefs)
 
+    def _getsymbol(self, symbol):
+        target = self.symbols[symbol]
+        topic, _, xrefs = target.partition(' ')
+        return self._gettopic(topic, xrefs)
+
     def listmodules(self, key=''):
         if key:
             self.output.write('''
@@ -2237,6 +2239,7 @@ def _start_server(urlhandler, hostname, port):
     import email.message
     import select
     import threading
+    from urllib.parse import unquote
 
     class DocHandler(http.server.BaseHTTPRequestHandler):
 
@@ -2354,13 +2357,14 @@ def _url_handler(url, content_type="text/html"):
 </body></html>''' % (title, css_link, html_navbar(), contents)
 
         def filelink(self, url, path):
-            return '<a href="getfile?key=%s">%s</a>' % (url, path)
+            return ('<a href="getfile?key=%s">%s</a>' %
+                (html_escape(url), html_escape(path)))
 
 
     html = _HTMLDoc()
 
     def html_navbar():
-        version = html.escape("%s [%s, %s]" % (platform.python_version(),
+        version = html_escape("%s [%s, %s]" % (platform.python_version(),
                                                platform.python_build()[0],
                                                platform.python_compiler()))
         return """
@@ -2372,6 +2376,7 @@ def _url_handler(url, content_type="text/html"):
                   <a href="index.html">Module Index</a>
                   : <a href="topics.html">Topics</a>
                   : <a href="keywords.html">Keywords</a>
+                  : <a href="symbols.html">Symbols</a>
                 </div>
                 <div>
                     <form action="get" style='display:inline;'>
@@ -2384,7 +2389,7 @@ def _url_handler(url, content_type="text/html"):
                     </form>
                 </div>
             </div>
-            """ % (version, html.escape(platform.platform(terse=True)))
+            """ % (version, html_escape(platform.platform(terse=True)))
 
     def html_index():
         """Module Index page."""
@@ -2445,7 +2450,7 @@ def _url_handler(url, content_type="text/html"):
         """Get and display a source file listing safely."""
         path = urllib.parse.unquote(path)
         with tokenize.open(path) as fp:
-            lines = html.escape(fp.read())
+            lines = html_escape(fp.read())
         body = '<pre>%s</pre>' % lines
         heading = html.heading(
             '<big><big><strong>File Listing</strong></big></big>',
@@ -2454,46 +2459,43 @@ def _url_handler(url, content_type="text/html"):
             'File: %s' % path, '#ffffff', '#ee77aa', body)
         return 'getfile %s' % path, contents
 
-    def html_topics():
+    def html_topicindex(title):
         """Index of topic texts available."""
 
         def bltinlink(name):
             return '<a href="topic?key=%s">%s</a>' % (name, name)
 
         heading = html.heading(
-            '<big><big><strong>INDEX</strong></big></big>',
+            '<big><big><strong>%s</strong></big></big>' % title.upper(),
             '#ffffff', '#7799ee')
-        names = sorted(Helper.topics.keys())
+
+        keys = {
+            'topics': Helper.topics.keys,
+            'keywords': Helper.keywords.keys,
+            'symbols': Helper.symbols.keys,
+        }
+        names = sorted(keys[title]())
 
         contents = html.multicolumn(names, bltinlink)
         contents = heading + html.bigsection(
-            'Topics', '#ffffff', '#ee77aa', contents)
-        return 'Topics', contents
-
-    def html_keywords():
-        """Index of keywords."""
-        heading = html.heading(
-            '<big><big><strong>INDEX</strong></big></big>',
-            '#ffffff', '#7799ee')
-        names = sorted(Helper.keywords.keys())
-
-        def bltinlink(name):
-            return '<a href="topic?key=%s">%s</a>' % (name, name)
-
-        contents = html.multicolumn(names, bltinlink)
-        contents = heading + html.bigsection(
-            'Keywords', '#ffffff', '#ee77aa', contents)
-        return 'Keywords', contents
+            title, '#ffffff', '#ee77aa', contents)
+        return title, contents
 
     def html_topicpage(topic):
         """Topic or keyword help page."""
         buf = io.StringIO()
         htmlhelp = Helper(buf, buf)
-        contents, xrefs = htmlhelp._gettopic(topic)
         if topic in htmlhelp.keywords:
             title = 'KEYWORD'
-        else:
+            contents, xrefs = htmlhelp._gettopic(topic)
+        elif topic in htmlhelp.topics:
             title = 'TOPIC'
+            contents, xrefs = htmlhelp._gettopic(topic)
+        elif topic in htmlhelp.symbols:
+            title = 'SYMBOL'
+            contents, xrefs = htmlhelp._getsymbol(topic)
+        else:
+            raise ValueError('could not find topic %s' % repr(topic))
         heading = html.heading(
             '<big><big><strong>%s</strong></big></big>' % title,
             '#ffffff', '#7799ee')
@@ -2503,7 +2505,7 @@ def _url_handler(url, content_type="text/html"):
             xrefs = sorted(xrefs.split())
 
             def bltinlink(name):
-                return '<a href="topic?key=%s">%s</a>' % (name, name)
+                return '<a href="topic?key=%s">%s</a>' % (html_escape(name), html_escape(name))
 
             xrefs = html.multicolumn(xrefs, bltinlink)
             xrefs = html.section('Related help topics: ',
@@ -2523,7 +2525,7 @@ def _url_handler(url, content_type="text/html"):
         heading = html.heading(
             '<big><big><strong>Error</strong></big></big>',
             '#ffffff', '#7799ee')
-        contents = '<br>'.join(html.escape(line) for line in
+        contents = '<br>'.join(html_escape(line) for line in
                                format_exception_only(type(exc), exc))
         contents = heading + html.bigsection(url, '#ffffff', '#bb0000',
                                              contents)
@@ -2537,23 +2539,21 @@ def _url_handler(url, content_type="text/html"):
         try:
             if url in ("", "index"):
                 title, content = html_index()
-            elif url == "topics":
-                title, content = html_topics()
-            elif url == "keywords":
-                title, content = html_keywords()
-            elif '=' in url:
-                op, _, url = url.partition('=')
-                if op == "search?key":
+            elif url in ("topics", "keywords", "symbols"):
+                title, content = html_topicindex(url)
+            elif '?key=' in url:
+                op, _, url = url.partition('?key=')
+                if op == "search":
                     title, content = html_search(url)
-                elif op == "getfile?key":
+                elif op == "getfile":
                     title, content = html_getfile(url)
-                elif op == "topic?key":
+                elif op == "topic":
                     # try topics first, then objects.
                     try:
                         title, content = html_topicpage(url)
                     except ValueError:
                         title, content = html_getobj(url)
-                elif op == "get?key":
+                elif op == "get":
                     # try objects first, then topics.
                     if url in ("", "index"):
                         title, content = html_index()
@@ -2746,6 +2746,7 @@ def cli():
     directory.  If <name> contains a '{sep}', it is treated as a filename; if
     it names a directory, documentation is written for all the contents.
 """.format(cmd=cmd, sep=os.sep))
+
 
 if __name__ == '__main__':
     cli()
