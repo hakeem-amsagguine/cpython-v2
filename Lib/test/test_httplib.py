@@ -376,8 +376,8 @@ class HeaderTests(TestCase):
         lines = output.getvalue().splitlines()
         self.assertEqual(lines[0], "reply: 'HTTP/1.1 200 OK\\r\\n'")
         self.assertEqual(lines[1], "Received response: 200 OK")
-        self.assertEqual(lines[2], "Received header: ('First': 'val1')")
-        self.assertEqual(lines[3], "Received header: ('Second': 'val2')")
+        self.assertEqual(lines[2], "Received header: ('First': 'val')")
+        self.assertEqual(lines[3], "Received header: ('Second': 'val1')")
 
 
 class TransferEncodingTest(TestCase):
