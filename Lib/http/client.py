@@ -269,7 +269,7 @@ class HTTPResponse(io.BufferedIOBase):
         if len(line) > _MAXLINE:
             raise LineTooLong("status line")
         if self.debuglevel > 0:
-            _log.info("reply: {}".format(repr(line)))
+            _log.info("reply: %s" % repr(line))
         if not line:
             # Presumably, the server closed the connection before
             # sending a valid response.
@@ -318,7 +318,7 @@ class HTTPResponse(io.BufferedIOBase):
                     break
 
                 if self.debuglevel > 0:
-                    _log.info("header: {}".format(skip))
+                    _log.info("header: %s" % skip)
 
         self.code = self.status = status
         self.reason = reason.strip()
@@ -932,7 +932,7 @@ class HTTPConnection:
                 break
 
             if self.debuglevel > 0:
-                _log.info('header: {}'.format(line.decode()))
+                _log.info('header: %s' % line.decode())
 
     def connect(self):
         """Connect to the host and port specified in __init__."""

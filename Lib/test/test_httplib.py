@@ -3,7 +3,6 @@ from http import client
 import io
 import itertools
 import os
-import sys
 import logging
 import array
 import re

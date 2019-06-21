@@ -1955,7 +1955,7 @@ class HTTPHandlerTest(BaseTest):
 
     def test_output(self):
         # The log message sent to the HTTPHandler is properly received.
-        logger = logging.getLogger("httplogger")
+        logger = logging.getLogger("http")
         for secure in (False, True):
             addr = ('localhost', 0)
             if secure:
