@@ -3001,6 +3001,30 @@ def test_no_trailing_whitespace_stripping():
     patches that contain trailing whitespace. More info on Issue 24746.
     """
 
+def test_unable_to_check_for_wrapped_attr(): r"""
+Before bpo-25998, DocTestFinder.find() failed when inspect.unwrap()
+raised anything else but AttributeError while checking if a given
+object had the __wrapped__ attribute.
+
+    >>> # An unwrapable class
+    >>> class UnwrapMeAndDie:
+    ...     def __getattr__(self, name):
+    ...         raise RuntimeError('boom')
+    >>> # A module using this class
+    >>> import types
+    >>> m = types.ModuleType('some_module')
+    >>> m.__dict__.update({'unwrap_me_not': UnwrapMeAndDie()})
+    >>> # DocTestFinder.find() should fail with a specific ValueError, nothing else
+    >>> finder = doctest.DocTestFinder()
+    >>> finder.find(m)
+    []
+    >>> # Check that we have some details in verbose mode
+    >>> finder._verbose = True
+    >>> finder.find(m)  # doctest: +ELLIPSIS
+    Finding tests in some_module
+    DocTestFinder.find: __wrapped__ threw RuntimeError('boom'): ...
+    """
+
 ######################################################################
 ## Main
 ######################################################################
