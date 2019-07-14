@@ -3016,13 +3016,9 @@ object had the __wrapped__ attribute.
     >>> m.__dict__.update({'unwrap_me_not': UnwrapMeAndDie()})
     >>> # DocTestFinder.find() should fail with a specific ValueError, nothing else
     >>> finder = doctest.DocTestFinder()
-    >>> finder.find(m)
-    []
-    >>> # Check that we have some details in verbose mode
-    >>> finder._verbose = True
     >>> finder.find(m)  # doctest: +ELLIPSIS
-    Finding tests in some_module
-    DocTestFinder.find: __wrapped__ threw RuntimeError('boom'): ...
+    Traceback (most recent call last):
+    ValueError: DocTestFinder.find: __wrapped__ threw RuntimeError('boom'): ...
     """
 
 ######################################################################
