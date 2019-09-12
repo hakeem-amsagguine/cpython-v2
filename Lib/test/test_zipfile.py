@@ -409,7 +409,7 @@ class AbstractTestsWithSourceFile:
             def write(self, data):
                 nonlocal count
                 if count is not None:
-                    if count == stop:
+                    if (count > stop):
                         raise OSError
                     count += 1
                 super().write(data)
@@ -426,11 +426,12 @@ class AbstractTestsWithSourceFile:
                     with zipfp.open('file2', 'w') as f:
                         f.write(b'data2')
                 except OSError:
-                    stop += 1
+                    pass
                 else:
                     break
                 finally:
                     count = None
+                stop += 1
             with zipfile.ZipFile(io.BytesIO(testfile.getvalue())) as zipfp:
                 self.assertEqual(zipfp.namelist(), ['file1'])
                 self.assertEqual(zipfp.read('file1'), b'data1')
@@ -1291,7 +1292,8 @@ class OtherTests(unittest.TestCase):
         with zipfile.ZipFile(TESTFN2, 'w') as orig_zip:
             for data in 'abcdefghijklmnop':
                 zinfo = zipfile.ZipInfo(data)
-                zinfo.flag_bits |= 0x08  # Include an extended local header.
+                # Include an extended local header.
+                zinfo.flag_bits |= zipfile._MASK_USE_DATA_DESCRIPTOR
                 orig_zip.writestr(zinfo, data)
 
     def test_close(self):
@@ -1748,6 +1750,10 @@ class OtherTests(unittest.TestCase):
                 self.assertEqual(fp.tell(), len(txt))
                 fp.seek(0, os.SEEK_SET)
                 self.assertEqual(fp.tell(), 0)
+                # Read the file completely to definitely call any eof
+                # integrity checks (crc) and make sure they still pass.
+                fp.read()
+
         # Check seek on memory file
         data = io.BytesIO()
         with zipfile.ZipFile(data, mode="w") as zipf:
@@ -1765,6 +1771,9 @@ class OtherTests(unittest.TestCase):
                 self.assertEqual(fp.tell(), len(txt))
                 fp.seek(0, os.SEEK_SET)
                 self.assertEqual(fp.tell(), 0)
+                # Read the file completely to definitely call any eof
+                # integrity checks (crc) and make sure they still pass.
+                fp.read()
 
     def tearDown(self):
         unlink(TESTFN)
@@ -1922,6 +1931,44 @@ class DecryptionTests(unittest.TestCase):
         self.assertRaises(TypeError, self.zip.read, "test.txt", "python")
         self.assertRaises(TypeError, self.zip.open, "test.txt", pwd="python")
         self.assertRaises(TypeError, self.zip.extract, "test.txt", pwd="python")
+
+    def test_seek_tell(self):
+        self.zip.setpassword(b"python")
+        txt = self.plain
+        test_word = b'encryption'
+        bloc = txt.find(test_word)
+        bloc_len = len(test_word)
+        with self.zip.open("test.txt", "r") as fp:
+            fp.seek(bloc, os.SEEK_SET)
+            self.assertEqual(fp.tell(), bloc)
+            fp.seek(-bloc, os.SEEK_CUR)
+            self.assertEqual(fp.tell(), 0)
+            fp.seek(bloc, os.SEEK_CUR)
+            self.assertEqual(fp.tell(), bloc)
+            self.assertEqual(fp.read(bloc_len), txt[bloc:bloc+bloc_len])
+
+            # Make sure that the second read after seeking back beyond
+            # _readbuffer returns the same content (ie. rewind to the start of
+            # the file to read forward to the required position).
+            old_read_size = fp.MIN_READ_SIZE
+            fp.MIN_READ_SIZE = 1
+            fp._readbuffer = b''
+            fp._offset = 0
+            fp.seek(0, os.SEEK_SET)
+            self.assertEqual(fp.tell(), 0)
+            fp.seek(bloc, os.SEEK_CUR)
+            self.assertEqual(fp.read(bloc_len), txt[bloc:bloc+bloc_len])
+            fp.MIN_READ_SIZE = old_read_size
+
+            fp.seek(0, os.SEEK_END)
+            self.assertEqual(fp.tell(), len(txt))
+            fp.seek(0, os.SEEK_SET)
+            self.assertEqual(fp.tell(), 0)
+
+            # Read the file completely to definitely call any eof integrity
+            # checks (crc) and make sure they still pass.
+            fp.read()
+
 
 class AbstractTestsWithRandomBinaryFiles:
     @classmethod
