@@ -315,6 +315,12 @@ extern "C" {
 #define Py_SAFE_DOWNCAST(VALUE, WIDE, NARROW) (NARROW)(VALUE)
 #endif
 
+/* Py_SAFE_DOWNCAST is not a safe macro, so adding an alias to replace it.
+ * Pls use the _Py_DOWNCAST inside.
+ * https://bugs.python.org/issue19692
+ */
+#define _Py_DOWNCAST Py_SAFE_DOWNCAST
+
 /* Py_SET_ERRNO_ON_MATH_ERROR(x)
  * If a libm function did not set errno, but it looks like the result
  * overflowed or not-a-number, set errno to ERANGE or EDOM.  Set errno

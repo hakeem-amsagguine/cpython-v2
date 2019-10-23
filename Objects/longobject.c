@@ -339,7 +339,7 @@ PyLong_FromLong(long ival)
         v = _PyLong_New(1);
         if (v) {
             Py_SIZE(v) = sign;
-            v->ob_digit[0] = Py_SAFE_DOWNCAST(
+            v->ob_digit[0] = _Py_DOWNCAST(
                 abs_ival, unsigned long, digit);
         }
         return (PyObject*)v;
@@ -351,9 +351,9 @@ PyLong_FromLong(long ival)
         v = _PyLong_New(2);
         if (v) {
             Py_SIZE(v) = 2*sign;
-            v->ob_digit[0] = Py_SAFE_DOWNCAST(
+            v->ob_digit[0] = _Py_DOWNCAST(
                 abs_ival & PyLong_MASK, unsigned long, digit);
-            v->ob_digit[1] = Py_SAFE_DOWNCAST(
+            v->ob_digit[1] = _Py_DOWNCAST(
                   abs_ival >> PyLong_SHIFT, unsigned long, digit);
         }
         return (PyObject*)v;
@@ -372,7 +372,7 @@ PyLong_FromLong(long ival)
         Py_SIZE(v) = ndigits*sign;
         t = abs_ival;
         while (t) {
-            *p++ = Py_SAFE_DOWNCAST(
+            *p++ = _Py_DOWNCAST(
                 t & PyLong_MASK, unsigned long, digit);
             t >>= PyLong_SHIFT;
         }
@@ -1499,7 +1499,7 @@ _PyLong_UnsignedShort_Converter(PyObject *obj, void *ptr)
         return 0;
     }
 
-    *(unsigned short *)ptr = Py_SAFE_DOWNCAST(uval, unsigned long, unsigned short);
+    *(unsigned short *)ptr = _Py_DOWNCAST(uval, unsigned long, unsigned short);
     return 1;
 }
 
@@ -1521,7 +1521,7 @@ _PyLong_UnsignedInt_Converter(PyObject *obj, void *ptr)
         return 0;
     }
 
-    *(unsigned int *)ptr = Py_SAFE_DOWNCAST(uval, unsigned long, unsigned int);
+    *(unsigned int *)ptr = _Py_DOWNCAST(uval, unsigned long, unsigned int);
     return 1;
 }
 
