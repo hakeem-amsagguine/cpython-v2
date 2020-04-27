@@ -264,10 +264,14 @@ Py_NO_ENABLE_SHARED to find out.  Also support MS_NO_COREDLL for b/w compat */
 #ifdef MS_COREDLL
 #       if !defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_BUILTIN)
                 /* not building the core - must be an ext */
-#               if defined(_MSC_VER)
+#               if defined(_MSC_VER) && !defined(PY_NO_LINK_LIB)
                         /* So MSVC users need not specify the .lib
                         file in their Makefile (other compilers are
                         generally taken care of by distutils.) */
+                        /* Define PY_NO_LINK_LIB to build extension disabling pragma
+                        based auto-linking.
+                        This is relevant when using build-system generator (e.g CMake) where
+                        the linking is explicitly handled */
 #                       if defined(_DEBUG)
 #                               pragma comment(lib,"python39_d.lib")
 #                       elif defined(Py_LIMITED_API)
