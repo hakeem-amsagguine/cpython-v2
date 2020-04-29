@@ -526,8 +526,7 @@ def normalize_snippet(s, *, indent=0):
         * ensures that it does not end with a newline
         * dedents so the first nonwhite character on any line is at column "indent"
     """
-    s = strip_leading_and_trailing_blank_lines(s)
-    s = textwrap.dedent(s)
+    s = strip_leading_and_trailing_blank_lines(s).dedent()
     if indent:
         s = textwrap.indent(s, ' ' * indent)
     return s

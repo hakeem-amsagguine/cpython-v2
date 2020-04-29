@@ -77,7 +77,7 @@ class TestCParser(TempdirManager, unittest.TestCase):
 
     def run_test(self, grammar_source, test_source):
         self.build_extension(grammar_source)
-        test_source = textwrap.indent(textwrap.dedent(test_source), 8 * " ")
+        test_source = textwrap.indent(test_source.dedent(), 8 * " ")
         assert_python_ok(
             "-c",
             TEST_TEMPLATE.format(extension_path=self.tmp_path, test_source=test_source),

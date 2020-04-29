@@ -9,7 +9,6 @@ from test.support.script_helper import assert_python_ok, make_script
 import gc
 import sys
 import sysconfig
-import textwrap
 import threading
 import time
 import weakref
@@ -1171,7 +1170,7 @@ class GCCallbackTests(unittest.TestCase):
         import_module("ctypes")
 
         import subprocess
-        code = textwrap.dedent('''
+        code = '''
             from test.support import gc_collect, SuppressCrashReport
 
             a = [1, 2, 3]
@@ -1189,7 +1188,7 @@ class GCCallbackTests(unittest.TestCase):
             # The garbage collector should now have a fatal error
             # when it reaches the broken object
             gc_collect()
-        ''')
+        '''.dedent()
         p = subprocess.Popen([sys.executable, "-c", code],
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)

@@ -17,7 +17,6 @@ import stat
 import tempfile
 import unittest
 import warnings
-import textwrap
 
 _DUMMY_SYMLINK = os.path.join(tempfile.gettempdir(),
                               support.TESTFN + '-dummy-symlink')
@@ -1633,9 +1632,9 @@ class _PosixSpawnMixin:
     @unittest.skipUnless(hasattr(signal, 'pthread_sigmask'),
                            'need signal.pthread_sigmask()')
     def test_setsigmask(self):
-        code = textwrap.dedent("""\
+        code = """\
             import signal
-            signal.raise_signal(signal.SIGUSR1)""")
+            signal.raise_signal(signal.SIGUSR1)""".dedent()
 
         pid = self.spawn_func(
             sys.executable,
@@ -1666,12 +1665,12 @@ class _PosixSpawnMixin:
         try:
             os.set_inheritable(wfd, True)
 
-            code = textwrap.dedent(f"""
+            code = f"""
                 import os
                 fd = {wfd}
                 sid = os.getsid(0)
                 os.write(fd, str(sid).encode())
-            """)
+            """.dedent()
 
             try:
                 pid = self.spawn_func(sys.executable,
@@ -1695,9 +1694,9 @@ class _PosixSpawnMixin:
                          'need signal.pthread_sigmask()')
     def test_setsigdef(self):
         original_handler = signal.signal(signal.SIGUSR1, signal.SIG_IGN)
-        code = textwrap.dedent("""\
+        code = """\
             import signal
-            signal.raise_signal(signal.SIGUSR1)""")
+            signal.raise_signal(signal.SIGUSR1)""".dedent()
         try:
             pid = self.spawn_func(
                 sys.executable,
@@ -1730,12 +1729,12 @@ class _PosixSpawnMixin:
     def test_setscheduler_only_param(self):
         policy = os.sched_getscheduler(0)
         priority = os.sched_get_priority_min(policy)
-        code = textwrap.dedent(f"""\
+        code = f"""\
             import os, sys
             if os.sched_getscheduler(0) != {policy}:
                 sys.exit(101)
             if os.sched_getparam(0).sched_priority != {priority}:
-                sys.exit(102)""")
+                sys.exit(102)""".dedent()
         pid = self.spawn_func(
             sys.executable,
             [sys.executable, '-c', code],
@@ -1750,12 +1749,12 @@ class _PosixSpawnMixin:
     def test_setscheduler_with_policy(self):
         policy = os.sched_getscheduler(0)
         priority = os.sched_get_priority_min(policy)
-        code = textwrap.dedent(f"""\
+        code = f"""\
             import os, sys
             if os.sched_getscheduler(0) != {policy}:
                 sys.exit(101)
             if os.sched_getparam(0).sched_priority != {priority}:
-                sys.exit(102)""")
+                sys.exit(102)""".dedent()
         pid = self.spawn_func(
             sys.executable,
             [sys.executable, '-c', code],
@@ -1888,7 +1887,7 @@ class TestPosixSpawnP(unittest.TestCase, _PosixSpawnMixin):
             path = temp_dir   # PATH is not set
 
         spawn_args = (program, '-I', '-S', '-c', 'pass')
-        code = textwrap.dedent("""
+        code = ("""
             import os
             from test import support
 
@@ -1896,7 +1895,7 @@ class TestPosixSpawnP(unittest.TestCase, _PosixSpawnMixin):
             pid = os.posix_spawnp(args[0], args, os.environ)
 
             support.wait_process(pid, exitcode=0)
-        """ % (spawn_args,))
+        """ % (spawn_args,)).dedent()
 
         # Use a subprocess to test os.posix_spawnp() with a modified PATH
         # environment variable: posix_spawnp() uses the current environment

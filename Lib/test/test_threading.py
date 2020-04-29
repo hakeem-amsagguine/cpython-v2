@@ -16,7 +16,6 @@ import weakref
 import os
 import subprocess
 import signal
-import textwrap
 
 from test import lock_tests
 from test import support
@@ -961,7 +960,7 @@ class SubinterpThreadingTests(BaseTestCase):
         # Non-daemon threads should be joined at subinterpreter shutdown
         # (issue #18808)
         r, w = self.pipe()
-        code = textwrap.dedent(r"""
+        code = (r"""
             import os
             import random
             import threading
@@ -979,7 +978,7 @@ class SubinterpThreadingTests(BaseTestCase):
 
             threading.Thread(target=f).start()
             random_sleep()
-        """ % (w,))
+        """ % (w,)).dedent()
         ret = test.support.run_in_subinterp(code)
         self.assertEqual(ret, 0)
         # The thread was joined properly.
@@ -991,7 +990,7 @@ class SubinterpThreadingTests(BaseTestCase):
         # To achieve this, we register a thread-local object which sleeps
         # a bit when deallocated.
         r, w = self.pipe()
-        code = textwrap.dedent(r"""
+        code = (r"""
             import os
             import random
             import threading
@@ -1016,7 +1015,7 @@ class SubinterpThreadingTests(BaseTestCase):
 
             threading.Thread(target=f).start()
             random_sleep()
-        """ % (w,))
+        """ % (w,)).dedent()
         ret = test.support.run_in_subinterp(code)
         self.assertEqual(ret, 0)
         # The thread was joined properly.

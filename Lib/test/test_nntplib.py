@@ -1,7 +1,6 @@
 import io
 import socket
 import datetime
-import textwrap
 import unittest
 import functools
 import contextlib
@@ -502,7 +501,7 @@ class NNTPv1Handler:
 
     def push_lit(self, lit):
         """Push a string literal"""
-        lit = textwrap.dedent(lit)
+        lit = lit.dedent()
         lit = "\r\n".join(lit.splitlines()) + "\r\n"
         lit = lit.encode('utf-8')
         self.push_data(lit)

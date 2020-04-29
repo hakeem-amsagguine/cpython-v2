@@ -599,7 +599,7 @@ class TestParserIdempotency(support.TestCase):
 class TestLiterals(GrammarTest):
 
     def validate(self, s):
-        driver.parse_string(support.dedent(s) + "\n\n")
+        driver.parse_string(s.dedent() + "\n\n")
 
     def test_multiline_bytes_literals(self):
         s = """

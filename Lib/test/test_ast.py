@@ -5,8 +5,6 @@ import sys
 import unittest
 import warnings
 import weakref
-from textwrap import dedent
-
 from test import support
 
 def to_tuple(t):
@@ -1540,13 +1538,13 @@ class EndPositionTests(unittest.TestCase):
         self._check_content(s, lam.args.vararg, 'y')
 
     def test_func_def(self):
-        s = dedent('''
+        s = '''
             def func(x: int,
                      *args: str,
                      z: float = 0,
                      **kwargs: Any) -> bool:
                 return True
-            ''').strip()
+            '''.dedent().strip()
         fdef = ast.parse(s).body[0]
         self._check_end_pos(fdef, 5, 15)
         self._check_content(s, fdef.body[0], 'return True')
@@ -1569,10 +1567,10 @@ class EndPositionTests(unittest.TestCase):
         self._check_end_pos(call, 1, 6)
 
     def test_class_def(self):
-        s = dedent('''
+        s = '''
             class C(A, B):
                 x: int = 0
-        ''').strip()
+        '''.dedent().strip()
         cdef = ast.parse(s).body[0]
         self._check_end_pos(cdef, 2, 14)
         self._check_content(s, cdef.bases[1], 'B')
@@ -1584,20 +1582,20 @@ class EndPositionTests(unittest.TestCase):
         self._check_content(s, cdef.keywords[0].value, 'abc.ABCMeta')
 
     def test_multi_line_str(self):
-        s = dedent('''
+        s = '''
             x = """Some multi-line text.
 
             It goes on starting from same indent."""
-        ''').strip()
+        '''.dedent().strip()
         assign = ast.parse(s).body[0]
         self._check_end_pos(assign, 3, 40)
         self._check_end_pos(assign.value, 3, 40)
 
     def test_continued_str(self):
-        s = dedent('''
+        s = '''
             x = "first part" \\
             "second part"
-        ''').strip()
+        '''.dedent().strip()
         assign = ast.parse(s).body[0]
         self._check_end_pos(assign, 2, 13)
         self._check_end_pos(assign.value, 2, 13)
@@ -1605,7 +1603,7 @@ class EndPositionTests(unittest.TestCase):
     def test_suites(self):
         # We intentionally put these into the same string to check
         # that empty lines are not part of the suite.
-        s = dedent('''
+        s = '''
             while True:
                 pass
 
@@ -1625,7 +1623,7 @@ class EndPositionTests(unittest.TestCase):
                 pass
 
             pass
-        ''').strip()
+        '''.dedent().strip()
         mod = ast.parse(s)
         while_loop = mod.body[0]
         if_stmt = mod.body[1]
@@ -1653,7 +1651,7 @@ class EndPositionTests(unittest.TestCase):
         self._check_content(s, binop, 'x + y')
 
     def test_fstring_multi_line(self):
-        s = dedent('''
+        s = '''
             f"""Some multi-line text.
             {
             arg_one
@@ -1661,7 +1659,7 @@ class EndPositionTests(unittest.TestCase):
             arg_two
             }
             It goes on..."""
-        ''').strip()
+        '''.dedent().strip()
         fstr = self._parse_value(s)
         binop = fstr.values[1].value
         self._check_end_pos(binop, 5, 7)
@@ -1669,22 +1667,22 @@ class EndPositionTests(unittest.TestCase):
         self._check_content(s, binop.right, 'arg_two')
 
     def test_import_from_multi_line(self):
-        s = dedent('''
+        s = '''
             from x.y.z import (
                 a, b, c as c
             )
-        ''').strip()
+        '''.dedent().strip()
         imp = ast.parse(s).body[0]
         self._check_end_pos(imp, 3, 1)
 
     def test_slices(self):
         s1 = 'f()[1, 2] [0]'
         s2 = 'x[ a.b: c.d]'
-        sm = dedent('''
+        sm = '''
             x[ a.b: f () ,
                g () : c.d
               ]
-        ''').strip()
+        '''.dedent().strip()
         i1, i2, im = map(self._parse_value, (s1, s2, sm))
         self._check_content(s1, i1.value, 'f()[1, 2]')
         self._check_content(s1, i1.value.slice, '1, 2')
@@ -1695,11 +1693,11 @@ class EndPositionTests(unittest.TestCase):
         self._check_end_pos(im, 3, 3)
 
     def test_binop(self):
-        s = dedent('''
+        s = '''
             (1 * 2 + (3 ) +
                  4
             )
-        ''').strip()
+        '''.dedent().strip()
         binop = self._parse_value(s)
         self._check_end_pos(binop, 2, 6)
         self._check_content(s, binop.right, '4')
@@ -1707,11 +1705,11 @@ class EndPositionTests(unittest.TestCase):
         self._check_content(s, binop.left.right, '3')
 
     def test_boolop(self):
-        s = dedent('''
+        s = '''
             if (one_condition and
                     (other_condition or yet_another_one)):
                 pass
-        ''').strip()
+        '''.dedent().strip()
         bop = ast.parse(s).body[0].test
         self._check_end_pos(bop, 2, 44)
         self._check_content(s, bop.values[1],
@@ -1721,11 +1719,11 @@ class EndPositionTests(unittest.TestCase):
         s1 = 'x = () ;'
         s2 = 'x = 1 , ;'
         s3 = 'x = (1 , 2 ) ;'
-        sm = dedent('''
+        sm = '''
             x = (
                 a, b,
             )
-        ''').strip()
+        '''.dedent().strip()
         t1, t2, t3, tm = map(self._parse_value, (s1, s2, s3, sm))
         self._check_content(s1, t1, '()')
         self._check_content(s2, t2, '1 ,')
@@ -1777,10 +1775,10 @@ class EndPositionTests(unittest.TestCase):
         self._check_content(s2, c2.values[1], 'g ()')
 
     def test_comprehensions(self):
-        s = dedent('''
+        s = '''
             x = [{x for x, y in stuff
                   if cond.x} for stuff in things]
-        ''').strip()
+        '''.dedent().strip()
         cmp = self._parse_value(s)
         self._check_end_pos(cmp, 2, 37)
         self._check_content(s, cmp.generators[0].iter, 'things')
@@ -1789,35 +1787,35 @@ class EndPositionTests(unittest.TestCase):
         self._check_content(s, cmp.elt.generators[0].target, 'x, y')
 
     def test_yield_await(self):
-        s = dedent('''
+        s = '''
             async def f():
                 yield x
                 await y
-        ''').strip()
+        '''.dedent().strip()
         fdef = ast.parse(s).body[0]
         self._check_content(s, fdef.body[0].value, 'yield x')
         self._check_content(s, fdef.body[1].value, 'await y')
 
     def test_source_segment_multi(self):
-        s_orig = dedent('''
+        s_orig = '''
             x = (
                 a, b,
             ) + ()
-        ''').strip()
-        s_tuple = dedent('''
+        '''.dedent().strip()
+        s_tuple = '''
             (
                 a, b,
             )
-        ''').strip()
+        '''.dedent().strip()
         binop = self._parse_value(s_orig)
         self.assertEqual(ast.get_source_segment(s_orig, binop.left), s_tuple)
 
     def test_source_segment_padded(self):
-        s_orig = dedent('''
+        s_orig = '''
             class C:
                 def fun(self) -> None:
                     "ЖЖЖЖЖ"
-        ''').strip()
+        '''.dedent().strip()
         s_method = '    def fun(self) -> None:\n' \
                    '        "ЖЖЖЖЖ"'
         cdef = ast.parse(s_orig).body[0]
@@ -1834,11 +1832,11 @@ class EndPositionTests(unittest.TestCase):
         self._check_content(s, z, 'z = 1')
 
     def test_source_segment_tabs(self):
-        s = dedent('''
+        s = '''
             class C:
               \t\f  def fun(self) -> None:
               \t\f      pass
-        ''').strip()
+        '''.dedent().strip()
         s_method = '  \t\f  def fun(self) -> None:\n' \
                    '  \t\f      pass'
 
@@ -1859,7 +1857,7 @@ class NodeVisitorTests(unittest.TestCase):
                 log.append((node.lineno, 'NameConstant', node.value))
             def visit_Ellipsis(self, node):
                 log.append((node.lineno, 'Ellipsis', ...))
-        mod = ast.parse(dedent('''\
+        mod = ast.parse('''\
             i = 42
             f = 4.25
             c = 4.25j
@@ -1868,7 +1866,7 @@ class NodeVisitorTests(unittest.TestCase):
             t = True
             n = None
             e = ...
-            '''))
+            '''.dedent())
         visitor = Visitor()
         log = []
         with warnings.catch_warnings(record=True) as wlog:

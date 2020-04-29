@@ -13,7 +13,6 @@ import sys
 import threading
 import unittest
 import weakref
-from textwrap import dedent
 from http.cookies import SimpleCookie
 
 try:
@@ -1353,16 +1352,16 @@ class AbstractUnpickleTests(unittest.TestCase):
     @reap_threads
     def test_unpickle_module_race(self):
         # https://bugs.python.org/issue34572
-        locker_module = dedent("""
+        locker_module = """
         import threading
         barrier = threading.Barrier(2)
-        """)
-        locking_import_module = dedent("""
+        """.dedent()
+        locking_import_module = """
         import locker
         locker.barrier.wait()
         class ToBeUnpickled(object):
             pass
-        """)
+        """.dedent()
 
         os.mkdir(TESTFN)
         self.addCleanup(shutil.rmtree, TESTFN)

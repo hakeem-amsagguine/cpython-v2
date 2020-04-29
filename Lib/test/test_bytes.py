@@ -12,7 +12,6 @@ import copy
 import functools
 import pickle
 import tempfile
-import textwrap
 import unittest
 
 import test.support
@@ -322,7 +321,7 @@ class BaseBytesTest:
         # and errors arguments in dev mode
         invalid = 'Boom, Shaka Laka, Boom!'
         encodings = ('ascii', 'utf8', 'latin1')
-        code = textwrap.dedent(f'''
+        code = f'''
             import sys
             type2test = {self.type2test.__name__}
             encodings = {encodings!r}
@@ -369,7 +368,7 @@ class BaseBytesTest:
                         sys.exit(25)
 
             sys.exit(10)
-        ''')
+        '''.dedent()
         proc = assert_python_failure('-X', 'dev', '-c', code)
         self.assertEqual(proc.rc, 10, proc)
 

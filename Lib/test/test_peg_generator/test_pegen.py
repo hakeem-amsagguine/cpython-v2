@@ -1,5 +1,4 @@
 import io
-import textwrap
 import unittest
 
 from test import test_tools
@@ -34,7 +33,7 @@ class TestPegen(unittest.TestCase):
         """
         grammar: Grammar = parse_string(grammar_source, GrammarParser)
         rules = grammar.rules
-        self.assertEqual(str(grammar), textwrap.dedent(expected).strip())
+        self.assertEqual(str(grammar), expected.dedent().strip())
         # Check the str() and repr() of a few rules; AST nodes don't support ==.
         self.assertEqual(str(rules["start"]), "start: sum NEWLINE")
         self.assertEqual(str(rules["sum"]), "sum: term '+' term | term")
@@ -57,7 +56,7 @@ class TestPegen(unittest.TestCase):
             | one one one
         """
         grammar: Grammar = parse_string(grammar_source, GrammarParser)
-        self.assertEqual(str(grammar.rules["start"]), textwrap.dedent(expected).strip())
+        self.assertEqual(str(grammar.rules["start"]), expected.dedent().strip())
 
     def test_typed_rules(self) -> None:
         grammar = """
@@ -630,8 +629,7 @@ class TestGrammarVisualizer(unittest.TestCase):
         printer.print_grammar_ast(rules, printer=lines.append)
 
         output = "\n".join(lines)
-        expected_output = textwrap.dedent(
-            """\
+        expected_output = """\
         └──Rule
            └──Rhs
               └──Alt
@@ -639,8 +637,7 @@ class TestGrammarVisualizer(unittest.TestCase):
                  │  └──StringLeaf("'a'")
                  └──NamedItem
                     └──StringLeaf("'b'")
-        """
-        )
+        """.dedent()
 
         self.assertEqual(output, expected_output)
 
@@ -657,8 +654,7 @@ class TestGrammarVisualizer(unittest.TestCase):
         printer.print_grammar_ast(rules, printer=lines.append)
 
         output = "\n".join(lines)
-        expected_output = textwrap.dedent(
-            """\
+        expected_output = """\
         └──Rule
            └──Rhs
               └──Alt
@@ -678,8 +674,7 @@ class TestGrammarVisualizer(unittest.TestCase):
               └──Alt
                  └──NamedItem
                     └──StringLeaf("'b'")
-                        """
-        )
+                        """.dedent()
 
         self.assertEqual(output, expected_output)
 
@@ -694,8 +689,7 @@ class TestGrammarVisualizer(unittest.TestCase):
         printer.print_grammar_ast(rules, printer=lines.append)
 
         output = "\n".join(lines)
-        expected_output = textwrap.dedent(
-            """\
+        expected_output = """\
         └──Rule
            └──Rhs
               └──Alt
@@ -719,7 +713,6 @@ class TestGrammarVisualizer(unittest.TestCase):
                                                   └──Alt
                                                      └──NamedItem
                                                         └──StringLeaf("'d'")
-                                """
-        )
+                                """.dedent()
 
         self.assertEqual(output, expected_output)

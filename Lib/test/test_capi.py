@@ -8,7 +8,6 @@ import random
 import re
 import subprocess
 import sys
-import textwrap
 import threading
 import time
 import unittest
@@ -191,13 +190,13 @@ class CAPITest(unittest.TestCase):
         # Issue #23571: A function must not return NULL without setting an
         # error
         if Py_DEBUG:
-            code = textwrap.dedent("""
+            code = """
                 import _testcapi
                 from test import support
 
                 with support.SuppressCrashReport():
                     _testcapi.return_null_without_error()
-            """)
+            """.dedent()
             rc, out, err = assert_python_failure('-c', code)
             self.assertRegex(err.replace(b'\r', b''),
                              br'Fatal Python error: _Py_CheckFunctionResult: '
@@ -220,13 +219,13 @@ class CAPITest(unittest.TestCase):
     def test_return_result_with_error(self):
         # Issue #23571: A function must not return a result with an error set
         if Py_DEBUG:
-            code = textwrap.dedent("""
+            code = """
                 import _testcapi
                 from test import support
 
                 with support.SuppressCrashReport():
                     _testcapi.return_result_with_error()
-            """)
+            """.dedent()
             rc, out, err = assert_python_failure('-c', code)
             self.assertRegex(err.replace(b'\r', b''),
                              br'Fatal Python error: _Py_CheckFunctionResult: '
@@ -335,13 +334,13 @@ class CAPITest(unittest.TestCase):
     def test_negative_refcount(self):
         # bpo-35059: Check that Py_DECREF() reports the correct filename
         # when calling _Py_NegativeRefcount() to abort Python.
-        code = textwrap.dedent("""
+        code = """
             import _testcapi
             from test import support
 
             with support.SuppressCrashReport():
                 _testcapi.negative_refcount()
-        """)
+        """.dedent()
         rc, out, err = assert_python_failure('-c', code)
         self.assertRegex(err,
                          br'_testcapimodule\.c:[0-9]+: '
@@ -732,7 +731,7 @@ class PyMemDebugTests(unittest.TestCase):
         self.check_malloc_without_gil(code)
 
     def check_pyobject_is_freed(self, func_name):
-        code = textwrap.dedent(f'''
+        code = f'''
             import gc, os, sys, _testcapi
             # Disable the GC to avoid crash on GC collection
             gc.disable()
@@ -743,7 +742,7 @@ class PyMemDebugTests(unittest.TestCase):
                 os._exit(0)
             except _testcapi.error:
                 os._exit(1)
-        ''')
+        '''.dedent()
         assert_python_ok('-c', code, PYTHONMALLOC=self.PYTHONMALLOC)
 
     def test_pyobject_null_is_freed(self):

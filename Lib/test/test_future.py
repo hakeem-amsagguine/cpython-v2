@@ -4,7 +4,6 @@ import __future__
 import ast
 import unittest
 from test import support
-from textwrap import dedent
 import os
 import re
 import sys
@@ -122,8 +121,7 @@ class FutureTest(unittest.TestCase):
         self.assertIsInstance(scope["x"], str)
 
 class AnnotationsFutureTestCase(unittest.TestCase):
-    template = dedent(
-        """
+    template = """
         from __future__ import annotations
         def f() -> {ann}:
             ...
@@ -135,8 +133,7 @@ class AnnotationsFutureTestCase(unittest.TestCase):
             ...
         var: {ann}
         var2: {ann} = None
-        """
-    )
+        """.dedent()
 
     def getActual(self, annotation):
         scope = {}

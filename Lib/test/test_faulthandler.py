@@ -10,7 +10,6 @@ from test import support
 from test.support import script_helper, is_android
 import tempfile
 import unittest
-from textwrap import dedent
 
 try:
     import _testcapi
@@ -64,7 +63,7 @@ class FaultHandlerTests(unittest.TestCase):
         build, and replace "Current thread 0x00007f8d8fbd9700" by "Current
         thread XXX".
         """
-        code = dedent(code).strip()
+        code = code.dedent().strip()
         pass_fds = []
         if fd is not None:
             pass_fds.append(fd)
@@ -112,7 +111,7 @@ class FaultHandlerTests(unittest.TestCase):
             """
         if py_fatal_error:
             fatal_error += "\nPython runtime state: initialized"
-        regex = dedent(regex).format(
+        regex = regex.dedent().format(
             lineno=line_number,
             fatal_error=fatal_error,
             header=header).strip()
@@ -528,7 +527,7 @@ class FaultHandlerTests(unittest.TestCase):
               File "<string>", line {lineno} in dump
               File "<string>", line 28 in <module>$
             """
-        regex = dedent(regex.format(lineno=lineno)).strip()
+        regex = regex.format(lineno=lineno).dedent().strip()
         self.assertRegex(output, regex)
         self.assertEqual(exitcode, 0)
 
@@ -778,7 +777,7 @@ class FaultHandlerTests(unittest.TestCase):
                     faulthandler.enable()
                     faulthandler._raise_exception({exc_code})
                     """
-            code = dedent(code)
+            code = code.dedent()
             output, exitcode = self.get_output(code)
             self.assertEqual(output, [])
             self.assertEqual(exitcode, exc_code)
@@ -813,13 +812,13 @@ class FaultHandlerTests(unittest.TestCase):
 
     @unittest.skipUnless(MS_WINDOWS, 'specific to Windows')
     def test_disable_windows_exc_handler(self):
-        code = dedent("""
+        code = """
             import faulthandler
             faulthandler.enable()
             faulthandler.disable()
             code = faulthandler._EXCEPTION_ACCESS_VIOLATION
             faulthandler._raise_exception(code)
-        """)
+        """.dedent()
         output, exitcode = self.get_output(code)
         self.assertEqual(output, [])
         self.assertEqual(exitcode, 0xC0000005)
@@ -827,10 +826,10 @@ class FaultHandlerTests(unittest.TestCase):
     def test_cancel_later_without_dump_traceback_later(self):
         # bpo-37933: Calling cancel_dump_traceback_later()
         # without dump_traceback_later() must not segfault.
-        code = dedent("""
+        code = """
             import faulthandler
             faulthandler.cancel_dump_traceback_later()
-        """)
+        """.dedent()
         output, exitcode = self.get_output(code)
         self.assertEqual(output, [])
         self.assertEqual(exitcode, 0)

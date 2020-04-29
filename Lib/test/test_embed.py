@@ -11,7 +11,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import textwrap
 
 
 MS_WINDOWS = (os.name == 'nt')
@@ -488,7 +487,7 @@ class InitConfigTests(EmbeddingTestsMixin, unittest.TestCase):
 
     def _get_expected_config_impl(self):
         env = remove_python_envvars()
-        code = textwrap.dedent('''
+        code = '''
             import json
             import sys
             import _testinternalcapi
@@ -499,7 +498,7 @@ class InitConfigTests(EmbeddingTestsMixin, unittest.TestCase):
             data = data.encode('utf-8')
             sys.stdout.buffer.write(data)
             sys.stdout.buffer.flush()
-        ''')
+        '''.dedent()
 
         # Use -S to not import the site module: get the proper configuration
         # when test_embed is run from a venv (bpo-35313)

@@ -230,6 +230,7 @@ static PyObject *unicode_empty = NULL;
         return unicode_empty;                           \
     } while (0)
 
+
 static inline void
 unicode_fill(enum PyUnicode_Kind kind, void *data, Py_UCS4 value,
              Py_ssize_t start, Py_ssize_t length)
@@ -14121,6 +14122,31 @@ unicode_sizeof_impl(PyObject *self)
     return PyLong_FromSsize_t(size);
 }
 
+/*[clinic input]
+str.dedent as unicode_dedent
+
+[clinic start generated code]*/
+
+static PyObject *
+unicode_dedent_impl(PyObject *self)
+/*[clinic end generated code: output=4d41f65b94304b63 input=032d062ea6d3d9f3]*/
+{
+    _Py_IDENTIFIER(_dedent);
+    PyObject *textwrap = PyImport_ImportModule("textwrap");
+    if (!textwrap) {
+        return NULL;
+    }
+    PyObject *dedent = _PyObject_GetAttrId(textwrap, &PyId__dedent);
+    if (!dedent) {
+        Py_DECREF(textwrap);
+        return NULL;
+    }
+    PyObject *result = PyObject_CallFunction(dedent, "O", self);
+    Py_DECREF(textwrap);
+    Py_DECREF(dedent);
+    return result;
+}
+
 static PyObject *
 unicode_getnewargs(PyObject *v, PyObject *Py_UNUSED(ignored))
 {
@@ -14180,6 +14206,7 @@ static PyMethodDef unicode_methods[] = {
     UNICODE___FORMAT___METHODDEF
     UNICODE_MAKETRANS_METHODDEF
     UNICODE_SIZEOF_METHODDEF
+    UNICODE_DEDENT_METHODDEF
 #if 0
     /* These methods are just used for debugging the implementation. */
     {"_decimal2ascii", (PyCFunction) unicode__decimal2ascii, METH_NOARGS},

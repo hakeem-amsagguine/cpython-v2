@@ -22,7 +22,6 @@ from contextlib import ExitStack
 from functools import partial
 from inspect import CO_COROUTINE
 from itertools import product
-from textwrap import dedent
 from types import AsyncGeneratorType, FunctionType
 from operator import neg
 from test import support
@@ -403,7 +402,7 @@ class BuiltinTest(unittest.TestCase):
         policy = maybe_get_event_loop_policy()
         try:
             for mode, code_sample in product(modes, code_samples):
-                source = dedent(code_sample)
+                source = code_sample.dedent()
                 with self.assertRaises(
                         SyntaxError, msg=f"source={source} mode={mode}"):
                     compile(source, '?', mode)
@@ -452,7 +451,7 @@ class BuiltinTest(unittest.TestCase):
         policy = maybe_get_event_loop_policy()
         try:
             for mode, code_sample in product(modes, code_samples):
-                source = dedent(code_sample)
+                source = code_sample.dedent()
                 with self.assertRaises(
                         SyntaxError, msg=f"source={source} mode={mode}"):
                     compile(source, '?', mode)
@@ -473,10 +472,10 @@ class BuiltinTest(unittest.TestCase):
         make sure AsyncGenerators are still properly not marked with the
         CO_COROUTINE flag.
         """
-        code = dedent("""async def ticker():
+        code = """async def ticker():
                 for i in range(10):
                     yield i
-                    await asyncio.sleep(0)""")
+                    await asyncio.sleep(0)""".dedent()
 
         co = compile(code, '?', 'exec', flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
         glob = {}

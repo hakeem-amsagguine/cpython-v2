@@ -1,6 +1,5 @@
 """Tests for distutils.command.check."""
 import os
-import textwrap
 import unittest
 from test.support import run_unittest
 
@@ -118,22 +117,22 @@ class CheckTestCase(support.LoggingSilencer,
         # Don't fail if there is a `code` or `code-block` directive
 
         example_rst_docs = []
-        example_rst_docs.append(textwrap.dedent("""\
+        example_rst_docs.append("""\
             Here's some code:
 
             .. code:: python
 
                 def foo():
                     pass
-            """))
-        example_rst_docs.append(textwrap.dedent("""\
+            """.dedent())
+        example_rst_docs.append("""\
             Here's some code:
 
             .. code-block:: python
 
                 def foo():
                     pass
-            """))
+            """.dedent())
 
         for rest_with_code in example_rst_docs:
             pkg_info, dist = self.create_dist(long_description=rest_with_code)

@@ -668,7 +668,7 @@ class PydocDocTest(unittest.TestCase):
         Help on module test.pydoc_mod in test:
 
         """.lstrip()
-        help_header = textwrap.dedent(help_header)
+        help_header = help_header.dedent()
         expected_help_pattern = help_header + expected_text_pattern
 
         pydoc.getpager = getpager_new

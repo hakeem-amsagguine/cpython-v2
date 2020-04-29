@@ -67,7 +67,6 @@ outwin.OutputWindow (indirectly being tested with grep test)
 
 import idlelib.pyshell  # Set Windows DPI awareness before Tk().
 from importlib import import_module
-import textwrap
 import tkinter as tk
 from tkinter.ttk import Scrollbar
 tk.NoDefaultRoot()
@@ -209,7 +208,7 @@ _io_binding_spec = {
 _linenumbers_drag_scrolling_spec = {
     'file': 'sidebar',
     'kwds': {},
-    'msg': textwrap.dedent("""\
+    'msg': """\
         1. Click on the line numbers and drag down below the edge of the
         window, moving the mouse a bit and then leaving it there for a while.
         The text and line numbers should gradually scroll down, with the
@@ -223,7 +222,7 @@ _linenumbers_drag_scrolling_spec = {
         numbers should gradually scroll up, with the selection updated
         continuously.
 
-        4. Repeat step #2, clicking a line number below the selection."""),
+        4. Repeat step #2, clicking a line number below the selection.""".dedent(),
     }
 
 _multi_call_spec = {

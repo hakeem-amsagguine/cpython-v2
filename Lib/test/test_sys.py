@@ -11,7 +11,6 @@ import subprocess
 import sys
 import sysconfig
 import test.support
-import textwrap
 import unittest
 import warnings
 
@@ -274,7 +273,7 @@ class SysModuleTest(unittest.TestCase):
     def test_recursionlimit_fatalerror(self):
         # A fatal error occurs if a second recursion limit is hit when recovering
         # from a first one.
-        code = textwrap.dedent("""
+        code = """
             import sys
 
             def f():
@@ -284,7 +283,7 @@ class SysModuleTest(unittest.TestCase):
                     f()
 
             sys.setrecursionlimit(%d)
-            f()""")
+            f()""".dedent()
         with test.support.SuppressCrashReport():
             for i in (50, 1000):
                 sub = subprocess.Popen([sys.executable, '-c', code % i],

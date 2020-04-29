@@ -13,7 +13,6 @@ import pickle
 import shutil
 import sys
 import types
-import textwrap
 import unicodedata
 import unittest
 import unittest.mock
@@ -3995,15 +3994,15 @@ class TestMain(unittest.TestCase):
 
 class TestReload(unittest.TestCase):
 
-    src_before = textwrap.dedent("""\
+    src_before = """\
 def foo():
     print("Bla")
-    """)
+    """.dedent()
 
-    src_after = textwrap.dedent("""\
+    src_after = """\
 def foo():
     print("Oh no!")
-    """)
+    """.dedent()
 
     def assertInspectEqual(self, path, source):
         inspected_src = inspect.getsource(source)

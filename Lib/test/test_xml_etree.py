@@ -15,7 +15,6 @@ import operator
 import os
 import pickle
 import sys
-import textwrap
 import types
 import unittest
 import warnings
@@ -725,7 +724,7 @@ class ElementTreeTest(unittest.TestCase):
 
         builder = Builder()
         parser = ET.XMLParser(target=builder)
-        parser.feed(textwrap.dedent("""\
+        parser.feed("""\
             <?pi data?>
             <!-- comment -->
             <root xmlns='namespace' xmlns:p='pns' xmlns:a='ans'>
@@ -733,7 +732,7 @@ class ElementTreeTest(unittest.TestCase):
                <p:element>text</p:element>tail
                <empty-element/>
             </root>
-            """))
+            """.dedent())
         self.assertEqual(builder, [
                 ('end-ns', 'a'),
                 ('end-ns', 'p'),
@@ -3895,7 +3894,7 @@ class C14NTest(unittest.TestCase):
         #'<doc xmlns:x="http://example.com/x"><b xmlns:y="http://example.com/y" a3="3" y:a1="1" y:a2="2"></b></doc>')
 
     def test_c14n_exclusion(self):
-        xml = textwrap.dedent("""\
+        xml = """\
         <root xmlns:x="http://example.com/x">
             <a x:attr="attrx">
                 <b>abtext</b>
@@ -3905,7 +3904,7 @@ class C14NTest(unittest.TestCase):
                 <x:d>dtext</x:d>
             </c>
         </root>
-        """)
+        """.dedent()
         self.assertEqual(
             c14n_roundtrip(xml, strip_text=True),
             '<root>'

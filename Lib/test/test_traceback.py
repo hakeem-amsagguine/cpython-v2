@@ -9,7 +9,6 @@ import re
 from test import support
 from test.support import TESTFN, Error, captured_output, unlink, cpython_only, ALWAYS_EQ
 from test.support.script_helper import assert_python_ok
-import textwrap
 
 import traceback
 
@@ -177,7 +176,7 @@ class TracebackCases(unittest.TestCase):
     def test_print_traceback_at_exit(self):
         # Issue #22599: Ensure that it is possible to use the traceback module
         # to display an exception at Python exit
-        code = textwrap.dedent("""
+        code = """
             import sys
             import traceback
 
@@ -198,7 +197,7 @@ class TracebackCases(unittest.TestCase):
             # Keep a reference in the module namespace to call the destructor
             # when the module is unloaded
             obj = PrintExceptionAtExit()
-        """)
+        """.dedent()
         rc, stdout, stderr = assert_python_ok('-c', code)
         expected = [b'Traceback (most recent call last):',
                     b'  File "<string>", line 8, in __init__',

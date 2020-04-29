@@ -9,7 +9,6 @@ import stat
 import subprocess
 import sys
 import tempfile
-import textwrap
 import time
 import unittest
 from test import support
@@ -171,7 +170,7 @@ class TestSupport(unittest.TestCase):
         """Test that a forked child process does not remove the directory."""
         # See bpo-30028 for details.
         # Run the test as an external script, because it uses fork.
-        script_helper.assert_python_ok("-c", textwrap.dedent("""
+        script_helper.assert_python_ok("-c", """
             import os
             from test import support
             with support.temp_cwd() as temp_path:
@@ -188,7 +187,7 @@ class TestSupport(unittest.TestCase):
                     # directory.
                     if not os.path.isdir(temp_path):
                         raise AssertionError("Child removed temp_path.")
-        """))
+        """.dedent())
 
     # Tests for change_cwd()
 

@@ -3,7 +3,6 @@
 import re
 import json
 import pickle
-import textwrap
 import unittest
 import importlib.metadata
 
@@ -132,11 +131,11 @@ class NonASCIITests(fixtures.OnSysPath, fixtures.SiteDir, unittest.TestCase):
         metadata_dir.mkdir()
         metadata = metadata_dir / 'METADATA'
         with metadata.open('w', encoding='utf-8') as fp:
-            fp.write(textwrap.dedent("""
+            fp.write("""
                 Name: portend
 
                 pôrˈtend
-                """).lstrip())
+                """.dedent().lstrip())
         return 'portend'
 
     def test_metadata_loads(self):

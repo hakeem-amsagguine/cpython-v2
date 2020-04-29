@@ -3,7 +3,6 @@ import io
 import os
 import pathlib
 import sys
-import textwrap
 import tokenize
 import token
 
@@ -50,7 +49,7 @@ def parse_string(
 ) -> Any:
     # Run the parser on a string.
     if dedent:
-        source = textwrap.dedent(source)
+        source = source.dedent()
     file = io.StringIO(source)
     return run_parser(file, parser_class, verbose=verbose)  # type: ignore # typeshed issue #3515
 

@@ -15,7 +15,6 @@ import sys
 import time
 import select
 import errno
-import textwrap
 import threading
 
 import unittest
@@ -1350,7 +1349,7 @@ class SMTPUTF8SimTests(unittest.TestCase):
         msg.set_content("oh là là, know what I mean, know what I mean?\n\n")
         # XXX smtpd converts received /r/n to /n, so we can't easily test that
         # we are successfully sending /r/n :(.
-        expected = textwrap.dedent("""\
+        expected = """\
             From: Páolo <főo@bar.com>
             To: Dinsdale
             Subject: Nudge nudge, wink, wink \u1F609
@@ -1359,7 +1358,7 @@ class SMTPUTF8SimTests(unittest.TestCase):
             MIME-Version: 1.0
 
             oh là là, know what I mean, know what I mean?
-            """)
+            """.dedent()
         smtp = smtplib.SMTP(
             HOST, self.port, local_hostname='localhost',
             timeout=support.LOOPBACK_TIMEOUT)

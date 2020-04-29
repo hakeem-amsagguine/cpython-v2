@@ -1,7 +1,6 @@
 import errno
 import os
 import sys
-import textwrap
 import unittest
 import subprocess
 
@@ -18,7 +17,7 @@ class TestTool(unittest.TestCase):
             :"yes"}  ]
            """
 
-    expect_without_sort_keys = textwrap.dedent("""\
+    expect_without_sort_keys = """\
     [
         [
             "blorpie"
@@ -38,9 +37,9 @@ class TestTool(unittest.TestCase):
             "morefield": false
         }
     ]
-    """)
+    """.dedent()
 
-    expect = textwrap.dedent("""\
+    expect = """\
     [
         [
             "blorpie"
@@ -60,14 +59,14 @@ class TestTool(unittest.TestCase):
             "field": "yes"
         }
     ]
-    """)
+    """.dedent()
 
-    jsonlines_raw = textwrap.dedent("""\
+    jsonlines_raw = """\
     {"ingredients":["frog", "water", "chocolate", "glucose"]}
     {"ingredients":["chocolate","steel bolts"]}
-    """)
+    """.dedent()
 
-    jsonlines_expect = textwrap.dedent("""\
+    jsonlines_expect = """\
     {
         "ingredients": [
             "frog",
@@ -82,7 +81,7 @@ class TestTool(unittest.TestCase):
             "steel bolts"
         ]
     }
-    """)
+    """.dedent()
 
     def test_stdin_stdout(self):
         args = sys.executable, '-m', 'json.tool'
@@ -106,11 +105,11 @@ class TestTool(unittest.TestCase):
 
     def test_non_ascii_infile(self):
         data = '{"msg": "\u3053\u3093\u306b\u3061\u306f"}'
-        expect = textwrap.dedent('''\
+        expect = '''\
         {
             "msg": "\\u3053\\u3093\\u306b\\u3061\\u306f"
         }
-        ''').encode()
+        '''.dedent().encode()
 
         infile = self._create_infile(data)
         rc, out, err = assert_python_ok('-m', 'json.tool', infile)
@@ -152,12 +151,12 @@ class TestTool(unittest.TestCase):
 
     def test_indent(self):
         input_ = '[1, 2]'
-        expect = textwrap.dedent('''\
+        expect = '''\
         [
           1,
           2
         ]
-        ''')
+        '''.dedent()
         args = sys.executable, '-m', 'json.tool', '--indent', '2'
         process = subprocess.run(args, input=input_, capture_output=True, text=True, check=True)
         self.assertEqual(process.stdout, expect)

@@ -1,5 +1,4 @@
 import datetime
-import textwrap
 import unittest
 from email import errors
 from email import policy
@@ -1609,12 +1608,12 @@ class TestFolding(TestHeaderBase):
             'that will be folded anyway')
         self.assertEqual(
             h.fold(policy=policy.default.clone(max_line_length=20)),
-            textwrap.dedent("""\
+                """\
                 Subject: this is a
                  short header that
                  will be folded
                  anyway
-                """))
+                """.dedent())
 
     def test_fold_unstructured_single_word(self):
         h = self.make_header('Subject', 'test')
@@ -1677,21 +1676,21 @@ class TestFolding(TestHeaderBase):
             "not give a , special treatment in unstructured headers.")
         self.assertEqual(
             h.fold(policy=policy.default.clone(max_line_length=60)),
-            textwrap.dedent("""\
+                """\
                 Subject: This header is intended to demonstrate, in a fairly
                  succinct way, that we now do not give a , special treatment
                  in unstructured headers.
-                 """))
+                 """.dedent())
 
     def test_fold_address_list(self):
         h = self.make_header('To', '"Theodore H. Perfect" <yes@man.com>, '
             '"My address is very long because my name is long" <foo@bar.com>, '
             '"Only A. Friend" <no@yes.com>')
-        self.assertEqual(h.fold(policy=policy.default), textwrap.dedent("""\
+        self.assertEqual(h.fold(policy=policy.default), """\
             To: "Theodore H. Perfect" <yes@man.com>,
              "My address is very long because my name is long" <foo@bar.com>,
              "Only A. Friend" <no@yes.com>
-             """))
+             """.dedent())
 
     def test_fold_date_header(self):
         h = self.make_header('Date', 'Sat, 2 Feb 2002 17:00:06 -0800')

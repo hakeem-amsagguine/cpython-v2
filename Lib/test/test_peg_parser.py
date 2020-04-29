@@ -5,7 +5,6 @@ import _peg_parser as peg_parser
 import unittest
 from pathlib import PurePath
 from typing import Any, Union, Iterable, Tuple
-from textwrap import dedent
 from test import support
 
 
@@ -661,7 +660,7 @@ EXPRESSIONS_TEST_CASES = [
 
 def cleanup_source(source: Any) -> str:
     if isinstance(source, str):
-        result = dedent(source)
+        result = source.dedent()
     elif not isinstance(source, (list, tuple)):
         result = "\n".join(source)
     else:
@@ -746,7 +745,7 @@ class ASTGenerationTest(unittest.TestCase):
     def test_fstring_parse_error_tracebacks(self) -> None:
         for source, error_text in FSTRINGS_TRACEBACKS.values():
             with self.assertRaises(SyntaxError) as se:
-                peg_parser.parse_string(dedent(source))
+                peg_parser.parse_string(source.dedent())
             self.assertEqual(error_text, se.exception.text)
 
     def test_correct_ast_generatrion_eval(self) -> None:

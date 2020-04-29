@@ -29,7 +29,6 @@ import random
 import signal
 import sys
 import sysconfig
-import textwrap
 import threading
 import time
 import unittest
@@ -4163,7 +4162,7 @@ class MiscIOTest(unittest.TestCase):
         mod = self.io.__name__
         filename = __file__
         invalid = 'Boom, Shaka Laka, Boom!'
-        code = textwrap.dedent(f'''
+        code = f'''
             import sys
             from {mod} import open, TextIOWrapper
 
@@ -4198,7 +4197,7 @@ class MiscIOTest(unittest.TestCase):
                     sys.exit(24)
 
             sys.exit(10)
-        ''')
+        '''.dedent()
         proc = assert_python_failure('-X', 'dev', '-c', code)
         self.assertEqual(proc.rc, 10, proc)
 

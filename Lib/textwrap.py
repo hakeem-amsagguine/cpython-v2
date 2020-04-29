@@ -6,6 +6,7 @@
 # Written by Greg Ward <gward@python.net>
 
 import re
+import warnings
 
 __all__ = ['TextWrapper', 'wrap', 'fill', 'dedent', 'indent', 'shorten']
 
@@ -411,19 +412,8 @@ def shorten(text, width, **kwargs):
 _whitespace_only_re = re.compile('^[ \t]+$', re.MULTILINE)
 _leading_whitespace_re = re.compile('(^[ \t]*)(?:[^ \t\n])', re.MULTILINE)
 
-def dedent(text):
-    """Remove any common leading whitespace from every line in `text`.
 
-    This can be used to make triple-quoted strings line up with the left
-    edge of the display, while still presenting them in the source code
-    in indented form.
-
-    Note that tabs and spaces are both treated as whitespace, but they
-    are not equal: the lines "  hello" and "\\thello" are
-    considered to have no common leading whitespace.
-
-    Entirely blank lines are normalized to a newline character.
-    """
+def _dedent(text):
     # Look for the longest leading string of spaces and tabs common to
     # all lines.
     margin = None
@@ -460,6 +450,27 @@ def dedent(text):
     if margin:
         text = re.sub(r'(?m)^' + margin, '', text)
     return text
+
+
+def dedent(text):
+    """Remove any common leading whitespace from every line in `text`.
+
+    This can be used to make triple-quoted strings line up with the left
+    edge of the display, while still presenting them in the source code
+    in indented form.
+
+    Note that tabs and spaces are both treated as whitespace, but they
+    are not equal: the lines "  hello" and "\\thello" are
+    considered to have no common leading whitespace.
+
+    Entirely blank lines are normalized to a newline character.
+    """
+    warnings.warn(
+        "textwrap.dedent is pending deprecation, use the str.dedent method instead",
+        PendingDeprecationWarning,
+        stacklevel=2
+    )
+    return _dedent(text)
 
 
 def indent(text, prefix, predicate=None):

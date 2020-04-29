@@ -12,7 +12,6 @@ import py_compile
 import subprocess
 import io
 
-import textwrap
 from test import support
 from test.support.script_helper import (
     make_pkg, make_script, make_zip_pkg, make_zip_script,
@@ -536,12 +535,12 @@ class CmdLineTest(unittest.TestCase):
     def test_pep_409_verbiage(self):
         # Make sure PEP 409 syntax properly suppresses
         # the context of an exception
-        script = textwrap.dedent("""\
+        script = """\
             try:
                 raise ValueError
             except:
                 raise NameError from None
-            """)
+            """.dedent()
         with support.temp_dir() as script_dir:
             script_name = _make_test_script(script_dir, 'script', script)
             exitcode, stdout, stderr = assert_python_failure(script_name)
@@ -575,7 +574,7 @@ class CmdLineTest(unittest.TestCase):
         self.assertEqual(0, rc)
 
     def test_issue20500_exit_with_exception_value(self):
-        script = textwrap.dedent("""\
+        script = """\
             import sys
             error = None
             try:
@@ -585,7 +584,7 @@ class CmdLineTest(unittest.TestCase):
 
             if error:
                 sys.exit(error)
-            """)
+            """.dedent()
         with support.temp_dir() as script_dir:
             script_name = _make_test_script(script_dir, 'script', script)
             exitcode, stdout, stderr = assert_python_failure(script_name)
@@ -602,10 +601,10 @@ class CmdLineTest(unittest.TestCase):
             self.assertIn("\n    1 + 1 = 2\n            ^", text)
 
     def test_syntaxerror_indented_caret_position(self):
-        script = textwrap.dedent("""\
+        script = """\
             if True:
                 1 + 1 = 2
-            """)
+            """.dedent()
         with support.temp_dir() as script_dir:
             script_name = _make_test_script(script_dir, 'script', script)
             exitcode, stdout, stderr = assert_python_failure(script_name)
@@ -660,11 +659,11 @@ class CmdLineTest(unittest.TestCase):
         #    ./python -s script_dir/__main__.py
         #    ./python -s script_dir
         #    ./python -I script_dir
-        script = textwrap.dedent("""\
+        script = """\
             import sys
             for entry in sys.path:
                 print(entry)
-            """)
+            """.dedent()
         # Always show full path diffs on errors
         self.maxDiff = None
         with support.temp_dir() as work_dir, support.temp_dir() as script_dir:
@@ -692,11 +691,11 @@ class CmdLineTest(unittest.TestCase):
         #
         # And that this fails as unable to find the package:
         #    ./python -Im script_pkg
-        script = textwrap.dedent("""\
+        script = """\
             import sys
             for entry in sys.path:
                 print(entry)
-            """)
+            """.dedent()
         # Always show full path diffs on errors
         self.maxDiff = None
         with support.temp_dir() as work_dir:

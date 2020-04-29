@@ -1,7 +1,6 @@
 import sys
 import os
 from io import StringIO
-import textwrap
 
 from distutils.core import Distribution
 from distutils.command.build_ext import build_ext
@@ -82,7 +81,7 @@ class BuildExtTestCase(TempdirManager,
         else:
             ALREADY_TESTED = type(self).__name__
 
-        code = textwrap.dedent(f"""
+        code = f"""
             tmp_dir = {self.tmp_dir!r}
 
             import sys
@@ -108,7 +107,7 @@ class BuildExtTestCase(TempdirManager,
 
 
             unittest.main()
-        """)
+        """.dedent()
         assert_python_ok('-c', code)
 
     def test_solaris_enable_shared(self):
@@ -474,7 +473,7 @@ class BuildExtTestCase(TempdirManager,
         deptarget_c = os.path.join(self.tmp_dir, 'deptargetmodule.c')
 
         with open(deptarget_c, 'w') as fp:
-            fp.write(textwrap.dedent('''\
+            fp.write(('''\
                 #include <AvailabilityMacros.h>
 
                 int dummy;
@@ -484,7 +483,7 @@ class BuildExtTestCase(TempdirManager,
                 #error "Unexpected target"
                 #endif
 
-            ''' % operator))
+            ''' % operator).dedent())
 
         # get the deployment target that the interpreter was built with
         target = sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')

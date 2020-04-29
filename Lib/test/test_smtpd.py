@@ -1,5 +1,4 @@
 import unittest
-import textwrap
 from test import support, mock_socket
 from test.support import socket_helper
 import socket
@@ -95,14 +94,14 @@ class DebuggingServerTest(unittest.TestCase):
         with support.captured_stdout() as s:
             self.send_data(channel, b'From: test\n\nhello\n')
         stdout = s.getvalue()
-        self.assertEqual(stdout, textwrap.dedent("""\
+        self.assertEqual(stdout, """\
              ---------- MESSAGE FOLLOWS ----------
              From: test
              X-Peer: peer-address
 
              hello
              ------------ END MESSAGE ------------
-             """))
+             """.dedent())
 
     def test_process_message_with_decode_data_false(self):
         server = smtpd.DebuggingServer((socket_helper.HOST, 0), ('b', 0))
@@ -111,14 +110,14 @@ class DebuggingServerTest(unittest.TestCase):
         with support.captured_stdout() as s:
             self.send_data(channel, b'From: test\n\nh\xc3\xa9llo\xff\n')
         stdout = s.getvalue()
-        self.assertEqual(stdout, textwrap.dedent("""\
+        self.assertEqual(stdout, """\
              ---------- MESSAGE FOLLOWS ----------
              b'From: test'
              b'X-Peer: peer-address'
              b''
              b'h\\xc3\\xa9llo\\xff'
              ------------ END MESSAGE ------------
-             """))
+             """.dedent())
 
     def test_process_message_with_enable_SMTPUTF8_true(self):
         server = smtpd.DebuggingServer((socket_helper.HOST, 0), ('b', 0),
@@ -128,14 +127,14 @@ class DebuggingServerTest(unittest.TestCase):
         with support.captured_stdout() as s:
             self.send_data(channel, b'From: test\n\nh\xc3\xa9llo\xff\n')
         stdout = s.getvalue()
-        self.assertEqual(stdout, textwrap.dedent("""\
+        self.assertEqual(stdout, """\
              ---------- MESSAGE FOLLOWS ----------
              b'From: test'
              b'X-Peer: peer-address'
              b''
              b'h\\xc3\\xa9llo\\xff'
              ------------ END MESSAGE ------------
-             """))
+             """.dedent())
 
     def test_process_SMTPUTF8_message_with_enable_SMTPUTF8_true(self):
         server = smtpd.DebuggingServer((socket_helper.HOST, 0), ('b', 0),
@@ -146,7 +145,7 @@ class DebuggingServerTest(unittest.TestCase):
             self.send_data(channel, b'From: test\n\nh\xc3\xa9llo\xff\n',
                            enable_SMTPUTF8=True)
         stdout = s.getvalue()
-        self.assertEqual(stdout, textwrap.dedent("""\
+        self.assertEqual(stdout, """\
              ---------- MESSAGE FOLLOWS ----------
              mail options: ['BODY=8BITMIME', 'SMTPUTF8']
              b'From: test'
@@ -154,7 +153,7 @@ class DebuggingServerTest(unittest.TestCase):
              b''
              b'h\\xc3\\xa9llo\\xff'
              ------------ END MESSAGE ------------
-             """))
+             """.dedent())
 
     def tearDown(self):
         asyncore.close_all()

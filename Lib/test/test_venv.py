@@ -484,8 +484,8 @@ class EnsurePipTest(BaseTest):
         # Ensure pip is available in the virtual environment
         envpy = os.path.join(os.path.realpath(self.env_dir), self.bindir, self.exe)
         # Ignore DeprecationWarning since pip code is not part of Python
-        out, err = check_output([envpy, '-W', 'ignore::DeprecationWarning', '-I',
-               '-m', 'pip', '--version'])
+        out, err = check_output([envpy, '-W', 'ignore::DeprecationWarning',
+            '-W', 'ignore::PendingDeprecationWarning', '-I', '-m', 'pip', '--version'])
         # We force everything to text, so unittest gives the detailed diff
         # if we get unexpected results
         err = err.decode("latin-1") # Force to text, prevent decoding errors
@@ -501,7 +501,8 @@ class EnsurePipTest(BaseTest):
         # installers works (at least in a virtual environment)
         with EnvironmentVarGuard() as envvars:
             out, err = check_output([envpy,
-                '-W', 'ignore::DeprecationWarning', '-I',
+                '-W', 'ignore::DeprecationWarning',
+                '-W', 'ignore::PendingDeprecationWarning','-I',
                 '-m', 'ensurepip._uninstall'])
         # We force everything to text, so unittest gives the detailed diff
         # if we get unexpected results

@@ -3,7 +3,6 @@
 import sys
 import os
 import tempfile
-import textwrap
 import unittest
 
 
@@ -67,7 +66,7 @@ class TestPkg(unittest.TestCase):
                 del sys.modules[name]
 
     def run_code(self, code):
-        exec(textwrap.dedent(code), globals(), {"self": self})
+        exec(code.dedent(), globals(), {"self": self})
 
     def mkhier(self, descr):
         root = tempfile.mkdtemp()

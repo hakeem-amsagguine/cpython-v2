@@ -18,7 +18,6 @@ import select
 import shutil
 import threading
 import gc
-import textwrap
 import json
 from test.support import FakePath
 
@@ -947,12 +946,12 @@ class ProcessTestCase(BaseTestCase):
     def test_universal_newlines_communicate_stdin(self):
         # universal newlines through communicate(), with only stdin
         p = subprocess.Popen([sys.executable, "-c",
-                              'import sys,os;' + SETBINARY + textwrap.dedent('''
+                              'import sys,os;' + SETBINARY + '''
                                s = sys.stdin.readline()
                                assert s == "line1\\n", repr(s)
                                s = sys.stdin.read()
                                assert s == "line3\\n", repr(s)
-                              ''')],
+                              '''.dedent()],
                              stdin=subprocess.PIPE,
                              universal_newlines=1)
         (stdout, stderr) = p.communicate("line1\nline3\n")
@@ -973,7 +972,7 @@ class ProcessTestCase(BaseTestCase):
     def test_universal_newlines_communicate_stdin_stdout_stderr(self):
         # universal newlines through communicate(), with stdin, stdout, stderr
         p = subprocess.Popen([sys.executable, "-c",
-                              'import sys,os;' + SETBINARY + textwrap.dedent('''
+                              'import sys,os;' + SETBINARY + '''
                                s = sys.stdin.buffer.readline()
                                sys.stdout.buffer.write(s)
                                sys.stdout.buffer.write(b"line2\\r")
@@ -984,7 +983,7 @@ class ProcessTestCase(BaseTestCase):
                                sys.stdout.buffer.write(b"line5\\r\\n")
                                sys.stderr.buffer.write(b"eline6\\r")
                                sys.stderr.buffer.write(b"eline7\\r\\nz")
-                              ''')],
+                              '''.dedent()],
                              stdin=subprocess.PIPE,
                              stderr=subprocess.PIPE,
                              stdout=subprocess.PIPE,
@@ -1197,7 +1196,7 @@ class ProcessTestCase(BaseTestCase):
         except (AttributeError, ImportError):
             self.skipTest("need msvcrt.CrtSetReportMode")
 
-        code = textwrap.dedent(f"""
+        code = f"""
             import msvcrt
             import subprocess
 
@@ -1215,7 +1214,7 @@ class ProcessTestCase(BaseTestCase):
                                  stderr=subprocess.PIPE)
             except OSError:
                 pass
-        """)
+        """.dedent()
         cmd = [sys.executable, "-c", code]
         proc = subprocess.Popen(cmd,
                                 stderr=subprocess.PIPE,
@@ -2455,13 +2454,13 @@ class POSIXProcessTestCase(BaseTestCase):
             for from_fd, to_fd in zip(from_fds, to_fds):
                 kwargs[arg_names[to_fd]] = from_fd
 
-            code = textwrap.dedent(r'''
+            code = r'''
                 import os, sys
                 skipped_fd = int(sys.argv[1])
                 for fd in range(3):
                     if fd != skipped_fd:
                         os.write(fd, str(fd).encode('ascii'))
-            ''')
+            '''.dedent()
 
             skipped_fd = (set(range(3)) - set(to_fds)).pop()
 
@@ -2473,11 +2472,11 @@ class POSIXProcessTestCase(BaseTestCase):
                 os.lseek(from_fd, 0, os.SEEK_SET)
                 read_bytes = os.read(from_fd, 1024)
                 read_fds = list(map(int, read_bytes.decode('ascii')))
-                msg = textwrap.dedent(f"""
+                msg = f"""
                     When testing {from_fds} to {to_fds} redirection,
                     parent descriptor {from_fd} got redirected
                     to descriptor(s) {read_fds} instead of descriptor {to_fd}.
-                """)
+                """.dedent()
                 self.assertEqual([to_fd], read_fds, msg)
         finally:
             self._restore_fds(saved_fds)
@@ -2694,8 +2693,7 @@ class POSIXProcessTestCase(BaseTestCase):
         #    +--> The TEST: This one launches a fd_status.py
         #      subprocess with close_fds=True so we can find out if
         #      any of the fds above the lowered rlimit are still open.
-        p = subprocess.Popen([sys.executable, '-c', textwrap.dedent(
-        '''
+        p = subprocess.Popen([sys.executable, '-c', ('''
         import os, resource, subprocess, sys, textwrap
         open_fds = set()
         # Add a bunch more fds to pass down.
@@ -2742,7 +2740,7 @@ class POSIXProcessTestCase(BaseTestCase):
                 close_fds=False).wait()
         finally:
             resource.setrlimit(resource.RLIMIT_NOFILE, (rlim_cur, rlim_max))
-        ''' % fd_status)], stdout=subprocess.PIPE)
+        ''' % fd_status).dedent()], stdout=subprocess.PIPE)
 
         output, unused_stderr = p.communicate()
         output_lines = output.splitlines()

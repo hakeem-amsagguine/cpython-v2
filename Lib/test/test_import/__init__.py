@@ -12,7 +12,6 @@ import shutil
 import stat
 import subprocess
 import sys
-import textwrap
 import threading
 import time
 import unittest
@@ -351,13 +350,13 @@ class ImportTests(unittest.TestCase):
 
     def test_import_in_del_does_not_crash(self):
         # Issue 4236
-        testfn = script_helper.make_script('', TESTFN, textwrap.dedent("""\
+        testfn = script_helper.make_script('', TESTFN, """\
             import sys
             class C:
                def __del__(self):
                   import importlib
             sys.argv.insert(0, C())
-            """))
+            """.dedent())
         script_helper.assert_python_ok(testfn)
 
     @skip_if_dont_write_bytecode
