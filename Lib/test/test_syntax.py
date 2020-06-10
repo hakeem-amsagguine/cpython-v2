@@ -730,6 +730,21 @@ class SyntaxTestCase(unittest.TestCase):
         else:
             self.fail("compile() did not raise SyntaxError")
 
+    def _check_warning(self, code, warntext,
+                       filename="<testcase>", mode="exec"):
+        """Check that compiling code emits SyntaxWarning with warntext.
+
+        errtest is a regular expression that must be present in the
+        test of the exception raised.  If subclass is specified it
+        is the expected subclass of SyntaxError (e.g. IndentationError).
+        """
+        with self.assertWarns(SyntaxWarning) as cm:
+            compile(code, filename, mode)
+        warn = cm.warning
+        mo = re.search(warntext, str(warn))
+        if mo is None:
+            self.fail("SyntaxWarning did not contain %r" % (warntext,))
+
     def test_assign_call(self):
         self._check_error("f() = 1", "assign")
 
@@ -857,6 +872,13 @@ class SyntaxTestCase(unittest.TestCase):
         self._check_error("int(**{'base': 10}, *['2'])",
                           "iterable argument unpacking follows "
                           "keyword argument unpacking")
+
+    def test_chained_in(self):
+        self._check_warning("a in b == c",
+                            "chained `in' is ambiguous")
+        self._check_warning("a not in b == c",
+                            "chained `not in' is ambiguous")
+
 
 def test_main():
     support.run_unittest(SyntaxTestCase)
