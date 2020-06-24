@@ -348,6 +348,7 @@ Constants
           MSG_*
           SOL_*
           SCM_*
+          IP_PORTRANGE*
           IPPROTO_*
           IPPORT_*
           INADDR_*
@@ -543,6 +544,17 @@ Constants
    service providing remote processors.
 
    .. availability:: Linux >= 4.7.
+
+.. data:: IP_PORTRANGE
+          IP_PORTRANGE_DEFAULT
+          IP_PORTRANGE_HIGH
+          IP_PORTRANGE_LOW
+
+   These constants are available for manipulating port ranges on a socket-level
+   as opposed to system-level.
+
+   .. availability:: BSD, Linux
+   .. versionchanged:: 3.9
 
 Functions
 ^^^^^^^^^

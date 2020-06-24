@@ -7952,6 +7952,20 @@ PyInit__socket(void)
     PyModule_AddIntMacro(m, SYSPROTO_CONTROL);
 #endif
 
+    /* Unix-specific macros for setting */
+#ifdef  IP_PORTRANGE
+    PyModule_AddIntMacro(m, IP_PORTRANGE);
+#endif
+#ifdef  IP_PORTRANGE_DEFAULT
+    PyModule_AddIntMacro(m, IP_PORTRANGE_DEFAULT);
+#endif
+#ifdef  IP_PORTRANGE_HIGH
+    PyModule_AddIntMacro(m, IP_PORTRANGE_HIGH);
+#endif
+#ifdef  IP_PORTRANGE_LOW
+    PyModule_AddIntMacro(m, IP_PORTRANGE_LOW);
+#endif
+
     /* Some port configuration */
 #ifdef  IPPORT_RESERVED
     PyModule_AddIntMacro(m, IPPORT_RESERVED);
