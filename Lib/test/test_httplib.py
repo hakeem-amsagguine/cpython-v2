@@ -3,6 +3,7 @@ from http import client
 import io
 import itertools
 import os
+import logging
 import array
 import re
 import socket
@@ -132,6 +133,17 @@ class FakeSocketHTTPConnection(client.HTTPConnection):
         return FakeSocket(*self.fake_socket_args)
 
 class HeaderTests(TestCase):
+
+    def setUp(self):
+        self.handlers = logging.root.handlers
+        self.saved_handlers = logging._handlers.copy()
+        self.saved_handler_list = logging._handlerList[:]
+
+    def tearDown(self):
+        logging._handlers.clear()
+        logging._handlers.update(self.saved_handlers)
+        logging._handlerList[:] = self.saved_handler_list
+
     def test_auto_headers(self):
         # Some headers are added automatically, but should not be added by
         # .request() if they are explicitly set.
@@ -359,13 +371,17 @@ class HeaderTests(TestCase):
         )
         sock = FakeSocket(body)
         resp = client.HTTPResponse(sock, debuglevel=1)
+        logging.basicConfig(level=logging.INFO)
         with support.captured_stdout() as output:
+            output_handler = logging.StreamHandler(output)
+            _logger = logging.getLogger('http.client')
+            _logger.addHandler(output_handler)
             resp.begin()
         lines = output.getvalue().splitlines()
         self.assertEqual(lines[0], "reply: 'HTTP/1.1 200 OK\\r\\n'")
-        self.assertEqual(lines[1], "header: First: val")
-        self.assertEqual(lines[2], "header: Second: val1")
-        self.assertEqual(lines[3], "header: Second: val2")
+        self.assertEqual(lines[1], "Received response: 200 OK")
+        self.assertEqual(lines[2], "Received header: ('First': 'val')")
+        self.assertEqual(lines[3], "Received header: ('Second': 'val1')")
 
 
 class TransferEncodingTest(TestCase):
@@ -1974,18 +1990,26 @@ class HTTPResponseTest(TestCase):
         header = self.resp.getheader('No-Such-Header',default=42)
         self.assertEqual(header, 42)
 
+
 class TunnelTests(TestCase):
+
     def setUp(self):
         response_text = (
-            'HTTP/1.0 200 OK\r\n\r\n' # Reply to CONNECT
-            'HTTP/1.1 200 OK\r\n' # Reply to HEAD
+            'HTTP/1.0 200 OK\r\n\r\n'  # Reply to CONNECT
+            'HTTP/1.1 200 OK\r\n'  # Reply to HEAD
             'Content-Length: 42\r\n\r\n'
         )
         self.host = 'proxy.com'
         self.conn = client.HTTPConnection(self.host)
         self.conn._create_connection = self._create_connection(response_text)
+        self.handlers = logging.root.handlers
+        self.saved_handlers = logging._handlers.copy()
+        self.saved_handler_list = logging._handlerList[:]
 
     def tearDown(self):
+        logging._handlers.clear()
+        logging._handlers.update(self.saved_handlers)
+        logging._handlerList[:] = self.saved_handler_list
         self.conn.close()
 
     def _create_connection(self, response_text):
@@ -2041,7 +2065,11 @@ class TunnelTests(TestCase):
         self.conn._create_connection = self._create_connection(response_text)
         self.conn.set_tunnel('destination.com')
 
+        logging.basicConfig(level=logging.INFO)
         with support.captured_stdout() as output:
+            output_handler = logging.StreamHandler(output)
+            _logger = logging.getLogger('http.client')
+            _logger.addHandler(output_handler)
             self.conn.request('PUT', '/', '')
         lines = output.getvalue().splitlines()
         self.assertIn('header: {}'.format(expected_header), lines)
