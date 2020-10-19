@@ -1,4 +1,5 @@
 import unittest
+from os.path import join
 
 from test import support
 from io import StringIO
@@ -126,36 +127,36 @@ class BuildMinimalPathTests(unittest.TestCase):
     def test_normal_case(self):
         self.assertEqual(
             _build_minimal_path_by_full_path([
-                'foo/bar',
-                'baz/bar',
-                'apple/orange',
+                join('foo', 'bar'),
+                join('baz', 'bar'),
+                join('apple', 'orange'),
             ]),
             {
-                'foo/bar': 'foo/bar',
-                'baz/bar': 'baz/bar',
-                'apple/orange': 'orange',
+                join('foo', 'bar'): join('foo', 'bar'),
+                join('baz', 'bar'): join('baz', 'bar'),
+                join('apple', 'orange'): 'orange',
             }
         )
 
     def test_intermediate(self):
         self.assertEqual(
             _build_minimal_path_by_full_path([
-                'apple/mango/orange/grape/melon',
-                'apple/mango/lemon/grape/melon',
+                join('apple', 'mango', 'orange', 'grape', 'melon'),
+                join('apple', 'mango', 'lemon', 'grape', 'melon'),
             ]),
             {
-                'apple/mango/orange/grape/melon': 'orange/grape/melon',
-                'apple/mango/lemon/grape/melon': 'lemon/grape/melon',
+                join('apple', 'mango', 'orange', 'grape', 'melon'): join('orange', 'grape', 'melon'),
+                join('apple', 'mango', 'lemon', 'grape', 'melon'): join('lemon', 'grape', 'melon'),
             }
         )
 
     def test_dunder_init_special_case(self):
         self.assertEqual(
             _build_minimal_path_by_full_path([
-                'apple/mango/orange/grape/__init__.py',
+                join('apple', 'mango', 'orange', 'grape', '__init__.py'),
             ]),
             {
-                'apple/mango/orange/grape/__init__.py': 'grape/__init__.py',
+                join('apple', 'mango', 'orange', 'grape', '__init__.py'): join('grape', '__init__.py'),
             }
         )
 
