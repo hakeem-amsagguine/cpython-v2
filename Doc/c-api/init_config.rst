@@ -15,7 +15,7 @@ Structures:
 * :c:type:`PyStatus`
 * :c:type:`PyWideStringList`
 
-Functions:
+Configuration functions:
 
 * :c:func:`PyConfig_Clear`
 * :c:func:`PyConfig_InitIsolatedConfig`
@@ -28,6 +28,9 @@ Functions:
 * :c:func:`PyConfig_SetWideStringList`
 * :c:func:`PyPreConfig_InitIsolatedConfig`
 * :c:func:`PyPreConfig_InitPythonConfig`
+
+Status reporting functions:
+
 * :c:func:`PyStatus_Error`
 * :c:func:`PyStatus_Exception`
 * :c:func:`PyStatus_Exit`
@@ -35,10 +38,15 @@ Functions:
 * :c:func:`PyStatus_IsExit`
 * :c:func:`PyStatus_NoMemory`
 * :c:func:`PyStatus_Ok`
+* :c:func:`Py_ExitStatusException`
+
+Utility functions:
+
 * :c:func:`PyWideStringList_Append`
 * :c:func:`PyWideStringList_Insert`
-* :c:func:`Py_ExitStatusException`
-* :c:func:`Py_InitializeFromConfig`
+
+Runtime pre-initialization functions:
+
 * :c:func:`Py_PreInitialize`
 * :c:func:`Py_PreInitializeFromArgs`
 * :c:func:`Py_PreInitializeFromBytesArgs`
@@ -769,21 +777,20 @@ option.
    The ``show_alloc_count`` field has been removed.
 
 
+.._init-from-config:
+
 Initialization with PyConfig
 ----------------------------
 
-Function to initialize Python:
-
-.. c:function:: PyStatus Py_InitializeFromConfig(const PyConfig *config)
-
-   Initialize Python from *config* configuration.
+Initializing the interpreter from a populated configuration struct is handled
+by calling :c:func:`Py_InitializeFromConfig`.
 
 The caller is responsible to handle exceptions (error or exit) using
 :c:func:`PyStatus_Exception` and :c:func:`Py_ExitStatusException`.
 
 If ``PyImport_FrozenModules``, ``PyImport_AppendInittab()`` or
 ``PyImport_ExtendInittab()`` are used, they must be set or called after Python
-preinitialization and before the Python initialization.
+preinitialization and before the full Python initialization.
 
 Example setting the program name::
 

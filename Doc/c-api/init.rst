@@ -7,7 +7,10 @@
 Initialization, Finalization, and Threads
 *****************************************
 
-See also :ref:`Python Initialization Configuration <init-config>`.
+This section covers the traditional global variable based approach to
+configuring the CPython runtime. See :ref:`init-config` for an alternate
+struct based configuration approach introduced in CPython 3.8.
+
 
 .. _pre-init-safe:
 
@@ -20,6 +23,15 @@ a few functions and the :ref:`global configuration variables
 <global-conf-vars>`.
 
 The following functions can be safely called before Python is initialized:
+
+* Functions that initialize the interpreter:
+
+  * :c:func:`Py_Initialize`
+  * :c:func:`Py_InitializeEx`
+  * :c:func:`Py_InitializeFromConfig`
+  * :c:func:`Py_BytesMain`
+  * :c:func:`Py_Main`
+  * the runtime pre-initialization functions covered in :ref:`init-config`
 
 * Configuration functions:
 
@@ -36,6 +48,7 @@ The following functions can be safely called before Python is initialized:
   * :c:func:`PySys_AddWarnOption`
   * :c:func:`PySys_AddXOption`
   * :c:func:`PySys_ResetWarnOptions`
+  * the configuration functions covered in :ref:`init-config`
 
 * Informative functions:
 
@@ -47,10 +60,12 @@ The following functions can be safely called before Python is initialized:
   * :c:func:`Py_GetCopyright`
   * :c:func:`Py_GetPlatform`
   * :c:func:`Py_GetVersion`
+  * :c:func:`Py_IsInitialized`
 
 * Utilities:
 
   * :c:func:`Py_DecodeLocale`
+  * the status reporting and utility functions covered in :ref:`init-config`
 
 * Memory allocators:
 
@@ -61,11 +76,13 @@ The following functions can be safely called before Python is initialized:
 
 .. note::
 
-   The following functions **should not be called** before
-   :c:func:`Py_Initialize`: :c:func:`Py_EncodeLocale`, :c:func:`Py_GetPath`,
+   Despite their apparent similarity to some of the functions listed above,
+   the following functions **should not be called** before the interpreter has
+   been initialized: :c:func:`Py_EncodeLocale`, :c:func:`Py_GetPath`,
    :c:func:`Py_GetPrefix`, :c:func:`Py_GetExecPrefix`,
    :c:func:`Py_GetProgramFullPath`, :c:func:`Py_GetPythonHome`,
-   :c:func:`Py_GetProgramName` and :c:func:`PyEval_InitThreads`.
+   :c:func:`Py_GetProgramName`, :c:func:`PyEval_InitThreads`, and
+   :c:func:`Py_RunMain`.
 
 
 .. _global-conf-vars:
@@ -244,24 +261,36 @@ Initializing and finalizing the interpreter
    this should be called before using any other Python/C API functions; see
    :ref:`Before Python Initialization <pre-init-safe>` for the few exceptions.
 
-   This initializes
-   the table of loaded modules (``sys.modules``), and creates the fundamental
-   modules :mod:`builtins`, :mod:`__main__` and :mod:`sys`.  It also initializes
-   the module search path (``sys.path``). It does not set ``sys.argv``; use
-   :c:func:`PySys_SetArgvEx` for that.  This is a no-op when called for a second time
-   (without calling :c:func:`Py_FinalizeEx` first).  There is no return value; it is a
-   fatal error if the initialization fails.
+   This initializes the table of loaded modules (``sys.modules``), and creates
+   the fundamental modules :mod:`builtins`, :mod:`__main__` and :mod:`sys`. It
+   also initializes the module search path (``sys.path``). It does not set
+   ``sys.argv``; use :c:func:`PySys_SetArgvEx` for that.  This is a no-op when
+   called for a second time (without calling :c:func:`Py_FinalizeEx` first).
+   There is no return value; it is a fatal error if the initialization fails.
+
+   See :c:func:`Py_InitializeFromConfig` and the :ref:`init-config` section for
+   an alternative configuration approach based on passed in C structs rather
+   than global process state.
 
    .. note::
-      On Windows, changes the console mode from ``O_TEXT`` to ``O_BINARY``, which will
-      also affect non-Python uses of the console using the C Runtime.
+      On Windows, changes the console mode from ``O_TEXT`` to ``O_BINARY``,
+      which will also affect non-Python uses of the console using the C Runtime.
 
 
 .. c:function:: void Py_InitializeEx(int initsigs)
 
    This function works like :c:func:`Py_Initialize` if *initsigs* is ``1``. If
-   *initsigs* is ``0``, it skips initialization registration of signal handlers, which
-   might be useful when Python is embedded.
+   *initsigs* is ``0``, it skips initialization registration of signal handlers,
+   which may be useful when CPython is embedded as part of a larger application.
+
+
+.. c:function:: PyStatus Py_InitializeFromConfig(const PyConfig *config)
+
+   Initialize Python from *config* configuration.
+
+   See the :ref:`init-config` section for details on pre-initializing the
+   interpreter, populating the runtime configuration structure, and querying
+   the returned status structure.
 
 
 .. c:function:: int Py_IsInitialized()
@@ -269,6 +298,12 @@ Initializing and finalizing the interpreter
    Return true (nonzero) when the Python interpreter has been initialized, false
    (zero) if not.  After :c:func:`Py_FinalizeEx` is called, this returns false until
    :c:func:`Py_Initialize` is called again.
+
+
+.. c:function:: void Py_Finalize()
+
+   This is a backwards-compatible version of :c:func:`Py_FinalizeEx` that
+   disregards the return value.
 
 
 .. c:function:: int Py_FinalizeEx()
@@ -305,10 +340,95 @@ Initializing and finalizing the interpreter
 
    .. versionadded:: 3.6
 
-.. c:function:: void Py_Finalize()
+.. c:function:: int Py_BytesMain(int argc, char **argv)
 
-   This is a backwards-compatible version of :c:func:`Py_FinalizeEx` that
-   disregards the return value.
+   Similar to :c:func:`Py_Main` but *argv* is an array of bytes strings,
+   allowing the calling application to delegate the text decoding step to
+   the CPython runtime.
+
+   .. versionadded:: 3.8
+
+
+.. c:function:: int Py_Main(int argc, wchar_t **argv)
+
+   The main program for the standard interpreter, encapsulating a full
+   :c:func:`Py_Initialize`/:c:func:`Py_Finalize` cycle, as well as additional
+   behaviour to implement reading configurations settings from the environment
+   and command line, and then executing ``__main__`` in accordance with
+   :ref:`using-on-cmdline`.
+
+   This is made available for programs which wish to support the full CPython
+   command line interface, rather than just embedding a Python runtime in a
+   larger application.
+
+   The *argc* and *argv* parameters are similar to those which are passed to a
+   C program's :c:func:`main` function, except that the *argv* entries are first
+   converted to ``wchar_t`` using :c:func:`Py_DecodeLocale`). It is also
+   important to note that the argument list entries may be modified to point to
+   strings other than those passed in (however, the contents of the strings
+   pointed to by the argument list are not modified).
+
+   The return value will be ``0`` if the interpreter exits normally (i.e.,
+   without an exception), ``1`` if the interpreter exits due to an exception,
+   or ``2`` if the argument list does not represent a valid Python command
+   line.
+
+   Note that if an otherwise unhandled :exc:`SystemExit` is raised, this
+   function will not return ``1``, but exit the process, as long as
+   ``Py_InspectFlag`` is not set. If ``Py_InspectFlag`` is set, execution will
+   drop into the interactive Python prompt, at which point a second otherwise
+   unhandled :exc:`SystemExit` will still exit the process, while any other
+   means of exiting will set the return value as described above.
+
+   In terms of the CPython runtime configuration APIs documented in the
+   :ref:`runtime configuration <init-config>` section (and without accounting
+   for error handling), ``Py_Main`` is approximately equivalent to::
+
+      PyConfig config;
+      PyConfig_InitPythonConfig(&config);
+      PyConfig_SetArgv(&config, argc, argv);
+      Py_InitializeFromConfig(&config);
+      PyConfig_Clear(&config);
+
+      Py_RunMain();
+
+   In normal usage, an embedding application will call this function
+   *instead* of calling :c:func:`Py_Initialize`, :c:func:`Py_InitializeEx` or
+   :c:func:`Py_InitializeFromConfig` directly, and all settings will be applied
+   as described elsewhere in this documentation. If this function is instead
+   called *after* a preceding runtime initialization API call, then exactly
+   which environmental and command line configuration settings will be updated
+   is version dependent (as it depends on which settings correctly support
+   being modified after they have already been set once when the runtime was
+   first initialized).
+
+
+.. c:function:: int Py_RunMain(void)
+
+   Executes the main module in a fully configured CPython runtime.
+
+   Executes the command (:c:member:`PyConfig.run_command`), the script
+   (:c:member:`PyConfig.run_filename`) or the module
+   (:c:member:`PyConfig.run_module`) specified on the command line or in the
+   configuration. If none of these values are set, runs the interactive Python
+   prompt.
+
+   The return value will be ``0`` if the interpreter exits normally (i.e.,
+   without an exception), or ``1`` if the interpreter exits due to an exception.
+
+   Note that if an otherwise unhandled :exc:`SystemExit` is raised, this
+   function will not return ``1``, but exit the process, as long as
+   :c:member:`PyConfig.inspect` is not set. If :c:member:`PyConfig.inspect` is
+   set, execution will drop into the interactive Python prompt, at which point
+   a second otherwise unhandled :exc:`SystemExit` will still exit the process,
+   while any other means of exiting will set the return value as described above.
+
+   Finally, finalizes Python and returns an exit status that can be passed to
+   the ``exit()`` function.
+
+   See :ref:`Python Configuration <init-python-config>` for an example of a
+   customized Python that always runs in isolated mode using
+   :c:func:`Py_RunMain`.
 
 
 Process-wide parameters
