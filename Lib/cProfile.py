@@ -39,7 +39,7 @@ class Profile(_lsprof.Profiler):
 
     def print_stats(self, sort=-1):
         import pstats
-        pstats.Stats(self).strip_dirs().sort_stats(sort).print_stats()
+        pstats.Stats(self).strip_non_unique_dirs().sort_stats(sort).print_stats()
 
     def dump_stats(self, file):
         import marshal
@@ -140,7 +140,7 @@ def main():
         help="Save stats to <outfile>", default=None)
     parser.add_option('-s', '--sort', dest="sort",
         help="Sort order when printing to stdout, based on pstats.Stats class",
-        default=-1,
+        default=2,
         choices=sorted(pstats.Stats.sort_arg_dict_default))
     parser.add_option('-m', dest="module", action="store_true",
         help="Profile a library module", default=False)
