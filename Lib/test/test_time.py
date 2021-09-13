@@ -48,6 +48,19 @@ ROUNDING_MODES = (
 )
 
 
+class IndexLike:
+    def __init__(self, value):
+        self.value = int(value)
+    def __index__(self):
+        return self.value
+
+class FloatLike:
+    def __init__(self, value):
+        self.value = float(value)
+    def __float__(self):
+        return self.value
+
+
 class TimeTestCase(unittest.TestCase):
 
     def setUp(self):
@@ -152,7 +165,7 @@ class TimeTestCase(unittest.TestCase):
     def test_sleep(self):
         self.assertRaises(ValueError, time.sleep, -2)
         self.assertRaises(ValueError, time.sleep, -1)
-        time.sleep(1.2)
+        time.sleep(0.2)
 
     def test_strftime(self):
         tt = time.gmtime(self.t)
@@ -456,20 +469,23 @@ class TimeTestCase(unittest.TestCase):
             self.assertGreaterEqual(t2, t1, "times=%s" % times)
             t1 = t2
 
-        # monotonic() includes time elapsed during a sleep
-        t1 = time.monotonic()
-        time.sleep(0.5)
-        t2 = time.monotonic()
-        dt = t2 - t1
-        self.assertGreater(t2, t1)
-        # bpo-20101: tolerate a difference of 50 ms because of bad timer
-        # resolution on Windows
-        self.assertTrue(0.450 <= dt)
-
         # monotonic() is a monotonic but non adjustable clock
         info = time.get_clock_info('monotonic')
         self.assertTrue(info.monotonic)
         self.assertFalse(info.adjustable)
+
+    def test_monotic_sleep(self):
+        # This tests both time.sleep() and time.monotonic(): we test various
+        # types of input to time.sleep() and check using time.monotonic() that
+        # we sleep sufficiently long.
+        for T in (0.5, decimal.Decimal('0.5'), FloatLike(0.5), IndexLike(1)):
+            t1 = time.monotonic()
+            time.sleep(T)
+            t2 = time.monotonic()
+            dt = t2 - t1
+            # bpo-20101: tolerate a difference of 50 ms because of bad timer
+            # resolution on Windows
+            self.assertGreaterEqual(dt, float(T) - 0.05)
 
     def test_perf_counter(self):
         time.perf_counter()
@@ -843,13 +859,22 @@ class CPyTimeTestCase:
                     pytime_converter(value, time_rnd)
 
     def check_int_rounding(self, pytime_converter, expected_func,
-                           unit_to_sec=1, value_filter=None):
+                           unit_to_sec=1, value_filter=None, *, index=True):
         self._check_rounding(pytime_converter, expected_func,
                              False, unit_to_sec, value_filter)
+        if index:
+            def convert_IndexLike(x, rnd):
+                return pytime_converter(IndexLike(x), rnd)
+            self._check_rounding(convert_IndexLike, expected_func,
+                                 False, unit_to_sec, value_filter)
 
     def check_float_rounding(self, pytime_converter, expected_func,
                              unit_to_sec=1, value_filter=None):
         self._check_rounding(pytime_converter, expected_func,
+                             True, unit_to_sec, value_filter)
+        def convert_FloatLike(x, rnd):
+            return pytime_converter(FloatLike(x), rnd)
+        self._check_rounding(convert_FloatLike, expected_func,
                              True, unit_to_sec, value_filter)
 
     def decimal_round(self, x):
@@ -874,7 +899,7 @@ class TestCPyTime(CPyTimeTestCase, unittest.TestCase):
 
         self.check_int_rounding(lambda secs, rnd: PyTime_FromSeconds(secs),
                                 lambda secs: secs * SEC_TO_NS,
-                                value_filter=c_int_filter)
+                                value_filter=c_int_filter, index=False)
 
         # test nan
         for time_rnd, _ in ROUNDING_MODES:
@@ -908,7 +933,7 @@ class TestCPyTime(CPyTimeTestCase, unittest.TestCase):
 
         self.check_int_rounding(lambda ns, rnd: PyTime_AsSecondsDouble(ns),
                                 float_converter,
-                                NS_TO_SEC)
+                                NS_TO_SEC, index=False)
 
         # test nan
         for time_rnd, _ in ROUNDING_MODES:
@@ -945,7 +970,7 @@ class TestCPyTime(CPyTimeTestCase, unittest.TestCase):
         self.check_int_rounding(PyTime_AsTimeval,
                                 timeval_converter,
                                 NS_TO_SEC,
-                                value_filter=seconds_filter)
+                                value_filter=seconds_filter, index=False)
 
     @unittest.skipUnless(hasattr(_testcapi, 'PyTime_AsTimespec'),
                          'need _testcapi.PyTime_AsTimespec')
@@ -958,21 +983,21 @@ class TestCPyTime(CPyTimeTestCase, unittest.TestCase):
         self.check_int_rounding(lambda ns, rnd: PyTime_AsTimespec(ns),
                                 timespec_converter,
                                 NS_TO_SEC,
-                                value_filter=self.time_t_filter)
+                                value_filter=self.time_t_filter, index=False)
 
     def test_AsMilliseconds(self):
         from _testcapi import PyTime_AsMilliseconds
 
         self.check_int_rounding(PyTime_AsMilliseconds,
                                 self.create_decimal_converter(MS_TO_NS),
-                                NS_TO_SEC)
+                                NS_TO_SEC, index=False)
 
     def test_AsMicroseconds(self):
         from _testcapi import PyTime_AsMicroseconds
 
         self.check_int_rounding(PyTime_AsMicroseconds,
                                 self.create_decimal_converter(US_TO_NS),
-                                NS_TO_SEC)
+                                NS_TO_SEC, index=False)
 
 
 class TestOldPyTime(CPyTimeTestCase, unittest.TestCase):
@@ -1020,7 +1045,7 @@ class TestOldPyTime(CPyTimeTestCase, unittest.TestCase):
                                   self.create_converter(SEC_TO_US),
                                   value_filter=self.time_t_filter)
 
-         # test nan
+        # test nan
         for time_rnd, _ in ROUNDING_MODES:
             with self.assertRaises(ValueError):
                 pytime_object_to_timeval(float('nan'), time_rnd)
