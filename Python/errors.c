@@ -511,7 +511,7 @@ PyErr_SetExcInfo(PyObject *p_type, PyObject *p_value, PyObject *p_traceback)
    The caller is responsible for ensuring that this call won't create
    any cycles in the exception context chain. */
 void
-_PyErr_ChainExceptions(PyObject *exc, PyObject *val, PyObject *tb)
+PyErr_ChainExceptions(PyObject *exc, PyObject *val, PyObject *tb)
 {
     if (exc == NULL)
         return;
@@ -520,7 +520,7 @@ _PyErr_ChainExceptions(PyObject *exc, PyObject *val, PyObject *tb)
 
     if (!PyExceptionClass_Check(exc)) {
         _PyErr_Format(tstate, PyExc_SystemError,
-                      "_PyErr_ChainExceptions: "
+                      "PyErr_ChainExceptions: "
                       "exception %R is not a BaseException subclass",
                       exc);
         return;
