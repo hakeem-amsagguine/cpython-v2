@@ -749,15 +749,15 @@ _ssl_configure_hostname(PySSLSocket *self, const char* server_hostname)
         }
     }
     if (self->ctx->check_hostname) {
-        X509_VERIFY_PARAM *param = SSL_get0_param(self->ssl);
+        X509_VERIFY_PARAM *verify_param = SSL_get0_param(self->ssl);
         if (ip == NULL) {
-            if (!X509_VERIFY_PARAM_set1_host(param, server_hostname,
+            if (!X509_VERIFY_PARAM_set1_host(verify_param, server_hostname,
                                              strlen(server_hostname))) {
                 _setSSLError(get_state_sock(self), NULL, 0, __FILE__, __LINE__);
                 goto error;
             }
         } else {
-            if (!X509_VERIFY_PARAM_set1_ip(param, ASN1_STRING_get0_data(ip),
+            if (!X509_VERIFY_PARAM_set1_ip(verify_param, ASN1_STRING_get0_data(ip),
                                            ASN1_STRING_length(ip))) {
                 _setSSLError(get_state_sock(self), NULL, 0, __FILE__, __LINE__);
                 goto error;
@@ -2978,7 +2978,7 @@ _ssl__SSLContext_impl(PyTypeObject *type, int proto_version)
     long options;
     const SSL_METHOD *method = NULL;
     SSL_CTX *ctx = NULL;
-    X509_VERIFY_PARAM *params;
+    X509_VERIFY_PARAM *verify_param;
     int result;
 
    /* slower approach, walk MRO and get borrowed reference to module.
@@ -3153,11 +3153,11 @@ _ssl__SSLContext_impl(PyTypeObject *type, int proto_version)
                                    sizeof(SID_CTX));
 #undef SID_CTX
 
-    params = SSL_CTX_get0_param(self->ctx);
+    verify_param = SSL_CTX_get0_param(self->ctx);
     /* Improve trust chain building when cross-signed intermediate
        certificates are present. See https://bugs.python.org/issue23476. */
-    X509_VERIFY_PARAM_set_flags(params, X509_V_FLAG_TRUSTED_FIRST);
-    X509_VERIFY_PARAM_set_hostflags(params, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
+    X509_VERIFY_PARAM_set_flags(verify_param, X509_V_FLAG_TRUSTED_FIRST);
+    X509_VERIFY_PARAM_set_hostflags(verify_param, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
 
 #ifdef TLS1_3_VERSION
     self->post_handshake_auth = 0;
@@ -3379,34 +3379,34 @@ set_verify_mode(PySSLContext *self, PyObject *arg, void *c)
 static PyObject *
 get_verify_flags(PySSLContext *self, void *c)
 {
-    X509_VERIFY_PARAM *param;
+    X509_VERIFY_PARAM *verify_param;
     unsigned long flags;
 
-    param = SSL_CTX_get0_param(self->ctx);
-    flags = X509_VERIFY_PARAM_get_flags(param);
+    verify_param = SSL_CTX_get0_param(self->ctx);
+    flags = X509_VERIFY_PARAM_get_flags(verify_param);
     return PyLong_FromUnsignedLong(flags);
 }
 
 static int
 set_verify_flags(PySSLContext *self, PyObject *arg, void *c)
 {
-    X509_VERIFY_PARAM *param;
+    X509_VERIFY_PARAM *verify_param;
     unsigned long new_flags, flags, set, clear;
 
     if (!PyArg_Parse(arg, "k", &new_flags))
         return -1;
-    param = SSL_CTX_get0_param(self->ctx);
-    flags = X509_VERIFY_PARAM_get_flags(param);
+    verify_param = SSL_CTX_get0_param(self->ctx);
+    flags = X509_VERIFY_PARAM_get_flags(verify_param);
     clear = flags & ~new_flags;
     set = ~flags & new_flags;
     if (clear) {
-        if (!X509_VERIFY_PARAM_clear_flags(param, clear)) {
+        if (!X509_VERIFY_PARAM_clear_flags(verify_param, clear)) {
             _setSSLError(get_state_ctx(self), NULL, 0, __FILE__, __LINE__);
             return -1;
         }
     }
     if (set) {
-        if (!X509_VERIFY_PARAM_set_flags(param, set)) {
+        if (!X509_VERIFY_PARAM_set_flags(verify_param, set)) {
             _setSSLError(get_state_ctx(self), NULL, 0, __FILE__, __LINE__);
             return -1;
         }
@@ -3611,25 +3611,25 @@ set_options(PySSLContext *self, PyObject *arg, void *c)
 static PyObject *
 get_host_flags(PySSLContext *self, void *c)
 {
-    X509_VERIFY_PARAM *param;
+    X509_VERIFY_PARAM *verify_param;
     unsigned int host_flags;
 
-    param = SSL_CTX_get0_param(self->ctx);
-    host_flags = X509_VERIFY_PARAM_get_hostflags(param);
+    verify_param = SSL_CTX_get0_param(self->ctx);
+    host_flags = X509_VERIFY_PARAM_get_hostflags(verify_param);
     return PyLong_FromUnsignedLong(host_flags);
 }
 
 static int
 set_host_flags(PySSLContext *self, PyObject *arg, void *c)
 {
-    X509_VERIFY_PARAM *param;
+    X509_VERIFY_PARAM *verify_param;
     unsigned int new_flags = 0;
 
     if (!PyArg_Parse(arg, "I", &new_flags))
         return -1;
 
-    param = SSL_CTX_get0_param(self->ctx);
-    X509_VERIFY_PARAM_set_hostflags(param, new_flags);
+    verify_param = SSL_CTX_get0_param(self->ctx);
+    X509_VERIFY_PARAM_set_hostflags(verify_param, new_flags);
     return 0;
 }
 
