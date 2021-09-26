@@ -282,10 +282,6 @@ typedef struct {
     unsigned int alpn_protocols_len;
     PyObject *set_sni_cb;
     int check_hostname;
-    /* OpenSSL has no API to get hostflags from X509_VERIFY_PARAM* struct.
-     * We have to maintain our own copy. OpenSSL's hostflags default to 0.
-     */
-    unsigned int hostflags;
     int protocol;
 #ifdef TLS1_3_VERSION
     int post_handshake_auth;
@@ -832,8 +828,11 @@ newPySSLSocket(PySSLContext *sslctx, PySocketSockObject *sock,
     }
     /* bpo43522 and OpenSSL < 1.1.1l: copy hostflags manually */
 #if !defined(LIBRESSL_VERSION_NUMBER) && OPENSSL_VERSION < 0x101010cf
-    X509_VERIFY_PARAM *ssl_params = SSL_get0_param(self->ssl);
-    X509_VERIFY_PARAM_set_hostflags(ssl_params, sslctx->hostflags);
+    X509_VERIFY_PARAM *ssl_verify_param = SSL_get0_param(self->ssl);
+    X509_VERIFY_PARAM *ssl_ctx_verify_param = SSL_CTX_get0_param(ctx);
+
+    unsigned int ssl_ctx_host_flags = X509_VERIFY_PARAM_get_hostflags(ssl_ctx_verify_param);
+    X509_VERIFY_PARAM_set_hostflags(ssl_verify_param, ssl_ctx_host_flags);
 #endif
     SSL_set_app_data(self->ssl, self);
     if (sock) {
@@ -3059,7 +3058,6 @@ _ssl__SSLContext_impl(PyTypeObject *type, int proto_version)
         return NULL;
     }
     self->ctx = ctx;
-    self->hostflags = X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS;
     self->protocol = proto_version;
     self->msg_cb = NULL;
     self->keylog_filename = NULL;
@@ -3159,7 +3157,7 @@ _ssl__SSLContext_impl(PyTypeObject *type, int proto_version)
     /* Improve trust chain building when cross-signed intermediate
        certificates are present. See https://bugs.python.org/issue23476. */
     X509_VERIFY_PARAM_set_flags(params, X509_V_FLAG_TRUSTED_FIRST);
-    X509_VERIFY_PARAM_set_hostflags(params, self->hostflags);
+    X509_VERIFY_PARAM_set_hostflags(params, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
 
 #ifdef TLS1_3_VERSION
     self->post_handshake_auth = 0;
@@ -3613,7 +3611,12 @@ set_options(PySSLContext *self, PyObject *arg, void *c)
 static PyObject *
 get_host_flags(PySSLContext *self, void *c)
 {
-    return PyLong_FromUnsignedLong(self->hostflags);
+    X509_VERIFY_PARAM *param;
+    unsigned int host_flags;
+
+    param = SSL_CTX_get0_param(self->ctx);
+    host_flags = X509_VERIFY_PARAM_get_hostflags(param);
+    return PyLong_FromUnsignedLong(host_flags);
 }
 
 static int
@@ -3626,7 +3629,6 @@ set_host_flags(PySSLContext *self, PyObject *arg, void *c)
         return -1;
 
     param = SSL_CTX_get0_param(self->ctx);
-    self->hostflags = new_flags;
     X509_VERIFY_PARAM_set_hostflags(param, new_flags);
     return 0;
 }
