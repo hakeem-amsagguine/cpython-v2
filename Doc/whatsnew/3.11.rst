@@ -455,6 +455,10 @@ New Features
 * Add a new :c:func:`PyType_GetQualName` function to get type's qualified name.
   (Contributed by Hai Shi in :issue:`42035`.)
 
+* Add a new ``p`` format parameter to :c:func:`Py_BuildValue` that allows to
+  take a C integer and produce a Python :class:`bool` object. (Contributed by
+  Pablo Galindo in :issue:`45325`.)
+
 Porting to Python 3.11
 ----------------------
 
