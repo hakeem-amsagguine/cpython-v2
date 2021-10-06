@@ -71,15 +71,64 @@ wrapperdescr_repr(PyWrapperDescrObject *descr)
                       "<slot wrapper '%V' of '%s' objects>");
 }
 
-static int
-descr_check(PyDescrObject *descr, PyObject *obj, PyObject **pres)
+Py_LOCAL_INLINE(int)
+classmethod_typecheck(PyMethodDescrObject *descr, PyObject *obj, PyObject **t)
 {
+    PyObject *type = *t;
+    /* Ensure a valid type.  Class methods ignore obj. */
+    if (type == NULL) {
+        if (obj != NULL) {
+            type = *t = (PyObject *)Py_TYPE(obj);
+        }
+        else {
+            /* Wot - no type?! */
+            PyErr_Format(PyExc_TypeError,
+                         "descriptor '%V' for type '%.100s' "
+                         "needs either an object or a type",
+                         descr_name((PyDescrObject *)descr), "?",
+                         PyDescr_TYPE(descr)->tp_name);
+            return 1;
+        }
+    }
+    assert(type != NULL);
+    if (!PyType_Check(type)) {
+        PyErr_Format(PyExc_TypeError,
+                     "descriptor '%V' for type '%.100s' "
+                     "needs a type, not a '%.100s' as arg 2",
+                     descr_name((PyDescrObject *)descr), "?",
+                     PyDescr_TYPE(descr)->tp_name,
+                     Py_TYPE(type)->tp_name);
+        return 1;
+    }
+    if (!PyType_IsSubtype((PyTypeObject *)type, PyDescr_TYPE(descr))) {
+        PyErr_Format(PyExc_TypeError,
+                     "descriptor '%V' requires a subtype of '%.100s' "
+                     "but received '%.100s'",
+                     descr_name((PyDescrObject *)descr), "?",
+                     PyDescr_TYPE(descr)->tp_name,
+                     ((PyTypeObject *)type)->tp_name);
+        return 1;
+    }
+    return 0;
+}
+
+static int
+descr_check(PyDescrObject *descr, PyObject *o, PyObject **pres)
+{
+    PyObject *obj = o;
     if (obj == NULL) {
         Py_INCREF(descr);
         *pres = (PyObject *)descr;
         return 1;
     }
-    if (!PyObject_TypeCheck(obj, descr->d_type)) {
+    if (Py_IS_TYPE(descr, &PyClassMethodDescr_Type)) {
+        if (classmethod_typecheck((PyMethodDescrObject *)descr, NULL, &obj)) {
+            return 1;
+        }
+        return 0;
+    }
+    if (obj != (PyObject *)descr->d_type &&
+        !PyObject_TypeCheck(obj, descr->d_type)) {
         PyErr_Format(PyExc_TypeError,
                      "descriptor '%V' for '%.100s' objects "
                      "doesn't apply to a '%.100s' object",
@@ -93,38 +142,10 @@ descr_check(PyDescrObject *descr, PyObject *obj, PyObject **pres)
 }
 
 static PyObject *
-classmethod_get(PyMethodDescrObject *descr, PyObject *obj, PyObject *type)
+classmethod_get(PyMethodDescrObject *descr, PyObject *obj, PyObject *t)
 {
-    /* Ensure a valid type.  Class methods ignore obj. */
-    if (type == NULL) {
-        if (obj != NULL)
-            type = (PyObject *)Py_TYPE(obj);
-        else {
-            /* Wot - no type?! */
-            PyErr_Format(PyExc_TypeError,
-                         "descriptor '%V' for type '%.100s' "
-                         "needs either an object or a type",
-                         descr_name((PyDescrObject *)descr), "?",
-                         PyDescr_TYPE(descr)->tp_name);
-            return NULL;
-        }
-    }
-    if (!PyType_Check(type)) {
-        PyErr_Format(PyExc_TypeError,
-                     "descriptor '%V' for type '%.100s' "
-                     "needs a type, not a '%.100s' as arg 2",
-                     descr_name((PyDescrObject *)descr), "?",
-                     PyDescr_TYPE(descr)->tp_name,
-                     Py_TYPE(type)->tp_name);
-        return NULL;
-    }
-    if (!PyType_IsSubtype((PyTypeObject *)type, PyDescr_TYPE(descr))) {
-        PyErr_Format(PyExc_TypeError,
-                     "descriptor '%V' requires a subtype of '%.100s' "
-                     "but received '%.100s'",
-                     descr_name((PyDescrObject *)descr), "?",
-                     PyDescr_TYPE(descr)->tp_name,
-                     ((PyTypeObject *)type)->tp_name);
+    PyObject *type = t;
+    if (classmethod_typecheck(descr, obj, &type)) {
         return NULL;
     }
     PyTypeObject *cls = NULL;
@@ -464,39 +485,6 @@ method_vectorcall_O(
     return result;
 }
 
-
-/* Instances of classmethod_descriptor are unlikely to be called directly.
-   For one, the analogous class "classmethod" (for Python classes) is not
-   callable. Second, users are not likely to access a classmethod_descriptor
-   directly, since it means pulling it from the class __dict__.
-
-   This is just an excuse to say that this doesn't need to be optimized:
-   we implement this simply by calling __get__ and then calling the result.
-*/
-static PyObject *
-classmethoddescr_call(PyMethodDescrObject *descr, PyObject *args,
-                      PyObject *kwds)
-{
-    Py_ssize_t argc = PyTuple_GET_SIZE(args);
-    if (argc < 1) {
-        PyErr_Format(PyExc_TypeError,
-                     "descriptor '%V' of '%.100s' "
-                     "object needs an argument",
-                     descr_name((PyDescrObject *)descr), "?",
-                     PyDescr_TYPE(descr)->tp_name);
-        return NULL;
-    }
-    PyObject *self = PyTuple_GET_ITEM(args, 0);
-    PyObject *bound = classmethod_get(descr, NULL, self);
-    if (bound == NULL) {
-        return NULL;
-    }
-    PyObject *res = PyObject_VectorcallDict(bound, _PyTuple_ITEMS(args)+1,
-                                           argc-1, kwds);
-    Py_DECREF(bound);
-    return res;
-}
-
 Py_LOCAL_INLINE(PyObject *)
 wrapperdescr_raw_call(PyWrapperDescrObject *descr, PyObject *self,
                       PyObject *args, PyObject *kwds)
@@ -735,7 +723,7 @@ PyTypeObject PyClassMethodDescr_Type = {
     sizeof(PyMethodDescrObject),
     0,
     (destructor)descr_dealloc,                  /* tp_dealloc */
-    0,                                          /* tp_vectorcall_offset */
+    offsetof(PyMethodDescrObject, vectorcall),  /* tp_vectorcall_offset */
     0,                                          /* tp_getattr */
     0,                                          /* tp_setattr */
     0,                                          /* tp_as_async */
@@ -744,12 +732,14 @@ PyTypeObject PyClassMethodDescr_Type = {
     0,                                          /* tp_as_sequence */
     0,                                          /* tp_as_mapping */
     0,                                          /* tp_hash */
-    (ternaryfunc)classmethoddescr_call,         /* tp_call */
+    PyVectorcall_Call,                          /* tp_call */
     0,                                          /* tp_str */
     PyObject_GenericGetAttr,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC, /* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
+    Py_TPFLAGS_HAVE_VECTORCALL |
+    Py_TPFLAGS_METHOD_DESCRIPTOR,               /* tp_flags */
     0,                                          /* tp_doc */
     descr_traverse,                             /* tp_traverse */
     0,                                          /* tp_clear */
@@ -899,8 +889,8 @@ descr_new(PyTypeObject *descrtype, PyTypeObject *type, const char *name)
     return descr;
 }
 
-PyObject *
-PyDescr_NewMethod(PyTypeObject *type, PyMethodDef *method)
+Py_LOCAL_INLINE(void)
+identify_vectorcallfunc(PyMethodDef *method, vectorcallfunc *vfunc)
 {
     /* Figure out correct vectorcall function to use */
     vectorcallfunc vectorcall;
@@ -931,7 +921,18 @@ PyDescr_NewMethod(PyTypeObject *type, PyMethodDef *method)
         default:
             PyErr_Format(PyExc_SystemError,
                          "%s() method: bad call flags", method->ml_name);
-            return NULL;
+            vectorcall = NULL;
+    }
+    *vfunc = vectorcall;
+}
+
+PyObject *
+PyDescr_NewMethod(PyTypeObject *type, PyMethodDef *method)
+{
+    vectorcallfunc vectorcall;
+    identify_vectorcallfunc(method, &vectorcall);
+    if (vectorcall == NULL) {
+        return NULL;
     }
 
     PyMethodDescrObject *descr;
@@ -948,12 +949,20 @@ PyDescr_NewMethod(PyTypeObject *type, PyMethodDef *method)
 PyObject *
 PyDescr_NewClassMethod(PyTypeObject *type, PyMethodDef *method)
 {
+    vectorcallfunc vectorcall;
+    identify_vectorcallfunc(method, &vectorcall);
+    if (vectorcall == NULL) {
+        return NULL;
+    }
+
     PyMethodDescrObject *descr;
 
     descr = (PyMethodDescrObject *)descr_new(&PyClassMethodDescr_Type,
                                              type, method->ml_name);
-    if (descr != NULL)
+    if (descr != NULL) {
         descr->d_method = method;
+        descr->vectorcall = vectorcall;
+    }
     return (PyObject *)descr;
 }
 
