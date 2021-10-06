@@ -1155,7 +1155,6 @@ hamt_node_bitmap_dealloc(PyHamtNode_Bitmap *self)
     Py_ssize_t len = Py_SIZE(self);
     Py_ssize_t i;
 
-    PyObject_GC_UnTrack(self);
     Py_TRASHCAN_BEGIN(self, hamt_node_bitmap_dealloc)
 
     if (len > 0) {
@@ -1559,12 +1558,10 @@ hamt_node_collision_traverse(PyHamtNode_Collision *self,
 static void
 hamt_node_collision_dealloc(PyHamtNode_Collision *self)
 {
+    Py_TRASHCAN_BEGIN(self, hamt_node_collision_dealloc)
     /* Collision's tp_dealloc */
 
     Py_ssize_t len = Py_SIZE(self);
-
-    PyObject_GC_UnTrack(self);
-    Py_TRASHCAN_BEGIN(self, hamt_node_collision_dealloc)
 
     if (len > 0) {
 

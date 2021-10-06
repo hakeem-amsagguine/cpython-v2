@@ -469,9 +469,6 @@ function with a pair of macros:
 static void
 mytype_dealloc(mytype *p)
 {
-    ... declarations go here ...
-
-    PyObject_GC_UnTrack(p);        // must untrack first
     Py_TRASHCAN_BEGIN(p, mytype_dealloc)
     ... The body of the deallocator goes here, including all calls ...
     ... to Py_DECREF on contained objects.                         ...
