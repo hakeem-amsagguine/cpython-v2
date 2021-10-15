@@ -1027,6 +1027,32 @@ test_buildvalue_N_error(const char *fmt)
 }
 
 static PyObject *
+test_buildvalue_p(PyObject *self, PyObject *Py_UNUSED(ignored))
+{
+    PyObject *res = Py_BuildValue("p",  3);
+    if (res == NULL) {
+        return NULL;
+    }
+    if (!Py_IsTrue(res)) {
+        Py_DECREF(res);
+        return raiseTestError("test_buildvalue_p", "Py_BuildValue(\"p\", 3) returned wrong result");
+    }
+    Py_DECREF(res);
+
+    res = Py_BuildValue("p",  0);
+    if (res == NULL) {
+        return NULL;
+    }
+    if (!Py_IsFalse(res)) {
+        Py_DECREF(res);
+        return raiseTestError("test_buildvalue_p", "Py_BuildValue(\"p\", 0) returned wrong result");
+    }
+    Py_DECREF(res);
+
+    Py_RETURN_NONE;
+} 
+
+static PyObject *
 test_buildvalue_N(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
     PyObject *arg, *res;
@@ -5744,6 +5770,7 @@ static PyMethodDef TestMethods[] = {
 #endif
     {"getbuffer_with_null_view", getbuffer_with_null_view, METH_O},
     {"PyBuffer_SizeFromFormat",  test_PyBuffer_SizeFromFormat, METH_VARARGS},
+    {"test_buildvalue_p",       test_buildvalue_p,               METH_NOARGS},
     {"test_buildvalue_N",       test_buildvalue_N,               METH_NOARGS},
     {"test_buildvalue_issue38913", test_buildvalue_issue38913,   METH_NOARGS},
     {"get_args",                get_args,                        METH_VARARGS},

@@ -295,6 +295,9 @@ class CAPITest(unittest.TestCase):
     def test_buildvalue_N(self):
         _testcapi.test_buildvalue_N()
 
+    def test_buildvalue_P(self):
+        _testcapi.test_buildvalue_p()
+
     def test_set_nomemory(self):
         code = """if 1:
             import _testcapi
