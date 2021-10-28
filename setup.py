@@ -4,10 +4,12 @@ import argparse
 import importlib._bootstrap
 import importlib.machinery
 import importlib.util
+import logging
 import os
 import re
 import sys
 import sysconfig
+import warnings
 from glob import glob, escape
 import _osx_support
 
@@ -30,14 +32,26 @@ except ImportError:
     SUBPROCESS_BOOTSTRAP = True
 
 
-from distutils import log
-from distutils.command.build_ext import build_ext
-from distutils.command.build_scripts import build_scripts
-from distutils.command.install import install
-from distutils.command.install_lib import install_lib
-from distutils.core import Extension, setup
-from distutils.errors import CCompilerError, DistutilsError
-from distutils.spawn import find_executable
+with warnings.catch_warnings():
+    # bpo-41282 (PEP 632) deprecated distutils but setup.py still uses it
+    warnings.filterwarnings(
+        "ignore",
+        "The distutils package is deprecated",
+        DeprecationWarning
+    )
+    warnings.filterwarnings(
+        "ignore",
+        "The distutils.sysconfig module is deprecated, use sysconfig instead",
+        DeprecationWarning
+    )
+
+    from distutils.command.build_ext import build_ext
+    from distutils.command.build_scripts import build_scripts
+    from distutils.command.install import install
+    from distutils.command.install_lib import install_lib
+    from distutils.core import Extension, setup
+    from distutils.errors import CCompilerError, DistutilsError
+    from distutils.spawn import find_executable
 
 
 # Compile extensions used to test Python?
@@ -48,6 +62,10 @@ DISABLED_MODULE_LIST = []
 
 # --list-module-names option used by Tools/scripts/generate_module_names.py
 LIST_MODULE_NAMES = False
+
+
+logging.basicConfig(format='%(message)s', level=logging.INFO)
+log = logging.getLogger('setup')
 
 
 def get_platform():
@@ -213,11 +231,11 @@ def macosx_sdk_specified():
 
 def is_macosx_sdk_path(path):
     """
-    Returns True if 'path' can be located in an OSX SDK
+    Returns True if 'path' can be located in a macOS SDK
     """
     return ( (path.startswith('/usr/') and not path.startswith('/usr/local'))
-                or path.startswith('/System/')
-                or path.startswith('/Library/') )
+                or path.startswith('/System/Library')
+                or path.startswith('/System/iOSSupport') )
 
 
 def grep_headers_for(function, headers):
@@ -226,6 +244,7 @@ def grep_headers_for(function, headers):
             if function in f.read():
                 return True
     return False
+
 
 def find_file(filename, std_dirs, paths):
     """Searches for the directory where a given file is located,
@@ -245,23 +264,23 @@ def find_file(filename, std_dirs, paths):
         sysroot = macosx_sdk_root()
 
     # Check the standard locations
-    for dir in std_dirs:
-        f = os.path.join(dir, filename)
+    for dir_ in std_dirs:
+        f = os.path.join(dir_, filename)
 
-        if MACOS and is_macosx_sdk_path(dir):
-            f = os.path.join(sysroot, dir[1:], filename)
+        if MACOS and is_macosx_sdk_path(dir_):
+            f = os.path.join(sysroot, dir_[1:], filename)
 
         if os.path.exists(f): return []
 
     # Check the additional directories
-    for dir in paths:
-        f = os.path.join(dir, filename)
+    for dir_ in paths:
+        f = os.path.join(dir_, filename)
 
-        if MACOS and is_macosx_sdk_path(dir):
-            f = os.path.join(sysroot, dir[1:], filename)
+        if MACOS and is_macosx_sdk_path(dir_):
+            f = os.path.join(sysroot, dir_[1:], filename)
 
         if os.path.exists(f):
-            return [dir]
+            return [dir_]
 
     # Not found anywhere
     return None
@@ -319,6 +338,7 @@ def find_library_file(compiler, libname, std_dirs, paths):
     else:
         assert False, "Internal error: Path not found in std_dirs or paths"
 
+
 def validate_tzpath():
     base_tzpath = sysconfig.get_config_var('TZPATH')
     if not base_tzpath:
@@ -331,15 +351,16 @@ def validate_tzpath():
                          + f'found:\n{tzpaths!r}\nwith invalid paths:\n'
                          + f'{bad_paths!r}')
 
+
 def find_module_file(module, dirlist):
     """Find a module in a set of possible folders. If it is not found
     return the unadorned filename"""
-    list = find_file(module, [], dirlist)
-    if not list:
+    dirs = find_file(module, [], dirlist)
+    if not dirs:
         return module
-    if len(list) > 1:
-        log.info("WARNING: multiple copies of %s found", module)
-    return os.path.join(list[0], module)
+    if len(dirs) > 1:
+        log.info(f"WARNING: multiple copies of {module} found")
+    return os.path.join(dirs[0], module)
 
 
 class PyBuildExt(build_ext):
@@ -388,8 +409,11 @@ class PyBuildExt(build_ext):
                                      for filename in self.distribution.scripts]
 
         # Python header files
+        include_dir = escape(sysconfig.get_path('include'))
         headers = [sysconfig.get_config_h_filename()]
-        headers += glob(os.path.join(escape(sysconfig.get_path('include')), "*.h"))
+        headers.extend(glob(os.path.join(include_dir, "*.h")))
+        headers.extend(glob(os.path.join(include_dir, "cpython", "*.h")))
+        headers.extend(glob(os.path.join(include_dir, "internal", "*.h")))
 
         for ext in self.extensions:
             ext.sources = [ find_module_file(filename, moddirlist)
@@ -545,13 +569,13 @@ class PyBuildExt(build_ext):
                for l in (self.missing, self.failed, self.failed_on_import)):
             print()
             print("Could not build the ssl module!")
-            print("Python requires an OpenSSL 1.0.2 or 1.1 compatible "
-                  "libssl with X509_VERIFY_PARAM_set1_host().")
-            print("LibreSSL 2.6.4 and earlier do not provide the necessary "
-                  "APIs, https://github.com/libressl-portable/portable/issues/381")
+            print("Python requires a OpenSSL 1.1.1 or newer")
             if sysconfig.get_config_var("OPENSSL_LDFLAGS"):
                 print("Custom linker flags may require --with-openssl-rpath=auto")
             print()
+
+        if os.environ.get("PYTHONSTRICTEXTENSIONBUILD") and (self.failed or self.failed_on_import):
+            raise RuntimeError("Failed to build some stdlib modules")
 
     def build_extension(self, ext):
 
@@ -780,6 +804,18 @@ class PyBuildExt(build_ext):
             if env_val:
                 parser = argparse.ArgumentParser()
                 parser.add_argument(arg_name, dest="dirs", action="append")
+
+                # To prevent argparse from raising an exception about any
+                # options in env_val that it mistakes for known option, we
+                # strip out all double dashes and any dashes followed by a
+                # character that is not for the option we are dealing with.
+                #
+                # Please note that order of the regex is important!  We must
+                # strip out double-dashes first so that we don't end up with
+                # substituting "--Long" to "-Long" and thus lead to "ong" being
+                # used for a library directory.
+                env_val = re.sub(r'(^|\s+)-(-|(?!%s))' % arg_name[1],
+                                 ' ', env_val)
                 options, _ = parser.parse_known_args(env_val.split())
                 if options.dirs:
                     for directory in reversed(options.dirs):
@@ -871,20 +907,14 @@ class PyBuildExt(build_ext):
         # Context Variables
         self.add(Extension('_contextvars', ['_contextvarsmodule.c']))
 
-        shared_math = 'Modules/_math.o'
-
         # math library functions, e.g. sin()
         self.add(Extension('math',  ['mathmodule.c'],
-                           extra_compile_args=['-DPy_BUILD_CORE_MODULE'],
-                           extra_objects=[shared_math],
-                           depends=['_math.h', shared_math],
+                           depends=['_math.h'],
                            libraries=['m']))
 
         # complex math library functions
         self.add(Extension('cmath', ['cmathmodule.c'],
-                           extra_compile_args=['-DPy_BUILD_CORE_MODULE'],
-                           extra_objects=[shared_math],
-                           depends=['_math.h', shared_math],
+                           depends=['_math.h'],
                            libraries=['m']))
 
         # time libraries: librt may be needed for clock_gettime()
@@ -899,43 +929,37 @@ class PyBuildExt(build_ext):
         # libm is needed by delta_new() that uses round() and by accum() that
         # uses modf().
         self.add(Extension('_datetime', ['_datetimemodule.c'],
-                           libraries=['m'],
-                           extra_compile_args=['-DPy_BUILD_CORE_MODULE']))
+                           libraries=['m']))
         # zoneinfo module
-        self.add(Extension('_zoneinfo', ['_zoneinfo.c'],
-                           extra_compile_args=['-DPy_BUILD_CORE_MODULE']))
+        self.add(Extension('_zoneinfo', ['_zoneinfo.c']))
         # random number generator implemented in C
-        self.add(Extension("_random", ["_randommodule.c"],
-                           extra_compile_args=['-DPy_BUILD_CORE_MODULE']))
+        self.add(Extension("_random", ["_randommodule.c"]))
         # bisect
         self.add(Extension("_bisect", ["_bisectmodule.c"]))
         # heapq
-        self.add(Extension("_heapq", ["_heapqmodule.c"],
-                           extra_compile_args=['-DPy_BUILD_CORE_MODULE']))
+        self.add(Extension("_heapq", ["_heapqmodule.c"]))
         # C-optimized pickle replacement
-        self.add(Extension("_pickle", ["_pickle.c"],
-                           extra_compile_args=['-DPy_BUILD_CORE_MODULE']))
+        self.add(Extension("_pickle", ["_pickle.c"]))
         # _json speedups
-        self.add(Extension("_json", ["_json.c"],
-                           extra_compile_args=['-DPy_BUILD_CORE_MODULE']))
+        self.add(Extension("_json", ["_json.c"]))
 
         # profiler (_lsprof is for cProfile.py)
         self.add(Extension('_lsprof', ['_lsprof.c', 'rotatingtree.c']))
         # static Unicode character database
         self.add(Extension('unicodedata', ['unicodedata.c'],
-                           depends=['unicodedata_db.h', 'unicodename_db.h'],
-                           extra_compile_args=['-DPy_BUILD_CORE_MODULE']))
+                           depends=['unicodedata_db.h', 'unicodename_db.h']))
         # _opcode module
         self.add(Extension('_opcode', ['_opcode.c']))
         # asyncio speedups
-        self.add(Extension("_asyncio", ["_asynciomodule.c"],
-                           extra_compile_args=['-DPy_BUILD_CORE_MODULE']))
+        self.add(Extension("_asyncio", ["_asynciomodule.c"]))
         # _abc speedups
         self.add(Extension("_abc", ["_abc.c"]))
         # _queue module
         self.add(Extension("_queue", ["_queuemodule.c"]))
         # _statistics module
         self.add(Extension("_statistics", ["_statisticsmodule.c"]))
+        # _typing module
+        self.add(Extension("_typing", ["_typingmodule.c"]))
 
         # Modules with some UNIX dependencies -- on by default:
         # (If you have a really backward UNIX, select and socket may not be
@@ -996,8 +1020,7 @@ class PyBuildExt(build_ext):
         self.add(Extension('_csv', ['_csv.c']))
 
         # POSIX subprocess module helper.
-        self.add(Extension('_posixsubprocess', ['_posixsubprocess.c'],
-                           extra_compile_args=['-DPy_BUILD_CORE_MODULE']))
+        self.add(Extension('_posixsubprocess', ['_posixsubprocess.c']))
 
     def detect_test_extensions(self):
         # Python C API test module
@@ -1005,13 +1028,12 @@ class PyBuildExt(build_ext):
                            depends=['testcapi_long.h']))
 
         # Python Internal C API test module
-        self.add(Extension('_testinternalcapi', ['_testinternalcapi.c'],
-                           extra_compile_args=['-DPy_BUILD_CORE_MODULE']))
+        self.add(Extension('_testinternalcapi', ['_testinternalcapi.c']))
 
         # Python PEP-3118 (buffer protocol) test module
         self.add(Extension('_testbuffer', ['_testbuffer.c']))
 
-        # Test loading multiple modules from one compiled file (http://bugs.python.org/issue16421)
+        # Test loading multiple modules from one compiled file (https://bugs.python.org/issue16421)
         self.add(Extension('_testimportmultiple', ['_testimportmultiple.c']))
 
         # Test multi-phase extension module init (PEP 489)
@@ -1146,7 +1168,6 @@ class PyBuildExt(build_ext):
         if curses_library.startswith('ncurses'):
             curses_libs = [curses_library]
             self.add(Extension('_curses', ['_cursesmodule.c'],
-                               extra_compile_args=['-DPy_BUILD_CORE_MODULE'],
                                include_dirs=curses_includes,
                                define_macros=curses_defines,
                                libraries=curses_libs))
@@ -1161,7 +1182,6 @@ class PyBuildExt(build_ext):
                 curses_libs = ['curses']
 
             self.add(Extension('_curses', ['_cursesmodule.c'],
-                               extra_compile_args=['-DPy_BUILD_CORE_MODULE'],
                                define_macros=curses_defines,
                                libraries=curses_libs))
         else:
@@ -1214,7 +1234,7 @@ class PyBuildExt(build_ext):
         # similar functionality (but slower of course) implemented in Python.
 
         # Sleepycat^WOracle Berkeley DB interface.
-        #  http://www.oracle.com/database/berkeley-db/db/index.html
+        #  https://www.oracle.com/database/technologies/related/berkeleydb.html
         #
         # This requires the Sleepycat^WOracle DB code. The supported versions
         # are set below.  Visit the URL above to download
@@ -1256,7 +1276,7 @@ class PyBuildExt(build_ext):
             '/usr/include/db3',
             '/usr/local/include/db3',
             '/opt/sfw/include/db3',
-            # Fink defaults (http://fink.sourceforge.net/)
+            # Fink defaults (https://www.finkproject.org/)
             '/sw/include/db4',
             '/sw/include/db3',
         ]
@@ -1268,7 +1288,7 @@ class PyBuildExt(build_ext):
             db_inc_paths.append('/usr/local/include/db4%d' % x)
             db_inc_paths.append('/pkg/db-4.%d/include' % x)
             db_inc_paths.append('/opt/db-4.%d/include' % x)
-            # MacPorts default (http://www.macports.org/)
+            # MacPorts default (https://www.macports.org/)
             db_inc_paths.append('/opt/local/include/db4%d' % x)
         # 3.x minor number specific paths
         for x in gen_db_minor_ver_nums(3):
@@ -1564,7 +1584,7 @@ class PyBuildExt(build_ext):
                 sqlite_libdir = [os.path.abspath(os.path.dirname(sqlite_libfile))]
 
         if sqlite_incdir and sqlite_libdir:
-            sqlite_srcs = ['_sqlite/cache.c',
+            sqlite_srcs = [
                 '_sqlite/connection.c',
                 '_sqlite/cursor.c',
                 '_sqlite/microprotocols.c',
@@ -1579,6 +1599,8 @@ class PyBuildExt(build_ext):
             # if --enable-loadable-sqlite-extensions configure option is used.
             if '--enable-loadable-sqlite-extensions' not in sysconfig.get_config_var("CONFIG_ARGS"):
                 sqlite_defines.append(("SQLITE_OMIT_LOAD_EXTENSION", "1"))
+            elif MACOS and sqlite_incdir == os.path.join(MACOS_SDK_ROOT, "usr/include"):
+                raise DistutilsError("System version of SQLite does not support loadable extensions")
 
             if MACOS:
                 # In every directory on the search path search for a dynamic
@@ -1679,12 +1701,12 @@ class PyBuildExt(build_ext):
 
         # Helper module for various ascii-encoders.  Uses zlib for an optimized
         # crc32 if we have it.  Otherwise binascii uses its own.
+        extra_compile_args = []
         if have_zlib:
-            extra_compile_args = ['-DUSE_ZLIB_CRC32']
+            extra_compile_args.append('-DUSE_ZLIB_CRC32')
             libraries = ['z']
             extra_link_args = zlib_extra_link_args
         else:
-            extra_compile_args = []
             libraries = []
             extra_link_args = []
         self.add(Extension('binascii', ['binascii.c'],
@@ -1725,21 +1747,16 @@ class PyBuildExt(build_ext):
         #
         if '--with-system-expat' in sysconfig.get_config_var("CONFIG_ARGS"):
             expat_inc = []
-            define_macros = []
             extra_compile_args = []
             expat_lib = ['expat']
             expat_sources = []
             expat_depends = []
         else:
             expat_inc = [os.path.join(self.srcdir, 'Modules', 'expat')]
-            define_macros = [
-                ('HAVE_EXPAT_CONFIG_H', '1'),
-                # bpo-30947: Python uses best available entropy sources to
-                # call XML_SetHashSalt(), expat entropy sources are not needed
-                ('XML_POOR_ENTROPY', '1'),
-            ]
             extra_compile_args = []
-            expat_lib = []
+            # bpo-44394: libexpat uses isnan() of math.h and needs linkage
+            # against the libm
+            expat_lib = ['m']
             expat_sources = ['expat/xmlparse.c',
                              'expat/xmlrole.c',
                              'expat/xmltok.c']
@@ -1763,7 +1780,6 @@ class PyBuildExt(build_ext):
                 extra_compile_args.append('-Wno-unreachable-code')
 
         self.add(Extension('pyexpat',
-                           define_macros=define_macros,
                            extra_compile_args=extra_compile_args,
                            include_dirs=expat_inc,
                            libraries=expat_lib,
@@ -1774,9 +1790,7 @@ class PyBuildExt(build_ext):
         # uses expat (via the CAPI hook in pyexpat).
 
         if os.path.isfile(os.path.join(self.srcdir, 'Modules', '_elementtree.c')):
-            define_macros.append(('USE_PYEXPAT_CAPI', None))
             self.add(Extension('_elementtree',
-                               define_macros=define_macros,
                                include_dirs=expat_inc,
                                libraries=expat_lib,
                                sources=['_elementtree.c'],
@@ -2185,7 +2199,7 @@ class PyBuildExt(build_ext):
             self.use_system_libffi = '--with-system-ffi' in sysconfig.get_config_var("CONFIG_ARGS")
 
         include_dirs = []
-        extra_compile_args = ['-DPy_BUILD_CORE_MODULE']
+        extra_compile_args = []
         extra_link_args = []
         sources = ['_ctypes/_ctypes.c',
                    '_ctypes/callbacks.c',
@@ -2374,12 +2388,12 @@ class PyBuildExt(build_ext):
         # Workarounds for toolchain bugs:
         if sysconfig.get_config_var('HAVE_IPA_PURE_CONST_BUG'):
             # Some versions of gcc miscompile inline asm:
-            # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=46491
-            # http://gcc.gnu.org/ml/gcc/2010-11/msg00366.html
+            # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=46491
+            # https://gcc.gnu.org/ml/gcc/2010-11/msg00366.html
             extra_compile_args.append('-fno-ipa-pure-const')
         if sysconfig.get_config_var('HAVE_GLIBC_MEMMOVE_BUG'):
             # _FORTIFY_SOURCE wrappers for memmove and bcopy are incorrect:
-            # http://sourceware.org/ml/libc-alpha/2010-12/msg00009.html
+            # https://sourceware.org/ml/libc-alpha/2010-12/msg00009.html
             undef_macros.append('_FORTIFY_SOURCE')
 
         # Uncomment for extra functionality:
@@ -2425,14 +2439,6 @@ class PyBuildExt(build_ext):
             self.missing.extend(['_ssl', '_hashlib'])
             return None, None
 
-        # OpenSSL 1.0.2 uses Kerberos for KRB5 ciphers
-        krb5_h = find_file(
-            'krb5.h', self.inc_dirs,
-            ['/usr/kerberos/include']
-        )
-        if krb5_h:
-            ssl_incs.extend(krb5_h)
-
         if openssl_rpath == 'auto':
             runtime_library_dirs = openssl_libdirs[:]
         elif not openssl_rpath:
@@ -2460,20 +2466,26 @@ class PyBuildExt(build_ext):
                 extra_linker_args.append(f"-Wl,--exclude-libs,lib{lib}.a")
             openssl_extension_kwargs["extra_link_args"] = extra_linker_args
             # don't link OpenSSL shared libraries.
-            openssl_extension_kwargs["libraries"] = []
+            # include libz for OpenSSL build flavors with compression support
+            openssl_extension_kwargs["libraries"] = ["z"]
 
-        if config_vars.get("HAVE_X509_VERIFY_PARAM_SET1_HOST"):
-            self.add(
-                Extension(
-                    '_ssl',
-                    ['_ssl.c'],
-                    depends=['socketmodule.h', '_ssl/debughelpers.c'],
-                    **openssl_extension_kwargs
-                )
+        self.add(
+            Extension(
+                '_ssl',
+                ['_ssl.c'],
+                depends=[
+                    'socketmodule.h',
+                    '_ssl.h',
+                    '_ssl_data_111.h',
+                    '_ssl_data_300.h',
+                    '_ssl_data.h',
+                    '_ssl/debughelpers.c',
+                    '_ssl/misc.c',
+                    '_ssl/cert.c',
+                ],
+                **openssl_extension_kwargs
             )
-        else:
-            self.missing.append('_ssl')
-
+        )
         self.add(
             Extension(
                 '_hashlib',
@@ -2503,27 +2515,25 @@ class PyBuildExt(build_ext):
         if "sha256" in configured:
             self.add(Extension(
                 '_sha256', ['sha256module.c'],
-                extra_compile_args=['-DPy_BUILD_CORE_MODULE'],
-                depends=['hashlib.h']
+                depends=['hashlib.h'],
             ))
 
         if "sha512" in configured:
             self.add(Extension(
                 '_sha512', ['sha512module.c'],
-                extra_compile_args=['-DPy_BUILD_CORE_MODULE'],
-                depends=['hashlib.h']
+                depends=['hashlib.h'],
             ))
 
         if "md5" in configured:
             self.add(Extension(
                 '_md5', ['md5module.c'],
-                depends=['hashlib.h']
+                depends=['hashlib.h'],
             ))
 
         if "sha1" in configured:
             self.add(Extension(
                 '_sha1', ['sha1module.c'],
-                depends=['hashlib.h']
+                depends=['hashlib.h'],
             ))
 
         if "blake2" in configured:
@@ -2538,7 +2548,7 @@ class PyBuildExt(build_ext):
                     '_blake2/blake2b_impl.c',
                     '_blake2/blake2s_impl.c'
                 ],
-                depends=blake2_deps
+                depends=blake2_deps,
             ))
 
         if "sha3" in configured:
@@ -2549,7 +2559,7 @@ class PyBuildExt(build_ext):
             self.add(Extension(
                 '_sha3',
                 ['_sha3/sha3module.c'],
-                depends=sha3_deps
+                depends=sha3_deps,
             ))
 
     def detect_nis(self):
@@ -2658,7 +2668,7 @@ class PyBuildScripts(build_scripts):
                 newfilename = filename + fullversion
             else:
                 newfilename = filename + minoronly
-            log.info('renaming %s to %s', filename, newfilename)
+            log.info(f'renaming {filename} to {newfilename}')
             os.rename(filename, newfilename)
             newoutfiles.append(newfilename)
             if filename in updated_files:
@@ -2689,7 +2699,7 @@ def main():
     setup(# PyPI Metadata (PEP 301)
           name = "Python",
           version = sys.version.split()[0],
-          url = "http://www.python.org/%d.%d" % sys.version_info[:2],
+          url = "https://www.python.org/%d.%d" % sys.version_info[:2],
           maintainer = "Guido van Rossum and the Python community",
           maintainer_email = "python-dev@python.org",
           description = "A high-level object-oriented programming language",

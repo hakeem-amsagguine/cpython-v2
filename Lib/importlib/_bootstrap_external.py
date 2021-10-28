@@ -349,6 +349,23 @@ _code_type = type(_write_atomic.__code__)
 #     Python 3.10a6 3434 (PEP 634: Structural Pattern Matching)
 #     Python 3.10a7 3435 Use instruction offsets (as opposed to byte offsets).
 #     Python 3.10b1 3436 (Add GEN_START bytecode #43683)
+#     Python 3.10b1 3437 (Undo making 'annotations' future by default - We like to dance among core devs!)
+#     Python 3.10b1 3438 Safer line number table handling.
+#     Python 3.10b1 3439 (Add ROT_N)
+#     Python 3.11a1 3450 Use exception table for unwinding ("zero cost" exception handling)
+#     Python 3.11a1 3451 (Add CALL_METHOD_KW)
+#     Python 3.11a1 3452 (drop nlocals from marshaled code objects)
+#     Python 3.11a1 3453 (add co_fastlocalnames and co_fastlocalkinds)
+#     Python 3.11a1 3454 (compute cell offsets relative to locals bpo-43693)
+#     Python 3.11a1 3455 (add MAKE_CELL bpo-43693)
+#     Python 3.11a1 3456 (interleave cell args bpo-43693)
+#     Python 3.11a1 3457 (Change localsplus to a bytes object bpo-43693)
+#     Python 3.11a1 3458 (imported objects now don't use LOAD_METHOD/CALL_METHOD)
+#     Python 3.11a1 3459 (PEP 657: add end line numbers and column offsets for instructions)
+#     Python 3.11a1 3460 (Add co_qualname field to PyCodeObject bpo-44530)
+#     Python 3.11a1 3461 (JUMP_ABSOLUTE must jump backwards)
+#     Python 3.11a2 3462 (bpo-44511: remove COPY_DICT_WITHOUT_KEYS, change
+#                         MATCH_CLASS and MATCH_KEYS, and add COPY)
 
 #
 # MAGIC must change whenever the bytecode emitted by the compiler may no
@@ -358,7 +375,7 @@ _code_type = type(_write_atomic.__code__)
 # Whenever MAGIC_NUMBER is changed, the ranges in the magic_values array
 # in PC/launcher.c must also be updated.
 
-MAGIC_NUMBER = (3436).to_bytes(2, 'little') + b'\r\n'
+MAGIC_NUMBER = (3462).to_bytes(2, 'little') + b'\r\n'
 _RAW_MAGIC_NUMBER = int.from_bytes(MAGIC_NUMBER, 'little')  # For import.c
 
 _PYCACHE = '__pycache__'
@@ -1169,7 +1186,7 @@ class ExtensionFileLoader(FileLoader, _LoaderBasics):
         return hash(self.name) ^ hash(self.path)
 
     def create_module(self, spec):
-        """Create an unitialized extension module"""
+        """Create an uninitialized extension module"""
         module = _bootstrap._call_with_frames_removed(
             _imp.create_dynamic, spec)
         _bootstrap._verbose_message('extension module {!r} loaded from {!r}',
@@ -1264,8 +1281,10 @@ class _NamespacePath:
         self._path.append(item)
 
 
-# We use this exclusively in module_from_spec() for backward-compatibility.
-class _NamespaceLoader:
+# This class is actually exposed publicly in a namespace package's __loader__
+# attribute, so it should be available through a non-private name.
+# https://bugs.python.org/issue35673
+class NamespaceLoader:
     def __init__(self, name, path, path_finder):
         self._path = _NamespacePath(name, path, path_finder)
 
@@ -1276,7 +1295,7 @@ class _NamespaceLoader:
         The method is deprecated.  The import machinery does the job itself.
 
         """
-        _warnings.warn("_NamespaceLoader.module_repr() is deprecated and "
+        _warnings.warn("NamespaceLoader.module_repr() is deprecated and "
                        "slated for removal in Python 3.12", DeprecationWarning)
         return '<module {!r} (namespace)>'.format(module.__name__)
 
@@ -1310,6 +1329,10 @@ class _NamespaceLoader:
     def get_resource_reader(self, module):
         from importlib.readers import NamespaceReader
         return NamespaceReader(self._path)
+
+
+# We use this exclusively in module_from_spec() for backward-compatibility.
+_NamespaceLoader = NamespaceLoader
 
 
 # Finders #####################################################################
