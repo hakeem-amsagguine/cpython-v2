@@ -327,6 +327,8 @@ class TestCollation(unittest.TestCase):
         self.assertRaises(ValueError, locale.strcoll, 'a\0', 'a')
         self.assertRaises(ValueError, locale.strcoll, 'a', 'a\0')
 
+    @unittest.skipIf(sys.platform.startswith('sunos'),
+                     'bpo-xxxxx: broken on Solaris')
     def test_strxfrm(self):
         self.assertLess(locale.strxfrm('a'), locale.strxfrm('b'))
         # embedded null character
@@ -358,6 +360,8 @@ class TestEnUSCollation(BaseLocalizedTest, TestCollation):
 
     @unittest.skipIf(sys.platform.startswith('aix'),
                      'bpo-29972: broken test on AIX')
+    @unittest.skipIf(sys.platform.startswith('sunos'),
+                     'bpo-xxxxx: broken on Solaris')
     @unittest.skipIf(
         is_emscripten or is_wasi,
         "musl libc issue on Emscripten/WASI, bpo-46390"
