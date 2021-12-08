@@ -458,7 +458,7 @@ def safeimport(path, forceload=0, cache={}):
 class Doc:
 
     PYTHONDOCS = os.environ.get("PYTHONDOCS",
-                                "https://docs.python.org/%d.%d/library"
+                                "https://docs.python.org/%d.%d"
                                 % sys.version_info[:2])
 
     def document(self, object, name=None, *args):
@@ -488,28 +488,33 @@ class Doc:
     def getdocloc(self, object, basedir=sysconfig.get_path('stdlib')):
         """Return the location of module docs or None"""
 
+        if not inspect.ismodule(object):
+            return None
+
+        try:
+            from pydoc_data.topics import modules
+        except ImportError:
+            return None
+
+        if object.__name__ not in modules:
+            return None
+
         try:
             file = inspect.getabsfile(object)
         except TypeError:
             file = '(built-in)'
 
-        docloc = os.environ.get("PYTHONDOCS", self.PYTHONDOCS)
+        if 'site-packages' in file:
+            # XXX: Maybe we could add a hook for including a documentation URL?
+            return None
 
-        basedir = os.path.normcase(basedir)
-        if (isinstance(object, type(os)) and
-            (object.__name__ in ('errno', 'exceptions', 'gc', 'imp',
-                                 'marshal', 'posix', 'signal', 'sys',
-                                 '_thread', 'zipimport') or
-             (file.startswith(basedir) and
-              not file.startswith(os.path.join(basedir, 'site-packages')))) and
-            object.__name__ not in ('xml.etree', 'test.pydoc_mod')):
-            if docloc.startswith(("http://", "https://")):
-                docloc = "{}/{}.html".format(docloc.rstrip("/"), object.__name__.lower())
-            else:
-                docloc = os.path.join(docloc, object.__name__.lower() + ".html")
-        else:
-            docloc = None
-        return docloc
+        docloc = os.environ.get("PYTHONDOCS", self.PYTHONDOCS)
+        html_file = modules[object.__name__] + '.html'
+
+        if docloc.startswith('http'):
+            return f'{docloc.rstrip("/")}/{html_file}'
+        return os.path.join(docloc, html_file)
+
 
 # -------------------------------------------- HTML documentation generator
 
