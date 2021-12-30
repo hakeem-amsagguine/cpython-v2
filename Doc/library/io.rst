@@ -1038,6 +1038,13 @@ Text I/O
       .. versionadded:: 3.7
 
 
+   Example usage::
+
+      # docoding newlines for universal newlines mode.
+      >>> import io
+      >>> io.TextIOWrapper(io.BytesIO(b'1\r\n2\r3\n4')).read()
+      '1\n2\n3\n4'
+
 .. class:: StringIO(initial_value='', newline='\\n')
 
    A text stream using an in-memory text buffer.  It inherits
@@ -1080,15 +1087,50 @@ Text I/O
       # .getvalue() will now raise an exception.
       output.close()
 
+      # docoding newlines for universal newlines mode.
+      io.StringIO('1\r\n2\r3\n4', newline=None).getvalue()
+      # '1\n2\n3\n4'
+
 
 .. index::
    single: universal newlines; io.IncrementalNewlineDecoder class
 
-.. class:: IncrementalNewlineDecoder
+.. class:: IncrementalNewlineDecoder(decoder, translate, errors='strict')
 
    A helper codec that decodes newlines for :term:`universal newlines` mode.
-   It inherits :class:`codecs.IncrementalDecoder`.
+   It inherits :class:`codecs.IncrementalDecoder`. It also records the types
+   of newlines encountered. When used with ``translate=False``, it ensures
+   that the newline sequence is returned in one piece. If an incremental
+   decoder is not required, :class:`TextIOWrapper` or :class:`StringIO`
+   should be used.
 
+   *decoder* is an incremental decoder or ``None``. If set to ``None`` it
+   decodes strings.
+
+   If *translate* is set to true, translate ``'\r\n'`` and ``'\r'`` into
+   ``'\n'``.
+
+   The *errors* argument works like that of
+   :class:`codecs.IncrementalDecoder`.
+
+   .. attribute:: newlines
+
+      a tuple of types of newlines encountered, or the newline if only
+      one type of newline is found.
+
+
+   Example usage::
+
+        >>> import codecs
+        >>> import io
+        >>> idec = codecs.getincrementaldecoder("utf-8")()
+        >>> inld = io.IncrementalNewlineDecoder(idec, True)
+        >>> inld.decode(b'1\r')
+        '1'
+        >>> inld.decode(b'\n2\n')
+        '\n2\n'
+        >>> inld.decode(b'3\r', final=True)
+        '3\n'
 
 Performance
 -----------
