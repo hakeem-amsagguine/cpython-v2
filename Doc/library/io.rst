@@ -1040,7 +1040,7 @@ Text I/O
 
    Example usage::
 
-      # docoding newlines for universal newlines mode.
+      # decoding newlines for universal newlines mode
       >>> import io
       >>> io.TextIOWrapper(io.BytesIO(b'1\r\n2\r3\n4')).read()
       '1\n2\n3\n4'
