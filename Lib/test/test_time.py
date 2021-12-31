@@ -159,6 +159,11 @@ class TimeTestCase(unittest.TestCase):
         self.assertRaises(ValueError, time.sleep, -1)
         time.sleep(1.2)
 
+    def test_sleep_invalid(self):
+        with self.assertRaisesRegex(
+                TypeError, 'an integer or float is required'):
+            time.sleep('foo')
+
     def test_strftime(self):
         tt = time.gmtime(self.t)
         for directive in ('a', 'A', 'b', 'B', 'c', 'd', 'H', 'I',
