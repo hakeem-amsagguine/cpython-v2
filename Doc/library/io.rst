@@ -1124,7 +1124,7 @@ Text I/O
         >>> import codecs
         >>> import io
         >>> idec = codecs.getincrementaldecoder("utf-8")()
-        >>> inld = io.IncrementalNewlineDecoder(idec, True)
+        >>> inld = io.IncrementalNewlineDecoder(idec, translate=True)
         >>> inld.decode(b'1\r')
         '1'
         >>> inld.decode(b'\n2\n')
