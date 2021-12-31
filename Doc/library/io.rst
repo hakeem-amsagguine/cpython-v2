@@ -1087,7 +1087,7 @@ Text I/O
       # .getvalue() will now raise an exception.
       output.close()
 
-      # docoding newlines for universal newlines mode.
+      # decoding newlines in universal newlines mode
       io.StringIO('1\r\n2\r3\n4', newline=None).getvalue()
       # '1\n2\n3\n4'
 
