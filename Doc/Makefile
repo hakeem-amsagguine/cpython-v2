@@ -217,7 +217,7 @@ check:
 	$(PYTHON) tools/rstlint.py ../Misc/NEWS.d/next/
 
 serve:
-	$(PYTHON) ../Tools/scripts/serve.py build/html
+	$(PYTHON) -m http.server -d build/html
 
 # Targets for daily automated doc build
 # By default, Sphinx only rebuilds pages where the page content has changed.
