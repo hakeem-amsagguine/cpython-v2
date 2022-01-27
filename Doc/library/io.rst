@@ -1116,9 +1116,9 @@ Text I/O
    .. attribute:: newlines
 
       a tuple of types of newlines encountered, or the newline if only
-      one type of newline is found. The possible values are 
+      one type of newline is found. The possible values are
       ``None``, ``'\n'``, ``'\r'``, ``('\r', '\n')``, ``'\r\n'``,
-      ``('\n', '\r\n')``, ``('\r', '\r\n')`` and 
+      ``('\n', '\r\n')``, ``('\r', '\r\n')`` and
       ``('\r', '\n', '\r\n') ``.
 
 
