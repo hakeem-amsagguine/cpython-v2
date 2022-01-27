@@ -1119,7 +1119,7 @@ Text I/O
       one type of newline is found. The possible values are
       ``None``, ``'\n'``, ``'\r'``, ``('\r', '\n')``, ``'\r\n'``,
       ``('\n', '\r\n')``, ``('\r', '\r\n')`` and
-      ``('\r', '\n', '\r\n') ``.
+      ``('\r', '\n', '\r\n')``.
 
 
    Example usage::
