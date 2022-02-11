@@ -1,0 +1,1 @@
+Add ``IP_PORTRANGE*`` constants to the the ``socket`` module on supporting systems.
