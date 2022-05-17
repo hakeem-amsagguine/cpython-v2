@@ -74,6 +74,9 @@ def decode_header(header):
 
     An email.errors.HeaderParseError may be raised when certain decoding error
     occurs (e.g. a base64 decoding exception).
+
+    This function exists for backwards compatibility only. For new code, we
+    recommend using decode_header_to_string instead.
     """
     # If it is a Header object, we can just return the encoded chunks.
     if hasattr(header, '_chunks'):
@@ -153,6 +156,23 @@ def decode_header(header):
             last_word += word
     collapsed.append((last_word, last_charset))
     return collapsed
+
+
+
+def decode_header_to_string(header):
+    """Decode a message header into a string.
+
+    header may be a string that may or may not contain RFC2047 encoded words,
+    or it may be a Header object; in the latter case, this is equivalent to
+    str(header).
+
+    An email.errors.HeaderParseError may be raised when certain decoding error
+    occurs (e.g. a base64 decoding exception).
+    """
+
+    if not isinstance(header, Header):
+        header = make_header(decode_header(header))
+    return str(header)
 
 
 

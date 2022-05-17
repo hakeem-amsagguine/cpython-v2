@@ -19,7 +19,7 @@ import email
 import email.policy
 
 from email.charset import Charset
-from email.header import Header, decode_header, make_header
+from email.header import Header, decode_header, decode_header_to_string, make_header
 from email.parser import Parser, HeaderParser
 from email.generator import Generator, DecodedGenerator, BytesGenerator
 from email.message import Message
@@ -2475,6 +2475,17 @@ Re: =?mac-iceland?q?r=8Aksm=9Arg=8Cs?= baz foo bar =?mac-iceland?q?r=8Aksm?=
         s = 'header with unexpected non ASCII caract\xe8res'
         self.assertEqual(decode_header(s),
             [('header with unexpected non ASCII caract\xe8res', None)])
+
+    def test_decode_header_to_string_from_string(self):
+        s = '=?windows-1252?q?=22M=FCller_T=22?=\r\n <T.Mueller@xxx.com>'
+        self.assertEqual(str(make_header(decode_header(s))),
+            decode_header_to_string(s))
+
+    def test_decode_header_to_string_from_header_obj(self):
+        s = '\xeatre'
+        h = Header(s)
+        self.assertEqual(str(h),
+            decode_header_to_string(h))
 
 
 # Test the MIMEMessage class

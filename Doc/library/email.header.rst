@@ -173,6 +173,38 @@ Here is the :class:`Header` class description:
 The :mod:`email.header` module also provides the following convenient functions.
 
 
+.. function:: decode_header_to_string(header)
+
+   Decode a message header value to a Unicode string, including handling
+   portions encoded according to :rfc:`2047`.
+
+   An :exc:`classemail.errors.HeaderParseError` may be raised when
+   certain decoding errors occur (e.g. a base64 decoding exception).
+
+   Here are examples:
+
+      >>> from email.header import decode_header_to_string
+      >>> decode_header_to_string('=?iso-8859-1?q?p=F6stal?=')
+      'p\xf6stal'
+      >>> decode_header_to_string('unencoded_string')
+      'unencoded_string'
+      >>> decode_header_to_string('bar =?utf-8?B?ZsOzbw==?=')
+      'bar f\xf3o'
+
+
+.. function:: make_header(decoded_seq, maxlinelen=None, header_name=None, continuation_ws=' ')
+
+   Create a :class:`Header` instance from a sequence of pairs as returned by
+   :func:`decode_header`.
+
+   :func:`decode_header` takes a header value string and returns a sequence of
+   pairs of the format ``(decoded_string, charset)`` where *charset* is the name of
+   the character set.
+
+   This function takes one of those sequence of pairs and returns a
+   :class:`Header` instance.  Optional *maxlinelen*, *header_name*, and
+   *continuation_ws* are as in the :class:`Header` constructor.
+
 
 .. function:: decode_header(header)
 
@@ -202,16 +234,7 @@ The :mod:`email.header` module also provides the following convenient functions.
       >>> decode_header('bar =?utf-8?B?ZsOzbw==?=')
       [(b'bar ', None), (b'f\xc3\xb3o', 'utf-8')]
 
+   .. note::
 
-.. function:: make_header(decoded_seq, maxlinelen=None, header_name=None, continuation_ws=' ')
-
-   Create a :class:`Header` instance from a sequence of pairs as returned by
-   :func:`decode_header`.
-
-   :func:`decode_header` takes a header value string and returns a sequence of
-   pairs of the format ``(decoded_string, charset)`` where *charset* is the name of
-   the character set.
-
-   This function takes one of those sequence of pairs and returns a
-   :class:`Header` instance.  Optional *maxlinelen*, *header_name*, and
-   *continuation_ws* are as in the :class:`Header` constructor.
+      This function exists for for backwards compatibility only. For
+      new code we recommend using :mod:`email.header.decode_header_to_string`.
