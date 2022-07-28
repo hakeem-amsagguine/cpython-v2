@@ -784,7 +784,7 @@ class ProcessPoolExecutor(_base.Executor):
             return f
     submit.__doc__ = _base.Executor.submit.__doc__
 
-    def map(self, fn, *iterables, timeout=None, chunksize=1):
+    def map(self, fn, *iterables, timeout=None, chunksize=1, prefetch=None):
         """Returns an iterator equivalent to map(fn, iter).
 
         Args:
@@ -795,6 +795,8 @@ class ProcessPoolExecutor(_base.Executor):
             chunksize: If greater than one, the iterables will be chopped into
                 chunks of size chunksize and submitted to the process pool.
                 If set to one, the items in the list will be sent one at a time.
+            prefetch: The number of chunks to queue beyond the number of
+                workers on the executor. If None, a reasonable default is used.
 
         Returns:
             An iterator equivalent to: map(func, *iterables) but the calls may
@@ -810,7 +812,7 @@ class ProcessPoolExecutor(_base.Executor):
 
         results = super().map(partial(_process_chunk, fn),
                               _get_chunks(*iterables, chunksize=chunksize),
-                              timeout=timeout)
+                              timeout=timeout, prefetch=prefetch)
         return _chain_from_iterable_of_lists(results)
 
     def shutdown(self, wait=True, *, cancel_futures=False):

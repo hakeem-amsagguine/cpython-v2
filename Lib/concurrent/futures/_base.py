@@ -4,6 +4,7 @@
 __author__ = 'Brian Quinlan (brian@sweetapp.com)'
 
 import collections
+import itertools
 import logging
 import threading
 import time
@@ -568,7 +569,7 @@ class Executor(object):
         """
         raise NotImplementedError()
 
-    def map(self, fn, *iterables, timeout=None, chunksize=1):
+    def map(self, fn, *iterables, timeout=None, chunksize=1, prefetch=None):
         """Returns an iterator equivalent to map(fn, iter).
 
         Args:
@@ -580,6 +581,8 @@ class Executor(object):
                 before being passed to a child process. This argument is only
                 used by ProcessPoolExecutor; it is ignored by
                 ThreadPoolExecutor.
+            prefetch: The number of chunks to queue beyond the number of
+                workers on the executor. If None, a reasonable default is used.
 
         Returns:
             An iterator equivalent to: map(func, *iterables) but the calls may
@@ -592,21 +595,38 @@ class Executor(object):
         """
         if timeout is not None:
             end_time = timeout + time.monotonic()
+        if prefetch is None:
+            prefetch = self._max_workers
+        if prefetch < 0:
+            raise ValueError("prefetch count may not be negative")
 
-        fs = [self.submit(fn, *args) for args in zip(*iterables)]
+        argsiter = zip(*iterables)
+        initialargs = itertools.islice(argsiter, self._max_workers + prefetch)
+
+        fs = collections.deque(self.submit(fn, *args) for args in initialargs)
 
         # Yield must be hidden in closure so that the futures are submitted
         # before the first iterator value is required.
         def result_iterator():
+            nonlocal argsiter
             try:
-                # reverse to keep finishing order
-                fs.reverse()
                 while fs:
-                    # Careful not to keep a reference to the popped future
                     if timeout is None:
-                        yield fs.pop().result()
+                        res = fs.popleft().result()
                     else:
-                        yield fs.pop().result(end_time - time.monotonic())
+                        res = fs.popleft().result(end_time - time.monotonic())
+
+                    # Dispatch next task before yielding to keep
+                    # pipeline full
+                    if argsiter:
+                        try:
+                            args = next(argsiter)
+                        except StopIteration:
+                            argsiter = None
+                        else:
+                            fs.append(self.submit(fn, *args))
+
+                    yield res
             finally:
                 for future in fs:
                     future.cancel()
