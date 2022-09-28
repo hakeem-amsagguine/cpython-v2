@@ -427,6 +427,8 @@ def _default_mime_types():
     # Make sure the entry with the preferred file extension for a particular mime type
     # appears before any others of the same mimetype.
     types_map = _types_map_default = {
+        '.woff'   : 'application/font-woff',
+        '.woff2'  : 'application/font-woff2',
         '.js'     : 'application/javascript',
         '.mjs'    : 'application/javascript',
         '.json'   : 'application/json',
@@ -454,6 +456,7 @@ def _default_mime_types():
         '.m3u8'   : 'application/vnd.apple.mpegurl',
         '.xls'    : 'application/vnd.ms-excel',
         '.xlb'    : 'application/vnd.ms-excel',
+        '.eot'    : 'application/vnd.ms-font',
         '.ppt'    : 'application/vnd.ms-powerpoint',
         '.pot'    : 'application/vnd.ms-powerpoint',
         '.ppa'    : 'application/vnd.ms-powerpoint',
@@ -464,6 +467,8 @@ def _default_mime_types():
         '.cpio'   : 'application/x-cpio',
         '.csh'    : 'application/x-csh',
         '.dvi'    : 'application/x-dvi',
+        '.otf'    : 'application/x-font-opentype',
+        '.ttf'    : 'application/x-font-ttf',
         '.gtar'   : 'application/x-gtar',
         '.hdf'    : 'application/x-hdf',
         '.h5'     : 'application/x-hdf5',
