@@ -343,18 +343,14 @@ class EmbeddingTests(EmbeddingTestsMixin, unittest.TestCase):
     def test_quickened_static_code_gets_unquickened_at_Py_FINALIZE(self):
         # https://github.com/python/cpython/issues/92031
 
-        # Do these imports outside of the code string to avoid using
-        # importlib too much from within the code string, so that
-        # _handle_fromlist doesn't get quickened until we intend it to.
         from dis import _all_opmap
         resume = _all_opmap["RESUME"]
         resume_quick = _all_opmap["RESUME_QUICK"]
         from test.test_dis import QUICKENING_WARMUP_DELAY
 
         code = textwrap.dedent(f"""\
-            import importlib._bootstrap
-            func = importlib._bootstrap._handle_fromlist
-            code = func.__code__
+            from __phello__.spam import main
+            code = main.__code__
 
             # Assert initially unquickened.
             # Use sets to account for byte order.
@@ -362,7 +358,7 @@ class EmbeddingTests(EmbeddingTestsMixin, unittest.TestCase):
                 raise AssertionError()
 
             for i in range({QUICKENING_WARMUP_DELAY}):
-                func(importlib._bootstrap, ["x"], lambda *args: None)
+                main()
 
             # Assert quickening worked
             if set(code._co_code_adaptive[:2]) != set([{resume_quick}, 0]):
@@ -372,7 +368,8 @@ class EmbeddingTests(EmbeddingTestsMixin, unittest.TestCase):
         """)
         run = self.run_embedded_interpreter
         out, err = run("test_repeated_init_exec", code)
-        self.assertEqual(out, 'Tests passed\n' * INIT_LOOPS)
+        result = "Hello world!\n" * QUICKENING_WARMUP_DELAY + "Tests passed\n"
+        self.assertEqual(out, result * INIT_LOOPS)
 
     def test_ucnhash_capi_reset(self):
         # bpo-47182: unicodeobject.c:ucnhash_capi was not reset on shutdown.
