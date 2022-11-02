@@ -470,10 +470,17 @@ extern char        *ctermid_r(char *);
 #  define LSTAT win32_lstat
 #  define FSTAT _Py_fstat_noraise
 #  define STRUCT_STAT struct _Py_stat_struct
+#elif defined(HAVE_LINUX_STATX)
+#  define STAT linux_stat
+#  define LSTAT linux_lstat
+#  define FSTAT linux_fstat
+#  define FSTATAT linux_fstatat
+#  define STRUCT_STAT struct statx
 #else
 #  define STAT stat
 #  define LSTAT lstat
 #  define FSTAT fstat
+#  define FSTATAT fstatat
 #  define STRUCT_STAT struct stat
 #endif
 
@@ -2048,6 +2055,45 @@ win32_stat(const wchar_t* path, struct _Py_stat_struct *result)
 
 #endif /* MS_WINDOWS */
 
+
+#ifdef HAVE_LINUX_STATX
+
+#ifdef STATX_MNT_ID  // Added in Linux 5.8
+#  define _PY_STATX_MNT_ID STATX_MNT_ID
+#else
+#  define _PY_STATX_MNT_ID 0x00001000U
+#endif
+
+// Extend this list when adding support for new Linux statx fields
+#define LINUX_STATX_MASK STATX_BASIC_STATS | STATX_BTIME | _PY_STATX_MNT_ID
+
+static int
+linux_stat(const char* path, struct statx* result)
+{
+    return statx(AT_FDCWD, path, 0, LINUX_STATX_MASK, result);
+}
+
+static int
+linux_lstat(const char* path, struct statx* result)
+{
+    return statx(AT_FDCWD, path, AT_SYMLINK_NOFOLLOW, LINUX_STATX_MASK, result);
+}
+
+static int
+linux_fstat(int fd, struct statx* result)
+{
+    return statx(fd, "", AT_EMPTY_PATH, LINUX_STATX_MASK, result);
+}
+
+static int
+linux_fstatat(int dirfd, const char* path, struct statx* result, int flags)
+{
+    return statx(dirfd, path, flags, LINUX_STATX_MASK, result);
+}
+
+#endif /* HAVE_LINUX_STATX */
+
+
 PyDoc_STRVAR(stat_result__doc__,
 "stat_result: Result from stat, fstat, or lstat.\n\n\
 This object may be accessed either as a tuple of\n\
@@ -2074,9 +2120,12 @@ static PyStructSequence_Field stat_result_fields[] = {
     {"st_atime",   "time of last access"},
     {"st_mtime",   "time of last modification"},
     {"st_ctime",   "time of last change"},
+    {"st_btime",   "time of creation"},
     {"st_atime_ns",   "time of last access in nanoseconds"},
     {"st_mtime_ns",   "time of last modification in nanoseconds"},
     {"st_ctime_ns",   "time of last change in nanoseconds"},
+    {"st_btime_ns",   "time of creation in nanoseconds"},
+    {"st_flags",   "user defined flags for file"},
 #ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
     {"st_blksize", "blocksize for filesystem I/O"},
 #endif
@@ -2085,9 +2134,6 @@ static PyStructSequence_Field stat_result_fields[] = {
 #endif
 #ifdef HAVE_STRUCT_STAT_ST_RDEV
     {"st_rdev",    "device type (if inode device)"},
-#endif
-#ifdef HAVE_STRUCT_STAT_ST_FLAGS
-    {"st_flags",   "user defined flags for file"},
 #endif
 #ifdef HAVE_STRUCT_STAT_ST_GEN
     {"st_gen",    "generation number"},
@@ -2104,13 +2150,18 @@ static PyStructSequence_Field stat_result_fields[] = {
 #ifdef HAVE_STRUCT_STAT_ST_REPARSE_TAG
     {"st_reparse_tag", "Windows reparse tag"},
 #endif
+#ifdef HAVE_LINUX_STATX
+    {"st_attributes", "Linux file attribute bits"},
+    {"st_attributes_mask", "Linux supported file attribute bits on this filesystem"},
+    {"st_mnt_id", "Linux mount ID of the mount containing the file"},
+#endif
     {0}
 };
 
 #ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
-#define ST_BLKSIZE_IDX 16
+#define ST_BLKSIZE_IDX 19
 #else
-#define ST_BLKSIZE_IDX 15
+#define ST_BLKSIZE_IDX 18
 #endif
 
 #ifdef HAVE_STRUCT_STAT_ST_BLOCKS
@@ -2125,16 +2176,10 @@ static PyStructSequence_Field stat_result_fields[] = {
 #define ST_RDEV_IDX ST_BLOCKS_IDX
 #endif
 
-#ifdef HAVE_STRUCT_STAT_ST_FLAGS
-#define ST_FLAGS_IDX (ST_RDEV_IDX+1)
-#else
-#define ST_FLAGS_IDX ST_RDEV_IDX
-#endif
-
 #ifdef HAVE_STRUCT_STAT_ST_GEN
-#define ST_GEN_IDX (ST_FLAGS_IDX+1)
+#define ST_GEN_IDX (ST_RDEV_IDX+1)
 #else
-#define ST_GEN_IDX ST_FLAGS_IDX
+#define ST_GEN_IDX ST_RDEV_IDX
 #endif
 
 #ifdef HAVE_STRUCT_STAT_ST_BIRTHTIME
@@ -2159,6 +2204,16 @@ static PyStructSequence_Field stat_result_fields[] = {
 #define ST_REPARSE_TAG_IDX (ST_FSTYPE_IDX+1)
 #else
 #define ST_REPARSE_TAG_IDX ST_FSTYPE_IDX
+#endif
+
+#ifdef HAVE_LINUX_STATX
+#define ST_ATTRIBUTES_IDX (ST_REPARSE_TAG_IDX+1)
+#define ST_ATTRIBUTES_MASK_IDX (ST_REPARSE_TAG_IDX+2)
+#define ST_MNT_ID_IDX (ST_REPARSE_TAG_IDX+3)
+#else
+#define ST_ATTRIBUTES_IDX ST_REPARSE_TAG_IDX
+#define ST_ATTRIBUTES_MASK_IDX ST_REPARSE_TAG_IDX
+#define ST_MNT_ID_IDX ST_REPARSE_TAG_IDX
 #endif
 
 static PyStructSequence_Desc stat_result_desc = {
@@ -2304,7 +2359,8 @@ _posix_free(void *module)
 }
 
 static void
-fill_time(PyObject *module, PyObject *v, int index, time_t sec, unsigned long nsec)
+fill_time(PyObject *module, PyObject *v, int index1, int index2, int index3,
+          time_t sec, unsigned long nsec)
 {
     PyObject *s = _PyLong_FromTime_t(sec);
     PyObject *ns_fractional = PyLong_FromUnsignedLong(nsec);
@@ -2328,10 +2384,12 @@ fill_time(PyObject *module, PyObject *v, int index, time_t sec, unsigned long ns
         goto exit;
     }
 
-    PyStructSequence_SET_ITEM(v, index, s);
-    PyStructSequence_SET_ITEM(v, index+3, float_s);
-    PyStructSequence_SET_ITEM(v, index+6, ns_total);
-    s = NULL;
+    if(index1 >= 0) {
+        PyStructSequence_SET_ITEM(v, index1, s);
+        s = NULL;
+    }
+    PyStructSequence_SET_ITEM(v, index2, float_s);
+    PyStructSequence_SET_ITEM(v, index3, ns_total);
     float_s = NULL;
     ns_total = NULL;
 exit:
@@ -2342,12 +2400,137 @@ exit:
     Py_XDECREF(float_s);
 }
 
+#ifdef HAVE_LINUX_STATX
+
+/* pack a system statx C structure into the Python stat tuple
+   (used by posix_stat() and posix_fstat()) */
+static PyObject*
+_pystat_fromstructstat(PyObject *module, struct statx* stx)
+{
+    unsigned long long attributes;
+    long flags;
+    PyObject *StatResultType = get_posix_state(module)->StatResultType;
+    PyObject *v = PyStructSequence_New((PyTypeObject *)StatResultType);
+    if (v == NULL)
+        return NULL;
+
+    if(stx->stx_mask & STATX_TYPE) {
+        PyStructSequence_SET_ITEM(v, 0, PyLong_FromLong((long)stx->stx_mode));
+    }
+    if(stx->stx_mask & STATX_INO) {
+        Py_BUILD_ASSERT(sizeof(unsigned long long) >= sizeof(stx->stx_ino));
+        PyStructSequence_SET_ITEM(v, 1, PyLong_FromUnsignedLongLong(stx->stx_ino));
+    }
+    PyStructSequence_SET_ITEM(v, 2, _PyLong_FromDev(makedev(stx->stx_dev_major, stx->stx_dev_minor)));
+    if(stx->stx_mask & STATX_NLINK) {
+        PyStructSequence_SET_ITEM(v, 3, PyLong_FromLong((long)stx->stx_nlink));
+    }
+    if(stx->stx_mask & STATX_UID) {
+        PyStructSequence_SET_ITEM(v, 4, _PyLong_FromUid(stx->stx_uid));
+    }
+    if(stx->stx_mask & STATX_GID) {
+        PyStructSequence_SET_ITEM(v, 5, _PyLong_FromGid(stx->stx_gid));
+    }
+    Py_BUILD_ASSERT(sizeof(long long) >= sizeof(stx->stx_size));
+    PyStructSequence_SET_ITEM(v, 6, PyLong_FromLongLong(stx->stx_size));
+
+    if(stx->stx_mask & STATX_ATIME) {
+        fill_time(module, v, 7, 10, 14, stx->stx_atime.tv_sec, stx->stx_atime.tv_nsec);
+    }
+    if(stx->stx_mask & STATX_MTIME) {
+        fill_time(module, v, 8, 11, 15, stx->stx_mtime.tv_sec, stx->stx_mtime.tv_nsec);
+    }
+    if(stx->stx_mask & STATX_CTIME) {
+        fill_time(module, v, 9, 12, 16, stx->stx_ctime.tv_sec, stx->stx_ctime.tv_nsec);
+    }
+    if(stx->stx_mask & STATX_BTIME) {
+        fill_time(module, v, -1, 13, 17, stx->stx_btime.tv_sec, stx->stx_btime.tv_nsec);
+    }
+
+    attributes = stx->stx_attributes & stx->stx_attributes_mask;
+    PyStructSequence_SET_ITEM(v, ST_ATTRIBUTES_IDX,
+                              PyLong_FromUnsignedLongLong(attributes));
+    PyStructSequence_SET_ITEM(v, ST_ATTRIBUTES_MASK_IDX,
+                              PyLong_FromUnsignedLongLong(stx->stx_attributes_mask));
+
+    // Map statx flags to BSD flags
+    //
+    // The constants used here are not defined on Linux but are available to
+    // Python users through the "stat" module. In general, try to follow
+    // FreeBSD semantics when adding a mapping here and refrain from mapping
+    // attributes that don't have an obvious equivalent.
+    flags = 0;
+    if(attributes & STATX_ATTR_COMPRESSED) {
+        flags |= 0x00000020; // UF_COMPRESSED
+    }
+    if(attributes & STATX_ATTR_IMMUTABLE) {
+        flags |= 0x00020000; // SF_IMMUTABLE
+    }
+    if(attributes & STATX_ATTR_APPEND) {
+        flags |= 0x00040000; // SF_APPEND
+    }
+    if(attributes & STATX_ATTR_NODUMP) {
+        flags |= 0x00000001; // UF_NODUMP
+    }
+    if(attributes & STATX_ATTR_ENCRYPTED) {
+        flags |= 0x00002000; // UF_ENCRYPTED
+    }
+    // Note: There is nothing in the FreeBSD disk flags list resembling
+    // `STATX_ATTR_VERITY` or `STATX_ATTR_DAX`, so leave these unmapped.
+    //
+    // In addition (as of Linux 5.19), `STATX_ATTR_DAX` does not ever appear
+    // to be reported when querying on-disk files that previously had the
+    // corresponding "x" flag set using `chattr(1)`, so even if FreeBSD adds
+    // a corresponding flag mapping it would likely be of little use.
+    //
+    // If these flags ever need to be mapped, remember to add a compatibility
+    // define for them next to the definition of `LINUX_STATX_MASK`, to ensure
+    // builds will continue working on older C library versions.
+    PyStructSequence_SET_ITEM(v, 18, PyLong_FromLong(flags));
+
+    PyStructSequence_SET_ITEM(v, ST_BLKSIZE_IDX,
+                              PyLong_FromLong((long)stx->stx_blksize));
+    if(stx->stx_mask & STATX_BLOCKS) {
+        PyStructSequence_SET_ITEM(v, ST_BLOCKS_IDX,
+                                  PyLong_FromLong((long)stx->stx_blocks));
+    }
+
+    PyStructSequence_SET_ITEM(v, ST_RDEV_IDX,
+                              _PyLong_FromDev(makedev(stx->stx_rdev_major, stx->stx_rdev_minor)));
+
+    if(stx->stx_mask & _PY_STATX_MNT_ID) {
+        PyStructSequence_SET_ITEM(v, ST_MNT_ID_IDX, PyLong_FromUnsignedLongLong(
+#ifdef STATX_MNT_ID
+            stx->stx_mnt_id
+#else
+            // `stx_mnt_id` is the next 64-bit field following `stx_dev_minor`
+            //
+            // It is safe to assume its going to be there even if the C library
+            // does not support it yet, since the size of `struct statx` is
+            // constant and value presence is only indicated by the kernel in
+            // the `stx_mask` field queried above if the field is actually
+            // supported and was set.
+            *((unsigned long long *) ((&stx->stx_dev_minor) + 1))
+#endif  /* STATX_MNT_ID */
+        ));
+    }
+
+    if (PyErr_Occurred()) {
+        Py_DECREF(v);
+        return NULL;
+    }
+
+    return v;
+}
+
+#else /* HAVE_LINUX_STATX */
+
 /* pack a system stat C structure into the Python stat tuple
    (used by posix_stat() and posix_fstat()) */
 static PyObject*
 _pystat_fromstructstat(PyObject *module, STRUCT_STAT *st)
 {
-    unsigned long ansec, mnsec, cnsec;
+    unsigned long ansec, mnsec, cnsec, flags;
     PyObject *StatResultType = get_posix_state(module)->StatResultType;
     PyObject *v = PyStructSequence_New((PyTypeObject *)StatResultType);
     if (v == NULL)
@@ -2389,9 +2572,48 @@ _pystat_fromstructstat(PyObject *module, STRUCT_STAT *st)
 #else
     ansec = mnsec = cnsec = 0;
 #endif
-    fill_time(module, v, 7, st->st_atime, ansec);
-    fill_time(module, v, 8, st->st_mtime, mnsec);
-    fill_time(module, v, 9, st->st_ctime, cnsec);
+    fill_time(module, v, 7, 10, 14, st->st_atime, ansec);
+    fill_time(module, v, 8, 11, 15, st->st_mtime, mnsec);
+    fill_time(module, v, 9, 12, 16, st->st_ctime, cnsec);
+
+#ifdef MS_WINDOWS
+    // CTime is BTime on Windows
+    fill_time(module, v, -1, 13, 17, st->st_ctime, cnsec);
+#endif
+
+    flags = 0;
+#if defined(HAVE_STRUCT_STAT_ST_FLAGS)
+    flags = (long)st->st_flags;
+#elif defined(HAVE_STRUCT_STAT_ST_FILE_ATTRIBUTES)
+    if(st->st_file_attributes & FILE_ATTRIBUTE_ARCHIVE) {
+        flags |= 0x00000800; // UF_ARCHIVE
+    }
+    if(st->st_file_attributes & FILE_ATTRIBUTE_COMPRESSED) {
+        flags |= 0x00000020; // UF_COMPRESSED
+    }
+    if(st->st_file_attributes & FILE_ATTRIBUTE_ENCRYPTED) {
+        flags |= 0x00002000; // UF_ENCRYPTED
+    }
+    if(st->st_file_attributes & FILE_ATTRIBUTE_HIDDEN) {
+        flags |= 0x00008000; // UF_HIDDEN
+    }
+    if(st->st_file_attributes & FILE_ATTRIBUTE_OFFLINE) {
+        flags |= 0x00000200; // UF_OFFLINE
+    }
+    if(st->st_file_attributes & FILE_ATTRIBUTE_READONLY) {
+        flags |= 0x00001000; // UF_READONLY
+    }
+    if(st->st_file_attributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+        flags |= 0x00000400; // UF_REPARSE
+    }
+    if(st->st_file_attributes & FILE_ATTRIBUTE_SPARSE_FILE) {
+        flags |= 0x00000100; // UF_SPARSE
+    }
+    if(st->st_file_attributes & FILE_ATTRIBUTE_SYSTEM) {
+        flags |= 0x00000080; // UF_SYSTEM
+    }
+#endif
+    PyStructSequence_SET_ITEM(v, 18, PyLong_FromLong(flags));
 
 #ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
     PyStructSequence_SET_ITEM(v, ST_BLKSIZE_IDX,
@@ -2420,13 +2642,12 @@ _pystat_fromstructstat(PyObject *module, STRUCT_STAT *st)
       bnsec = 0;
 #endif
       val = PyFloat_FromDouble(bsec + 1e-9*bnsec);
-      PyStructSequence_SET_ITEM(v, ST_BIRTHTIME_IDX,
-                                val);
+      PyStructSequence_SET_ITEM(v, ST_BIRTHTIME_IDX, val);
+
+      // Also use this value as BTime, but keep the older name for
+      // compatiblity on these platforms
+      fill_time(module, v, -1, 13, 17, bsec, bnsec);
     }
-#endif
-#ifdef HAVE_STRUCT_STAT_ST_FLAGS
-    PyStructSequence_SET_ITEM(v, ST_FLAGS_IDX,
-                              PyLong_FromLong((long)st->st_flags));
 #endif
 #ifdef HAVE_STRUCT_STAT_ST_FILE_ATTRIBUTES
     PyStructSequence_SET_ITEM(v, ST_FILE_ATTRIBUTES_IDX,
@@ -2448,6 +2669,8 @@ _pystat_fromstructstat(PyObject *module, STRUCT_STAT *st)
 
     return v;
 }
+
+#endif /* !HAVE_LINUX_STATX */
 
 /* POSIX methods */
 
@@ -2491,7 +2714,7 @@ posix_do_stat(PyObject *module, const char *function_name, path_t *path,
 #ifdef HAVE_FSTATAT
     if ((dir_fd != DEFAULT_DIR_FD) || !follow_symlinks) {
         if (HAVE_FSTATAT_RUNTIME) {
-            result = fstatat(dir_fd, path->narrow, &st,
+            result = FSTATAT(dir_fd, path->narrow, &st,
                          follow_symlinks ? 0 : AT_SYMLINK_NOFOLLOW);
 
         } else {
@@ -13646,7 +13869,7 @@ DirEntry_fetch_stat(PyObject *module, DirEntry *self, int follow_symlinks)
 #ifdef HAVE_FSTATAT
       if (HAVE_FSTATAT_RUNTIME) {
         Py_BEGIN_ALLOW_THREADS
-        result = fstatat(self->dir_fd, path, &st,
+        result = FSTATAT(self->dir_fd, path, &st,
                          follow_symlinks ? 0 : AT_SYMLINK_NOFOLLOW);
         Py_END_ALLOW_THREADS
       } else
