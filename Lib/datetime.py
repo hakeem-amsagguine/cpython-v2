@@ -1033,10 +1033,23 @@ class date:
             self._day, self._year)
 
     def strftime(self, fmt):
-        """
-        Format using strftime().
+        """Convert to a string in the given format via time.strftime().
 
-        Example: "%d/%m/%Y, %H:%M:%S"
+        Formatting directives referring to hours, minutes or seconds
+        will use zero.
+
+        Commonly used formatting directives:
+            %Y  Year with century as a decimal number.
+            %m  Month as a decimal number [01,12].
+            %d  Day of the month as a decimal number [01,31].
+            %a  Locale's abbreviated weekday name.
+            %A  Locale's full weekday name.
+            %b  Locale's abbreviated month name.
+            %B  Locale's full month name.
+            %c  Locale's appropriate date and time representation.
+
+        For a complete list and detailed descriptions of formatting
+        directives, see the library reference manual.
         """
         return _wrap_strftime(self, fmt, self.timetuple())
 
@@ -1555,8 +1568,22 @@ class time:
 
 
     def strftime(self, fmt):
-        """Format using strftime().  The date part of the timestamp passed
-        to underlying strftime should not be used.
+        """Convert to a string in the given format via time.strftime().
+
+        Formatting directives referring to years will use 1900, and
+        those referring to months or days will use 1.
+
+        Commonly used formatting directives:
+            %H  Hour (24-hour clock) as a decimal number [00,23].
+            %M  Minute as a decimal number [00,59].
+            %S  Second as a decimal number [00,61].
+            %z  Time zone offset from UTC.
+            %c  Locale's appropriate date and time representation.
+            %I  Hour (12-hour clock) as a decimal number [01,12].
+            %p  Locale's equivalent of either AM or PM.
+
+        For a complete list and detailed descriptions of formatting
+        directives, see the library reference manual.
         """
         # The year must be >= 1000 else Python's strftime implementation
         # can raise a bogus exception.
@@ -2009,6 +2036,30 @@ class datetime(date):
             self._hour, self._minute, self._second,
             self._year)
 
+    def strftime(self, fmt):
+        """Convert to a string in the given format via time.strftime().
+
+        Commonly used formatting directives:
+            %Y  Year with century as a decimal number.
+            %m  Month as a decimal number [01,12].
+            %d  Day of the month as a decimal number [01,31].
+            %H  Hour (24-hour clock) as a decimal number [00,23].
+            %M  Minute as a decimal number [00,59].
+            %S  Second as a decimal number [00,61].
+            %z  Time zone offset from UTC.
+            %a  Locale's abbreviated weekday name.
+            %A  Locale's full weekday name.
+            %b  Locale's abbreviated month name.
+            %B  Locale's full month name.
+            %c  Locale's appropriate date and time representation.
+            %I  Hour (12-hour clock) as a decimal number [01,12].
+            %p  Locale's equivalent of either AM or PM.
+
+        For a complete list and detailed descriptions of formatting
+        directives, see the library reference manual.
+        """
+        return _wrap_strftime(self, fmt, self.timetuple())
+
     def isoformat(self, sep='T', timespec='auto'):
         """Return the time formatted according to ISO.
 
@@ -2061,7 +2112,38 @@ class datetime(date):
 
     @classmethod
     def strptime(cls, date_string, format):
-        'string, format -> new datetime parsed from a string (like time.strptime()).'
+        """strptime(date_string, format) -> datetime object
+
+        Return a datetime object from the date_string,
+        parsed according to format.
+
+        Args:
+            date_string: string containing the date.
+            format: representation of datetime using format codes.
+
+            Commonly used format codes:
+                %Y  Year with century as a decimal number.
+                %m  Month as a decimal number [01,12].
+                %d  Day of the month as a decimal number [01,31].
+                %H  Hour (24-hour clock) as a decimal number [00,23].
+                %M  Minute as a decimal number [00,59].
+                %S  Second as a decimal number [00,61].
+                %z  Time zone offset from UTC.
+                %a  Locale's abbreviated weekday name.
+                %A  Locale's full weekday name.
+                %b  Locale's abbreviated month name.
+                %B  Locale's full month name.
+                %c  Locale's appropriate date and time representation.
+                %I  Hour (12-hour clock) as a decimal number [01,12].
+                %p  Locale's equivalent of either AM or PM.
+
+        Returns:
+            Datetime object
+
+        Raises:
+            ValueError: If the date_string and format can’t be parsed by
+            time.strptime() or if it returns a value which isn’t a time tuple.
+        """
         import _strptime
         return _strptime._strptime_datetime(cls, date_string, format)
 
