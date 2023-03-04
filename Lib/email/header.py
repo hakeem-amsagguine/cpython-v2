@@ -61,16 +61,22 @@ _max_append = email.quoprimime._max_append
 def decode_header(header):
     """Decode a message header value without converting charset.
 
-    Returns a list of (string, charset) pairs containing each of the decoded
-    parts of the header.  Charset is None for non-encoded parts of the header,
-    otherwise a lower-case string containing the name of the character set
-    specified in the encoded string.
+    For historical reasons, this function may return either:
+
+    1. A list of length 1 containing a pair (str, None).
+    2. A list of (bytes, charset) pairs containing each of the decoded
+       parts of the header.  Charset is None for non-encoded parts of the header,
+       otherwise a lower-case string containing the name of the character set
+       specified in the encoded string.
 
     header may be a string that may or may not contain RFC2047 encoded words,
     or it may be a Header object.
 
     An email.errors.HeaderParseError may be raised when certain decoding error
     occurs (e.g. a base64 decoding exception).
+
+    This function exists for backwards compatibility only. For new code, we
+    recommend using decode_header_to_string instead.
     """
     # If it is a Header object, we can just return the encoded chunks.
     if hasattr(header, '_chunks'):
@@ -150,6 +156,23 @@ def decode_header(header):
             last_word += word
     collapsed.append((last_word, last_charset))
     return collapsed
+
+
+
+def decode_header_to_string(header):
+    """Decode a message header into a string.
+
+    header may be a string that may or may not contain RFC2047 encoded words,
+    or it may be a Header object; in the latter case, this is equivalent to
+    str(header).
+
+    An email.errors.HeaderParseError may be raised when certain decoding error
+    occurs (e.g. a base64 decoding exception).
+    """
+
+    if not isinstance(header, Header):
+        header = make_header(decode_header(header))
+    return str(header)
 
 
 

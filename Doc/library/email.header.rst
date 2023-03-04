@@ -173,21 +173,23 @@ Here is the :class:`Header` class description:
 The :mod:`email.header` module also provides the following convenient functions.
 
 
-.. function:: decode_header(header)
+.. function:: decode_header_to_string(header)
 
-   Decode a message header value without converting the character set. The header
-   value is in *header*.
+   Decode a message header value to a Unicode string, including handling
+   portions encoded according to :rfc:`2047`.
 
-   This function returns a list of ``(decoded_string, charset)`` pairs containing
-   each of the decoded parts of the header.  *charset* is ``None`` for non-encoded
-   parts of the header, otherwise a lower case string containing the name of the
-   character set specified in the encoded string.
+   An :exc:`classemail.errors.HeaderParseError` may be raised when
+   certain decoding errors occur (e.g. a base64 decoding exception).
 
-   Here's an example::
+   Here are examples:
 
-      >>> from email.header import decode_header
-      >>> decode_header('=?iso-8859-1?q?p=F6stal?=')
-      [(b'p\xf6stal', 'iso-8859-1')]
+      >>> from email.header import decode_header_to_string
+      >>> decode_header_to_string('=?iso-8859-1?q?p=F6stal?=')
+      'p\xf6stal'
+      >>> decode_header_to_string('unencoded_string')
+      'unencoded_string'
+      >>> decode_header_to_string('bar =?utf-8?B?ZsOzbw==?=')
+      'bar f\xf3o'
 
 
 .. function:: make_header(decoded_seq, maxlinelen=None, header_name=None, continuation_ws=' ')
@@ -203,3 +205,36 @@ The :mod:`email.header` module also provides the following convenient functions.
    :class:`Header` instance.  Optional *maxlinelen*, *header_name*, and
    *continuation_ws* are as in the :class:`Header` constructor.
 
+
+.. function:: decode_header(header)
+
+   Decode a message header value without converting the character set. The header
+   value is in *header*.
+
+   For historical reasons, this function may return either:
+
+   1. A list of pairs containing each of the decoded parts of the header,
+      ``(decoded_bytes, charset)``, where *decoded_bytes* is always an instance of
+      :class:`bytes`, and *charset* is either:
+         - A lower case string containing the name of the character set specified.
+         - ``None`` for non-encoded parts of the header.
+   2. A list of length 1 containing a pair ``(string, None)``, where
+      *string* is always an instance of :class:`str`.
+
+   An :exc:`classemail.errors.HeaderParseError` may be raised when
+   certain decoding errors occur (e.g. a base64 decoding exception).
+
+   Here are examples:
+
+      >>> from email.header import decode_header
+      >>> decode_header('=?iso-8859-1?q?p=F6stal?=')
+      [(b'p\xf6stal', 'iso-8859-1')]
+      >>> decode_header('unencoded_string')
+      [('unencoded_string', None)]
+      >>> decode_header('bar =?utf-8?B?ZsOzbw==?=')
+      [(b'bar ', None), (b'f\xc3\xb3o', 'utf-8')]
+
+   .. note::
+
+      This function exists for for backwards compatibility only. For
+      new code we recommend using :mod:`email.header.decode_header_to_string`.

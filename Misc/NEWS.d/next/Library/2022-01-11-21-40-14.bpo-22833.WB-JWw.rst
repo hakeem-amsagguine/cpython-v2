@@ -1,0 +1,4 @@
+The inconsistent return types of :func:`email.header.decode_header` are now documented.
+
+:func:`email.header.decode_header_to_string` is provided as a less error-prone and
+more straightforward alternative for it.
