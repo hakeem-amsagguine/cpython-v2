@@ -967,18 +967,20 @@ binascii_a2b_base85_impl(PyObject *module, Py_buffer *data, int strict_mode)
             if (leftchar > UINT32_MAX / 85 ||
                 (leftchar *= 85) > UINT32_MAX - this_digit) {
                 state = get_binascii_state(module);
-                if (state != NULL) {
-                    PyErr_SetString(state->Error, "base85 overflow");
+                if (state == NULL) {
+                    goto error_end;
                 }
+                PyErr_SetString(state->Error, "base85 overflow");
                 goto error_end;
             }
             leftchar += this_digit;
             group_pos++;
         } else if (strict_mode) {
             state = get_binascii_state(module);
-            if (state != NULL) {
-                PyErr_Format(state->Error, "'%c' invalid in base85", this_ch);
+            if (state == NULL) {
+                goto error_end;
             }
+            PyErr_Format(state->Error, "'%c' invalid in base85", this_ch);
             goto error_end;
         }
 
