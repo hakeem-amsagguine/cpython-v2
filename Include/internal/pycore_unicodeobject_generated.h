@@ -724,6 +724,8 @@ _PyUnicode_InitStaticStrings(void) {
     PyUnicode_InternInPlace(&string);
     string = &_Py_ID(flush);
     PyUnicode_InternInPlace(&string);
+    string = &_Py_ID(fold_spaces);
+    PyUnicode_InternInPlace(&string);
     string = &_Py_ID(follow_symlinks);
     PyUnicode_InternInPlace(&string);
     string = &_Py_ID(format);
@@ -1036,6 +1038,8 @@ _PyUnicode_InitStaticStrings(void) {
     PyUnicode_InternInPlace(&string);
     string = &_Py_ID(p);
     PyUnicode_InternInPlace(&string);
+    string = &_Py_ID(pad);
+    PyUnicode_InternInPlace(&string);
     string = &_Py_ID(pages);
     PyUnicode_InternInPlace(&string);
     string = &_Py_ID(parent);
@@ -1324,7 +1328,11 @@ _PyUnicode_InitStaticStrings(void) {
     PyUnicode_InternInPlace(&string);
     string = &_Py_ID(who);
     PyUnicode_InternInPlace(&string);
+    string = &_Py_ID(width);
+    PyUnicode_InternInPlace(&string);
     string = &_Py_ID(withdata);
+    PyUnicode_InternInPlace(&string);
+    string = &_Py_ID(wrap);
     PyUnicode_InternInPlace(&string);
     string = &_Py_ID(writable);
     PyUnicode_InternInPlace(&string);
