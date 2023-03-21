@@ -463,9 +463,24 @@ def _field_assign(frozen, name, value, self_name):
     return f'{self_name}.{name}={value}'
 
 
-def _field_init(f, frozen, globals, self_name, slots):
+def _field_init(f, frozen, globals, self_name, slots, module):
     # Return the text of the line in the body of __init__ that will
     # initialize this field.
+
+    if f.init and isinstance(f.type, str):
+        from typing import ForwardRef  # `typing` is a heavy import
+        # We need to resolve this string type into a real `ForwardRef` object,
+        # because otherwise we might end up with unsolvable annotations.
+        # For example:
+        #   def __init__(self, d: collections.OrderedDict) -> None:
+        # We won't be able to resolve `collections.OrderedDict`
+        # with wrong `module` param, when placed in a different module. #45524
+        try:
+            f.type = ForwardRef(f.type, module=module, is_class=True)
+        except SyntaxError:
+            # We don't want to fail class creation
+            # when `ForwardRef` cannot be constructed.
+            pass
 
     default_name = f'_dflt_{f.name}'
     if f.default_factory is not MISSING:
@@ -543,7 +558,7 @@ def _init_param(f):
 
 
 def _init_fn(fields, std_fields, kw_only_fields, frozen, has_post_init,
-             self_name, globals, slots):
+             self_name, globals, slots, module):
     # fields contains both real fields and InitVar pseudo-fields.
 
     # Make sure we don't have fields without defaults following fields
@@ -571,7 +586,7 @@ def _init_fn(fields, std_fields, kw_only_fields, frozen, has_post_init,
 
     body_lines = []
     for f in fields:
-        line = _field_init(f, frozen, locals, self_name, slots)
+        line = _field_init(f, frozen, locals, self_name, slots, module)
         # line is None means that this field doesn't require
         # initialization (it's a pseudo-field).  Just skip it.
         if line:
@@ -925,6 +940,7 @@ def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
     # we're iterating over them, see if any are frozen.
     any_frozen_base = False
     has_dataclass_bases = False
+
     for b in cls.__mro__[-1:0:-1]:
         # Only process classes that have been processed by our
         # decorator.  That is, they have a _FIELDS attribute.
@@ -1050,6 +1066,7 @@ def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
                                             else 'self',
                                     globals,
                                     slots,
+                                    cls.__module__,
                           ))
 
     # Get the fields as a list, and include only real fields.  This is
