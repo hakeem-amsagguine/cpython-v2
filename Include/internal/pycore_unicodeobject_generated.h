@@ -1081,6 +1081,7 @@ _PyUnicode_InitStaticStrings(void) {
     assert(_PyUnicode_CheckConsistency(string, 1));
     PyUnicode_InternInPlace(&string);
     string = &_Py_ID(fold_spaces);
+    assert(_PyUnicode_CheckConsistency(string, 1));
     PyUnicode_InternInPlace(&string);
     string = &_Py_ID(follow_symlinks);
     assert(_PyUnicode_CheckConsistency(string, 1));
@@ -1554,6 +1555,7 @@ _PyUnicode_InitStaticStrings(void) {
     assert(_PyUnicode_CheckConsistency(string, 1));
     PyUnicode_InternInPlace(&string);
     string = &_Py_ID(pad);
+    assert(_PyUnicode_CheckConsistency(string, 1));
     PyUnicode_InternInPlace(&string);
     string = &_Py_ID(pages);
     assert(_PyUnicode_CheckConsistency(string, 1));
@@ -1991,11 +1993,13 @@ _PyUnicode_InitStaticStrings(void) {
     assert(_PyUnicode_CheckConsistency(string, 1));
     PyUnicode_InternInPlace(&string);
     string = &_Py_ID(width);
+    assert(_PyUnicode_CheckConsistency(string, 1));
     PyUnicode_InternInPlace(&string);
     string = &_Py_ID(withdata);
     assert(_PyUnicode_CheckConsistency(string, 1));
     PyUnicode_InternInPlace(&string);
     string = &_Py_ID(wrap);
+    assert(_PyUnicode_CheckConsistency(string, 1));
     PyUnicode_InternInPlace(&string);
     string = &_Py_ID(writable);
     assert(_PyUnicode_CheckConsistency(string, 1));
