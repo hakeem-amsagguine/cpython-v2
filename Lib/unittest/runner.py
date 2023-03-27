@@ -189,9 +189,11 @@ class TextTestRunner(object):
     def _makeResult(self):
         return self.resultclass(self.stream, self.descriptions, self.verbosity)
 
-    def run(self, test):
+    def run(self, test, debug=False):
         "Run the given test case or test suite."
         result = self._makeResult()
+        if debug:
+            result._debug = debug
         registerResult(result)
         result.failfast = self.failfast
         result.buffer = self.buffer
