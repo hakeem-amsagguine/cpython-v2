@@ -870,7 +870,7 @@ Build Changes
   (Contributed by Victor Stinner in :gh:`99289`.)
 
 * ``#pragma``-based linking with ``python3*.lib`` can now be switched off
-  with :c:expr:`PY_NO_LINK_LIB`. (Contributed by Jean-Christophe
+  with :c:expr:`Py_NO_LINK_LIB`. (Contributed by Jean-Christophe
   Fillion-Robin and Oleg Iarygin in :gh:`82909`.)
 
 
