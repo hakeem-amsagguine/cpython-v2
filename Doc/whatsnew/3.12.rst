@@ -869,6 +869,10 @@ Build Changes
   optimization levels (0, 1, 2) at once.
   (Contributed by Victor Stinner in :gh:`99289`.)
 
+* ``#pragma``-based linking with ``python3*.lib`` can now be switched off
+  with :c:expr:`PY_NO_LINK_LIB`. (Contributed by Jean-Christophe
+  Fillion-Robin and Oleg Iarygin in :gh:`82909`.)
+
 
 C API Changes
 =============
