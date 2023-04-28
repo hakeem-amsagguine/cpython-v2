@@ -46,6 +46,12 @@ def update_wrapper(wrapper,
        updated is a tuple naming the attributes of the wrapper that
        are updated with the corresponding attribute from the wrapped
        function (defaults to functools.WRAPPER_UPDATES)
+
+       There's a special treatment for the `__annotations__` attribute:
+       * If the wrapper defines a return type, then that will be used, if not,
+         the one from the wrapped function will be used if any.
+       * If the wrapper defines any parameter types, those will be used, if
+         not, the ones from the wrapped function will be used if any.
     """
     for attr in assigned:
         try:
@@ -53,7 +59,32 @@ def update_wrapper(wrapper,
         except AttributeError:
             pass
         else:
+            if attr == '__annotations__':
+                continue
             setattr(wrapper, attr, value)
+
+    if '__annotations__' in assigned:
+        try:
+            # Issue #41231: copy the annotations from wrapped, only if they are
+            #  not already defined in the wrapper
+            if not wrapper.__annotations__:
+                wrapper.__annotations__ = wrapped.__annotations__
+            # if the wrapper does not annotate the parameters, copy their
+            # annotations over from the wrapped
+            elif ('return' in wrapper.__annotations__
+                  and len(wrapper.__annotations__) == 1):
+                wrapper.__annotations__ = {
+                    **wrapped.__annotations__,
+                    **wrapper.__annotations__,
+                }
+            # if the wrapper does not annotate the return type, copy the
+            # annotation from the wrapped
+            elif ('return' not in wrapper.__annotations__
+                  and 'return' in wrapped.__annotations__):
+                wrapper.__annotations__['return'] = wrapped.__annotations__['return']
+        except AttributeError:
+            pass
+
     for attr in updated:
         getattr(wrapper, attr).update(getattr(wrapped, attr, {}))
     # Issue #17482: set __wrapped__ last so we don't inadvertently copy it
