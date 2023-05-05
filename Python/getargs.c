@@ -2645,6 +2645,127 @@ exit:
     return NULL;
 }
 
+/* Specialized version of _PyArg_UnpackKeywordsWithVararg.
+ * This function only returns parsed kwonly arguments array. */
+PyObject * const *
+_PyArg_UnpackKeywordsWithVarargKwonly(PyObject *const *args, Py_ssize_t nargs,
+                                PyObject *kwargs, PyObject *kwnames,
+                                struct _PyArg_Parser *parser,
+                                int minpos, int maxpos, int minkw,
+                                int vararg, PyObject **buf)
+{
+    PyObject *kwtuple;
+    PyObject *keyword;
+    Py_ssize_t varargssize = Py_MAX(nargs - maxpos, 0);
+    int i, posonly, minposonly, maxargs;
+    int reqlimit = minkw ? maxpos + minkw : minpos;
+    Py_ssize_t nkwargs;
+    PyObject *current_arg;
+    PyObject * const *kwstack = NULL;
+
+    assert(kwargs == NULL || PyDict_Check(kwargs));
+    assert(kwargs == NULL || kwnames == NULL);
+
+    if (parser == NULL) {
+        PyErr_BadInternalCall();
+        return NULL;
+    }
+
+    if (kwnames != NULL && !PyTuple_Check(kwnames)) {
+        PyErr_BadInternalCall();
+        return NULL;
+    }
+
+    if (args == NULL && nargs == 0) {
+        args = buf;
+    }
+
+    if (!parser_init(parser)) {
+        return NULL;
+    }
+
+    kwtuple = parser->kwtuple;
+    posonly = parser->pos;
+    minposonly = Py_MIN(posonly, minpos);
+    maxargs = posonly + (int)PyTuple_GET_SIZE(kwtuple);
+    if (kwargs != NULL) {
+        nkwargs = PyDict_GET_SIZE(kwargs);
+    }
+    else if (kwnames != NULL) {
+        nkwargs = PyTuple_GET_SIZE(kwnames);
+        kwstack = args + nargs;
+    }
+    else {
+        nkwargs = 0;
+    }
+    if (nargs < minposonly) {
+        PyErr_Format(PyExc_TypeError,
+                     "%.200s%s takes %s %d positional argument%s"
+                     " (%zd given)",
+                     (parser->fname == NULL) ? "function" : parser->fname,
+                     (parser->fname == NULL) ? "" : "()",
+                     minposonly < maxpos ? "at least" : "exactly",
+                     minposonly,
+                     minposonly == 1 ? "" : "s",
+                     nargs);
+        return NULL;
+    }
+
+    /* copy keyword args using kwtuple to drive process */
+    for (i = Py_MAX((int)nargs, posonly) -
+             Py_SAFE_DOWNCAST(varargssize, Py_ssize_t, int); i < maxargs; i++) {
+        if (nkwargs) {
+            keyword = PyTuple_GET_ITEM(kwtuple, i - posonly);
+            if (kwargs != NULL) {
+                current_arg = PyDict_GetItemWithError(kwargs, keyword);
+                if (!current_arg && PyErr_Occurred()) {
+                    return NULL;
+                }
+            }
+            else {
+                current_arg = find_keyword(kwnames, kwstack, keyword);
+            }
+        }
+        else {
+            current_arg = NULL;
+        }
+
+        /* This function only cares about keyword-only argument.
+         * If an arguments is passed in as a keyword argument,
+         * we do not process it.
+         *
+         * For example:
+         * def f(posonly, /, kw, *varargs, kwonly1, kwonly2):
+         *     pass
+         * f(1, kw=2, kwonly1=3, kwonly2=4)
+         *
+         * This `buf` array should be: [3, 4]. */
+        if (i >= vararg) {
+            buf[i - vararg] = current_arg;
+        }
+
+        if (current_arg) {
+            --nkwargs;
+        }
+        else if (i < minpos || (maxpos <= i && i < reqlimit)) {
+            /* Less arguments than required */
+            keyword = PyTuple_GET_ITEM(kwtuple, i - posonly);
+            PyErr_Format(PyExc_TypeError,  "%.200s%s missing required "
+                                           "argument '%U' (pos %d)",
+                         (parser->fname == NULL) ? "function" : parser->fname,
+                         (parser->fname == NULL) ? "" : "()",
+                         keyword, i+1);
+            return NULL;
+        }
+    }
+
+    if (nkwargs > 0) {
+        error_unexpected_keyword_arg(kwargs, kwnames, kwtuple, parser->fname);
+        return NULL;
+    }
+
+    return buf;
+}
 
 static const char *
 skipitem(const char **p_format, va_list *p_va, int flags)

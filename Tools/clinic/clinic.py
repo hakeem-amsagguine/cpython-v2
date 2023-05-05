@@ -722,6 +722,8 @@ class CLanguage(Language):
                 if not p.is_optional():
                     min_kw_only = i - max_pos
             elif p.is_vararg():
+                if not isinstance(p.converter, object_converter):
+                    fail("Only object type varargs are accepted")
                 if vararg != NO_VARARG:
                     fail("Too many var args")
                 pseudo_args += 1
@@ -942,6 +944,13 @@ class CLanguage(Language):
                 nargs = 'PyTuple_GET_SIZE(args)'
                 argname_fmt = 'PyTuple_GET_ITEM(args, %d)'
 
+            if vararg != NO_VARARG:
+                if max_pos == 0:
+                    declarations = "Py_ssize_t varargssize = %s;" % nargs
+                else:
+                    declarations = "Py_ssize_t varargssize = Py_MAX(%s - %d, 0);" % (nargs, max_pos)
+            else:
+                declarations = ""
 
             left_args = "{} - {}".format(nargs, max_pos)
             max_args = NO_VARARG if (vararg != NO_VARARG) else max_pos
@@ -959,28 +968,16 @@ class CLanguage(Language):
                 if p.is_vararg():
                     if not new_or_init:
                         parser_code.append(normalize_snippet("""
-                            %s = PyTuple_New(%s);
-                            if (!%s) {{
-                                goto exit;
-                            }}
-                            for (Py_ssize_t i = 0; i < %s; ++i) {{
-                                PyTuple_SET_ITEM(%s, i, Py_NewRef(args[%d + i]));
-                            }}
+                            %s = args + %d;
                             """ % (
-                                p.converter.parser_name,
-                                left_args,
-                                p.converter.parser_name,
-                                left_args,
-                                p.converter.parser_name,
-                                max_pos
-                            ), indent=4))
+                            p.converter.parser_name,
+                            vararg
+                        ), indent=4))
                     else:
+                        # return a borrowed reference of items in args tuple
                         parser_code.append(normalize_snippet("""
-                            %s = PyTuple_GetSlice(%d, -1);
-                            """ % (
-                                p.converter.parser_name,
-                                max_pos
-                            ), indent=4))
+                            %s = _PyTuple_CAST(args)->ob_item;
+                            """ % p.converter.parser_name, indent=4))
                     continue
 
                 parsearg = p.converter.parse_arg(argname, displayname)
@@ -1015,7 +1012,7 @@ class CLanguage(Language):
                             goto exit;
                         }}
                         """, indent=4)]
-            parser_definition = parser_body(parser_prototype, *parser_code)
+            parser_definition = parser_body(parser_prototype, *parser_code, declarations=declarations)
 
         else:
             has_optional_kw = (max(pos_only, min_pos) + min_kw_only < len(converters) - int(vararg != NO_VARARG))
@@ -1026,35 +1023,44 @@ class CLanguage(Language):
                     min_kw_only
                 )
                 nargs = "nargs"
+                argsbuf_size = len(converters)
+                varargssize = ""
             else:
-                args_declaration = "_PyArg_UnpackKeywordsWithVararg", "%s, %s, %s, %s" % (
+                args_declaration = "_PyArg_UnpackKeywordsWithVarargKwonly", "%s, %s, %s, %s" % (
                     min_pos,
                     max_pos,
                     min_kw_only,
                     vararg
                 )
                 nargs = f"Py_MIN(nargs, {max_pos})" if max_pos else "0"
+                argsbuf_size = len(converters) - vararg - 1
+                if max_pos == 0:
+                    varargssize = "\nPy_ssize_t varargssize = nargs;"
+                else:
+                    varargssize = "\nPy_ssize_t varargssize = Py_MAX(nargs - %d, 0);" % max_pos
+            declarations = declare_parser(f)
+            declarations += "\nPyObject *argsbuf[%s];" % argsbuf_size
             if not new_or_init:
                 flags = "METH_FASTCALL|METH_KEYWORDS"
                 parser_prototype = parser_prototype_fastcall_keywords
-                argname_fmt = 'args[%d]'
-                declarations = declare_parser(f)
-                declarations += "\nPyObject *argsbuf[%s];" % len(converters)
+                if vararg != NO_VARARG:
+                    declarations += "\nPyObject *const *fastargs;"
+                    parsed_argname = "fastargs"
+                else:
+                    parsed_argname = "args"
                 if has_optional_kw:
                     declarations += "\nPy_ssize_t noptargs = %s + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - %d;" % (nargs, min_pos + min_kw_only)
-                parser_code = [normalize_snippet("""
-                    args = %s(args, nargs, NULL, kwnames, &_parser, %s, argsbuf);
-                    if (!args) {{
+                parser_code = [normalize_snippet(f"""
+                    {parsed_argname} = %s(args, nargs, NULL, kwnames, &_parser, %s, argsbuf);
+                    if (!{parsed_argname}) {{{{
                         goto exit;
-                    }}
+                    }}}}
                     """ % args_declaration, indent=4)]
+                argname_fmt = f"{parsed_argname}[%d]"
             else:
                 # positional-or-keyword arguments
                 flags = "METH_VARARGS|METH_KEYWORDS"
                 parser_prototype = parser_prototype_keyword
-                argname_fmt = 'fastargs[%d]'
-                declarations = declare_parser(f)
-                declarations += "\nPyObject *argsbuf[%s];" % len(converters)
                 declarations += "\nPyObject * const *fastargs;"
                 declarations += "\nPy_ssize_t nargs = PyTuple_GET_SIZE(args);"
                 if has_optional_kw:
@@ -1065,6 +1071,8 @@ class CLanguage(Language):
                         goto exit;
                     }}
                     """ % args_declaration, indent=4)]
+                argname_fmt = 'fastargs[%d]'
+            declarations += varargssize
 
             if requires_defining_class:
                 flags = 'METH_METHOD|' + flags
@@ -1076,7 +1084,24 @@ class CLanguage(Language):
                     raise ValueError("defining_class should be the first "
                                      "parameter (after self)")
                 displayname = p.get_displayname(i+1)
-                parsearg = p.converter.parse_arg(argname_fmt % i, displayname)
+                if vararg != NO_VARARG:
+                    if i < int(vararg):
+                        # positional args
+                        if new_or_init:
+                            parsearg = p.converter.parse_arg('PyTuple_GET_ITEM(args, %d)' % i, displayname)
+                        else:
+                            parsearg = p.converter.parse_arg('args[%d]' % i, displayname)
+                    elif i > int(vararg):
+                        # keyword args
+                        parsearg = p.converter.parse_arg('fastargs[%d]' % (i - vararg - 1), displayname)
+                    else:
+                        # vararg
+                        if new_or_init:
+                            parsearg = p.converter.parse_arg('_PyTuple_CAST(args)->ob_item + %d' % vararg, p.converter.parser_name)
+                        else:
+                            parsearg = p.converter.parse_arg('args + %d' % vararg, p.converter.parser_name)
+                else:
+                    parsearg = p.converter.parse_arg(argname_fmt % i, displayname)
                 if parsearg is None:
                     #print('Cannot convert %s %r for %s' % (p.converter.__class__.__name__, p.converter.format_unit, p.converter.name), file=sys.stderr)
                     parser_code = None
@@ -1120,7 +1145,7 @@ class CLanguage(Language):
                         add_label = label
                         parser_code.append(normalize_snippet("""
                             if (%s) {{
-                            """ % (argname_fmt % i), indent=4))
+                            """ % (argname_fmt % (i if vararg == NO_VARARG else i - vararg - 1)), indent=4))
                         parser_code.append(normalize_snippet(parsearg, indent=8))
                         parser_code.append(normalize_snippet("""
                                 if (!--noptargs) {{
@@ -1174,7 +1199,11 @@ class CLanguage(Language):
                 raise ValueError("Slot methods cannot access their defining class.")
 
             if not parses_keywords:
-                declarations = '{base_type_ptr}'
+                if not parser_body_declarations:
+                    parser_body_declarations = '{base_type_ptr}'
+                else:
+                    parser_body_declarations += '\n{base_type_ptr}'
+
                 fields.insert(0, normalize_snippet("""
                     if ({self_type_check}!_PyArg_NoKeywords("{name}", kwargs)) {{
                         goto exit;
@@ -1188,7 +1217,7 @@ class CLanguage(Language):
                         """, indent=4))
 
             parser_definition = parser_body(parser_prototype, *fields,
-                                            declarations=declarations)
+                                            declarations=parser_body_declarations)
 
 
         if flags in ('METH_NOARGS', 'METH_O', 'METH_VARARGS'):
@@ -1389,9 +1418,6 @@ class CLanguage(Language):
             if (i != -1) and (p.default is not unspecified):
                 first_optional = min(first_optional, i)
 
-            if p.is_vararg():
-                data.cleanup.append("Py_XDECREF({});".format(c.parser_name))
-
             # insert group variable
             group = p.group
             if last_group != group:
@@ -1402,6 +1428,11 @@ class CLanguage(Language):
                     data.declarations.append("int " + group_name + " = 0;")
                     data.impl_parameters.append("int " + group_name)
                     has_option_groups = True
+
+            if p.is_vararg():
+                p.converter.type = 'PyObject *const *'
+                data.impl_arguments.append('varargssize')
+                data.impl_parameters.append('Py_ssize_t varargssize')
 
             c.render(p, data)
 
@@ -4609,11 +4640,7 @@ class DSLParser:
         if not default:
             if self.parameter_state == self.ps_optional:
                 fail("Can't have a parameter without a default (" + repr(parameter_name) + ")\nafter a parameter with a default!")
-            if is_vararg:
-                value = NULL
-                kwargs.setdefault('c_default', "NULL")
-            else:
-                value = unspecified
+            value = unspecified
             if 'py_default' in kwargs:
                 fail("You can't specify py_default without specifying a default value!")
         else:

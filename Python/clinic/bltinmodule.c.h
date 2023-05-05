@@ -1047,8 +1047,9 @@ PyDoc_STRVAR(builtin_print__doc__,
     {"print", _PyCFunction_CAST(builtin_print), METH_FASTCALL|METH_KEYWORDS, builtin_print__doc__},
 
 static PyObject *
-builtin_print_impl(PyObject *module, PyObject *args, PyObject *sep,
-                   PyObject *end, PyObject *file, int flush);
+builtin_print_impl(PyObject *module, Py_ssize_t varargssize,
+                   PyObject *const *args, PyObject *sep, PyObject *end,
+                   PyObject *file, int flush);
 
 static PyObject *
 builtin_print(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
@@ -1079,49 +1080,50 @@ builtin_print(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObjec
         .kwtuple = KWTUPLE,
     };
     #undef KWTUPLE
-    PyObject *argsbuf[5];
+    PyObject *argsbuf[4];
+    PyObject *const *fastargs;
     Py_ssize_t noptargs = 0 + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 0;
-    PyObject *__clinic_args = NULL;
+    Py_ssize_t varargssize = nargs;
+    PyObject *const *__clinic_args;
     PyObject *sep = Py_None;
     PyObject *end = Py_None;
     PyObject *file = Py_None;
     int flush = 0;
 
-    args = _PyArg_UnpackKeywordsWithVararg(args, nargs, NULL, kwnames, &_parser, 0, 0, 0, 0, argsbuf);
-    if (!args) {
+    fastargs = _PyArg_UnpackKeywordsWithVarargKwonly(args, nargs, NULL, kwnames, &_parser, 0, 0, 0, 0, argsbuf);
+    if (!fastargs) {
         goto exit;
     }
-    __clinic_args = args[0];
+    __clinic_args = args + 0;
     if (!noptargs) {
         goto skip_optional_kwonly;
     }
-    if (args[1]) {
-        sep = args[1];
+    if (fastargs[0]) {
+        sep = fastargs[0];
         if (!--noptargs) {
             goto skip_optional_kwonly;
         }
     }
-    if (args[2]) {
-        end = args[2];
+    if (fastargs[1]) {
+        end = fastargs[1];
         if (!--noptargs) {
             goto skip_optional_kwonly;
         }
     }
-    if (args[3]) {
-        file = args[3];
+    if (fastargs[2]) {
+        file = fastargs[2];
         if (!--noptargs) {
             goto skip_optional_kwonly;
         }
     }
-    flush = PyObject_IsTrue(args[4]);
+    flush = PyObject_IsTrue(fastargs[3]);
     if (flush < 0) {
         goto exit;
     }
 skip_optional_kwonly:
-    return_value = builtin_print_impl(module, __clinic_args, sep, end, file, flush);
+    return_value = builtin_print_impl(module, varargssize, __clinic_args, sep, end, file, flush);
 
 exit:
-    Py_XDECREF(__clinic_args);
     return return_value;
 }
 
@@ -1409,4 +1411,4 @@ builtin_issubclass(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
 exit:
     return return_value;
 }
-/*[clinic end generated code: output=84a04e7446debf58 input=a9049054013a1b77]*/
+/*[clinic end generated code: output=637176d7f6fb764f input=a9049054013a1b77]*/
