@@ -53,6 +53,8 @@ if not support.has_subprocess_support:
 
 mswindows = (sys.platform == "win32")
 
+NEWLINE = b'\r\n' if mswindows else b'\n'
+
 #
 # Depends on the following external programs: Python
 #
@@ -322,26 +324,98 @@ class ProcessTestCase(BaseTestCase):
         # parent's stdout.  This test checks that the message printed by the
         # child goes to the parent stdout.  The parent also checks that the
         # child's stdout is None.  See #11963.
-        code = ('import sys; from subprocess import Popen, PIPE;'
-                'p = Popen([sys.executable, "-c", "print(\'test_stdout_none\')"],'
-                '          stdin=PIPE, stderr=PIPE);'
-                'p.wait(); assert p.stdout is None;')
-        p = subprocess.Popen([sys.executable, "-c", code],
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        self.addCleanup(p.stdout.close)
-        self.addCleanup(p.stderr.close)
-        out, err = p.communicate()
-        self.assertEqual(p.returncode, 0, err)
-        self.assertEqual(out.rstrip(), b'test_stdout_none')
+        code = ('import sys\n'
+                'from subprocess import Popen, PIPE\n'
+                'with Popen([sys.executable, "-c", "print(\'test_stdout_none\')"],\n'
+                '          stdin=PIPE, stderr=PIPE) as p:\n'
+                '    p.wait()\n'
+                '    assert p.stdout is None\n')
+        with subprocess.Popen([sys.executable, "-c", code],
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE) as p:
+            self.addCleanup(p.stdout.close)
+            self.addCleanup(p.stderr.close)
+            out, err = p.communicate()
+            self.assertEqual(p.returncode, 0, err)
+            self.assertEqual(out, b'test_stdout_none' + NEWLINE)
+            self.assertEqual(err, b'')
+
+    def test_stdout_tee(self):
+        # .stdout is PIPE when not redirected, and the child's stdout will
+        # be inherited from the parent.  In order to test this we run a
+        # subprocess in a subprocess:
+        # this_test
+        #   \-- subprocess created by this test (parent)
+        #          \-- subprocess created by the parent subprocess (child)
+        # The parent doesn't specify stdout, so the child will use the
+        # parent's stdout.  This test checks that the message printed by the
+        # child goes to the parent stdout.  The parent also checks that the
+        # child's stdout is cloned.  See #47222.
+        code = ('import sys\n'
+                'from subprocess import Popen, PIPE\n'
+                'with Popen([sys.executable, "-c", "print(\'test_stdout_teed\')"],\n'
+                '            stdout=PIPE, stderr=PIPE, read_stdout_callback=Popen.tee_pipe_to(sys.stdout.buffer)) as p:\n'
+                '    out, err = p.communicate()\n'
+                '    assert p.returncode == 0\n'
+                '    assert out.rstrip() == b\'test_stdout_teed\'\n'
+                '    assert err == b\'\'\n'
+                )
+        with subprocess.Popen([sys.executable, "-c", code],
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE) as p:
+            self.addCleanup(p.stdout.close)
+            self.addCleanup(p.stderr.close)
+            out, err = p.communicate()
+            self.assertEqual(p.returncode, 0, err.decode())
+            self.assertEqual(out, b'test_stdout_teed' + NEWLINE)
+            self.assertEqual(err, b'')
 
     def test_stderr_none(self):
         # .stderr is None when not redirected
-        p = subprocess.Popen([sys.executable, "-c", 'print("banana")'],
-                         stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        self.addCleanup(p.stdout.close)
-        self.addCleanup(p.stdin.close)
-        p.wait()
-        self.assertEqual(p.stderr, None)
+        with subprocess.Popen([sys.executable, "-c", 'print("banana")'],
+                              stdin=subprocess.PIPE,
+                              stdout=subprocess.PIPE) as p:
+            self.addCleanup(p.stdout.close)
+            self.addCleanup(p.stdin.close)
+            p.wait()
+            self.assertEqual(p.stderr, None)
+
+    def test_invalid_read_callback(self):
+        with self.assertRaises(ValueError) as cm:
+            with subprocess.Popen([sys.executable, '-c',
+                                   'import sys\n'
+                                   'print(\'foo\')\n'
+                                   'print(\'bar\', file=sys.stderr)\n'],
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE,
+                                  read_stdout_callback=True) as p:
+                self.addCleanup(p.stdout.close)
+                self.addCleanup(p.stderr.close)
+                out, err = p.communicate()
+                self.assertEqual(p.returncode, 0, err.decode())
+        e = cm.exception
+        self.assertEqual(e.args, ('read_stdout_callback not a callable', ))
+
+    def test_custom_read_callback(self):
+        def my_read_stdout_callback(self, buffer, data):
+            buffer.append(b'<' + data + b'>')
+        def my_read_stderr_callback(self, buffer, data):
+            buffer.append(b'[' + data + b']')
+
+        with subprocess.Popen([sys.executable, '-c',
+                               'import sys\n'
+                               'print(\'foo\')\n'
+                               'print(\'bar\', file=sys.stderr)\n'],
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE,
+                              read_stdout_callback=my_read_stdout_callback,
+                              read_stderr_callback=my_read_stderr_callback) as p:
+            self.addCleanup(p.stdout.close)
+            self.addCleanup(p.stderr.close)
+            out, err = p.communicate()
+            self.assertEqual(p.returncode, 0, err.decode())
+            self.assertEqual(out, b'<foo' + NEWLINE + b'>')
+            self.assertEqual(err, b'[bar' + NEWLINE + b']')
 
     def _assert_python(self, pre_args, **kwargs):
         # We include sys.exit() to prevent the test runner from hanging
@@ -679,7 +753,7 @@ class ProcessTestCase(BaseTestCase):
         self.addCleanup(p.stderr.close)
         out, err = p.communicate()
         self.assertEqual(p.returncode, 0, err)
-        self.assertEqual(out.rstrip(), b'test with stdout=1')
+        self.assertEqual(out, b'test with stdout=1')
 
     def test_stdout_devnull(self):
         p = subprocess.Popen([sys.executable, "-c",
@@ -2678,8 +2752,7 @@ class POSIXProcessTestCase(BaseTestCase):
             stdout = subprocess.check_output(
                 [sys.executable, "-c", script],
                 env=env)
-            stdout = stdout.rstrip(b'\n\r')
-            self.assertEqual(stdout.decode('ascii'), ascii(decoded_value))
+            self.assertEqual(stdout.decode('ascii'), ascii(decoded_value) + NEWLINE.decode())
 
             # test bytes
             key = key.encode("ascii", "surrogateescape")
@@ -2689,8 +2762,7 @@ class POSIXProcessTestCase(BaseTestCase):
             stdout = subprocess.check_output(
                 [sys.executable, "-c", script],
                 env=env)
-            stdout = stdout.rstrip(b'\n\r')
-            self.assertEqual(stdout.decode('ascii'), ascii(encoded_value))
+            self.assertEqual(stdout.decode('ascii'), ascii(encoded_value) + NEWLINE.decode())
 
     def test_bytes_program(self):
         abs_program = os.fsencode(ZERO_RETURN_CMD[0])
