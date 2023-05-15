@@ -1295,7 +1295,7 @@ unpack_top_level_joined_strs(Parser *p, asdl_expr_seq *raw_expressions)
 }
 
 expr_ty
-_PyPegen_joined_str(Parser *p, Token* a, asdl_expr_seq* raw_expressions, Token*b) {
+_PyPegen_joined_str(Parser *p, int is_raw, Token* a, asdl_expr_seq* raw_expressions, Token*b) {
     asdl_expr_seq *expr = unpack_top_level_joined_strs(p, raw_expressions);
     Py_ssize_t n_items = asdl_seq_LEN(expr);
 
@@ -1303,7 +1303,7 @@ _PyPegen_joined_str(Parser *p, Token* a, asdl_expr_seq* raw_expressions, Token*b
     if (quote_str == NULL) {
         return NULL;
     }
-    int is_raw = strpbrk(quote_str, "rR") != NULL;
+    is_raw = is_raw || strpbrk(quote_str, "rR") != NULL;
 
     asdl_expr_seq *seq = _Py_asdl_expr_seq_new(n_items, p->arena);
     if (seq == NULL) {
@@ -1345,6 +1345,129 @@ _PyPegen_joined_str(Parser *p, Token* a, asdl_expr_seq* raw_expressions, Token*b
     }
 
     return _PyAST_JoinedStr(resized_exprs, a->lineno, a->col_offset,
+                            b->end_lineno, b->end_col_offset,
+                            p->arena);
+}
+
+static expr_ty
+_PyPegen_name_from_f_string_start(Parser *p, Token* t)
+{
+    if (t == NULL) {
+        return NULL;
+    }
+    const char *s = PyBytes_AsString(t->bytes);
+    if (!s) {
+        p->error_indicator = 1;
+        return NULL;
+    }
+    int size = strlen(s);
+    assert(size == PyBytes_Size(t->bytes));
+    while (size > 0 && (s[size-1] == '"' || s[size-1] == '\'')) {
+        size--;
+    }
+    char *snew = _PyArena_Malloc(p->arena, size+1);
+    if (snew == NULL) {
+        p->error_indicator = 1;
+        return NULL;
+    }
+    strncpy(snew, s, size);
+    snew[size] = '\0';
+    PyObject *id = _PyPegen_new_identifier(p, snew);
+    if (id == NULL) {
+        p->error_indicator = 1;
+        return NULL;
+    }
+    return _PyAST_Name(id, Load, t->lineno, t->col_offset, t->end_lineno,
+                       t->end_col_offset, p->arena);
+}
+
+static expr_ty
+lambdafy(Parser *p, expr_ty arg)
+{
+    arguments_ty args = _PyPegen_empty_arguments(p);
+    if (args == NULL)
+        return NULL;
+    return _PyAST_Lambda(args, arg,
+            arg->lineno, arg->col_offset, arg->end_lineno, arg->end_col_offset,
+            p->arena);
+}
+
+expr_ty
+_PyPegen_tag_str(Parser *p, Token* a, asdl_expr_seq* raw_expressions, Token*b) {
+    expr_ty tag = _PyPegen_name_from_f_string_start(p, a);
+    if (tag == NULL) {
+        return NULL;
+    }
+    expr_ty str = _PyPegen_joined_str(p, 1, a, raw_expressions, b);
+    if (str == NULL) {
+        return NULL;
+    }
+    if (str->kind == JoinedStr_kind) {
+        // Transform FormattedValue items into thunks (for now, tuples)
+        asdl_expr_seq *values = str->v.JoinedStr.values;
+        int nvalues = asdl_seq_LEN(values);
+        expr_ty none = NULL;
+        for (int i = 0; i < nvalues; i++) {
+            expr_ty value = asdl_seq_GET(values, i);
+            if (value->kind == FormattedValue_kind) {
+                if (none == NULL) {
+                    none = _PyAST_Constant(Py_None, NULL,
+                            str->lineno, str->col_offset,
+                            str->end_lineno, str->end_col_offset,
+                            p->arena);
+                    if (none == NULL)
+                        return NULL;
+                }
+                expr_ty expr = value->v.FormattedValue.value;
+                expr_ty lambda = lambdafy(p, expr);
+                if (lambda == NULL)
+                    return NULL;
+                constant rawstr = _PyAST_ExprAsUnicode(expr);
+                if (rawstr == NULL)
+                    return NULL;
+                expr_ty raw = _PyAST_Constant(rawstr, NULL,
+                        expr->lineno, expr->col_offset,
+                        expr->end_lineno, expr->end_col_offset,
+                        p->arena);
+                if (raw == NULL)
+                    return NULL;
+                expr_ty conv = none;
+                int conversion = value->v.FormattedValue.conversion;
+                if (conversion >= 0) {
+                    char buf[1];
+                    buf[0] = conversion;
+                    constant uconv = _PyUnicode_FromASCII(buf, 1);
+                    if (uconv == NULL)
+                        return NULL;
+                    conv = _PyAST_Constant(uconv, NULL,
+                            expr->lineno, expr->col_offset,
+                            expr->end_lineno, expr->end_col_offset,
+                            p->arena);
+                    if (conv == NULL)
+                        return NULL;
+                }
+                expr_ty spec = value->v.FormattedValue.format_spec;
+                if (spec == NULL) {
+                    spec = none;
+                }
+                asdl_expr_seq *elts = _Py_asdl_expr_seq_new(4, p->arena);
+                if (elts == NULL)
+                    return NULL;
+                asdl_seq_SET(elts, 0, lambda);
+                asdl_seq_SET(elts, 1, raw);
+                asdl_seq_SET(elts, 2, conv);
+                asdl_seq_SET(elts, 3, spec);
+                expr_ty tuple = _PyAST_Tuple(elts, Load,
+                        value->lineno, value->col_offset,
+                        value->end_lineno, value->end_col_offset,
+                        p->arena);
+                if (tuple == NULL)
+                    return NULL;
+                asdl_seq_SET(values, i, tuple);
+            }
+        }
+    }
+    return _PyAST_TagString(tag, str, a->lineno, a->col_offset,
                             b->end_lineno, b->end_col_offset,
                             p->arena);
 }
@@ -1482,6 +1605,7 @@ _PyPegen_concatenate_strings(Parser *p, asdl_expr_seq *strings,
             }
             n_flattened_elements++;
         } else {
+            assert(elem->kind == JoinedStr_kind);
             n_flattened_elements += asdl_seq_LEN(elem->v.JoinedStr.values);
             f_string_found = 1;
         }
