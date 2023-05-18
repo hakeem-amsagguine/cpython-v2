@@ -133,6 +133,7 @@ AC_CONFIG_HEADERS([pyconfig.h])
 AC_CANONICAL_HOST
 AC_SUBST(build)
 AC_SUBST(host)
+LT_INIT
 
 AS_VAR_IF([cross_compiling], [maybe],
  [AC_MSG_ERROR([Cross compiling required --host=HOST-TUPLE and --build=ARCH])]
@@ -878,7 +879,7 @@ AC_SUBST(CXX)
 preset_cxx="$CXX"
 if test -z "$CXX"
 then
-        case "$CC" in
+        case "$cc_basename" in
         gcc)    AC_PATH_TOOL(CXX, [g++], [g++], [notfound]) ;;
         cc)     AC_PATH_TOOL(CXX, [c++], [c++], [notfound]) ;;
         clang|*/clang)     AC_PATH_TOOL(CXX, [clang++], [clang++], [notfound]) ;;
@@ -1305,7 +1306,7 @@ rmdir CaseSensitiveTestDir
 
 case $ac_sys_system in
 hp*|HP*)
-    case $CC in
+    case $cc_basename in
     cc|*/cc) CC="$CC -Ae";;
     esac;;
 esac
@@ -1828,7 +1829,7 @@ esac
 ],
 [AC_MSG_RESULT(no)])
 if test "$Py_LTO" = 'true' ; then
-  case $CC in
+  case $cc_basename in
     *clang*)
       LDFLAGS_NOLTO="-fno-lto"
       dnl Clang linker requires -flto in order to link objects with LTO information.
@@ -1957,7 +1958,7 @@ then
   fi
 fi
 LLVM_PROF_ERR=no
-case $CC in
+case $cc_basename in
   *clang*)
     # Any changes made here should be reflected in the GCC+Darwin case below
     PGO_PROF_GEN_FLAG="-fprofile-instr-generate"
@@ -2080,7 +2081,7 @@ fi
 # compiler and platform.  BASECFLAGS tweaks need to be made even if the
 # user set OPT.
 
-case $CC in
+case $cc_basename in
     *clang*)
         cc_is_clang=1
         ;;
@@ -2335,7 +2336,7 @@ yes)
 
     # ICC doesn't recognize the option, but only emits a warning
     ## XXX does it emit an unused result warning and can it be disabled?
-    AS_CASE([$CC],
+    AS_CASE([$cc_basename],
             [*icc*], [ac_cv_disable_unused_result_warning=no]
             [PY_CHECK_CC_WARNING([disable], [unused-result])])
     AS_VAR_IF([ac_cv_disable_unused_result_warning], [yes],
@@ -2581,7 +2582,7 @@ yes)
     ;;
 esac
 
-case "$CC" in
+case "$cc_basename" in
 *icc*)
     # ICC needs -fp-model strict or floats behave badly
     CFLAGS_NODIST="$CFLAGS_NODIST -fp-model strict"
@@ -3377,7 +3378,7 @@ then
 		then
 			LINKFORSHARED="-Wl,--export-dynamic"
 		fi;;
-	SunOS/5*) case $CC in
+	SunOS/5*) case $cc_basename in
 		  *gcc*)
 		    if $CC -Xlinker --help 2>&1 | grep export-dynamic >/dev/null
 		    then
@@ -6635,7 +6636,7 @@ if test "$ac_cv_gcc_asm_for_x87" = yes; then
     # Some versions of gcc miscompile inline asm:
     # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=46491
     # http://gcc.gnu.org/ml/gcc/2010-11/msg00366.html
-    case $CC in
+    case $cc_basename in
         *gcc*)
             AC_MSG_CHECKING(for gcc ipa-pure-const bug)
             saved_cflags="$CFLAGS"
