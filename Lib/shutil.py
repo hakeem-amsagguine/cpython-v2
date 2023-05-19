@@ -37,6 +37,7 @@ _WINDOWS = os.name == 'nt'
 posix = nt = None
 if os.name == 'posix':
     import posix
+#Unknown nt moudle?
 elif _WINDOWS:
     import nt
 
@@ -418,8 +419,18 @@ def copy(src, dst, *, follow_symlinks=True):
     """
     if os.path.isdir(dst):
         dst = os.path.join(dst, os.path.basename(src))
-    copyfile(src, dst, follow_symlinks=follow_symlinks)
-    copymode(src, dst, follow_symlinks=follow_symlinks)
+    
+    try:
+        print("Start CopyFile!")
+        copyfile(src, dst, follow_symlinks=follow_symlinks)
+        copymode(src, dst, follow_symlinks=follow_symlinks)
+    except Exception as Error:
+        print("Error Message:",Error)
+        print("You src:",src)
+        print("You dst:",dst)
+        print("Follow_Symlinks",follow_symlinks)
+        #Maybe other os not support \n
+
     return dst
 
 def copy2(src, dst, *, follow_symlinks=True):
@@ -435,8 +446,16 @@ def copy2(src, dst, *, follow_symlinks=True):
     """
     if os.path.isdir(dst):
         dst = os.path.join(dst, os.path.basename(src))
-    copyfile(src, dst, follow_symlinks=follow_symlinks)
-    copystat(src, dst, follow_symlinks=follow_symlinks)
+    try:
+        print("Start CopyFile!")
+        copyfile(src, dst, follow_symlinks=follow_symlinks)
+        copystat(src, dst, follow_symlinks=follow_symlinks)
+    except Exception as Error:
+        print("Error Message:",Error)
+        print("You src:",src)
+        print("You dst:",dst)
+        print("Follow_Symlinks",follow_symlinks)
+        #Maybe other os not support \n
     return dst
 
 def ignore_patterns(*patterns):
@@ -1369,6 +1388,7 @@ elif _WINDOWS:
         'free', which are the amount of total, used and free space, in bytes.
         """
         total, free = nt._getdiskusage(path)
+        #need use nt moudle?
         used = total - free
         return _ntuple_diskusage(total, used, free)
 
