@@ -84,6 +84,19 @@ typedef struct pyruntimestate {
        to access it, don't access it directly. */
     _Py_atomic_address _finalizing;
 
+    /* Tracks the finalize blocks.
+
+       Bit 0 is set to 1 by `Py_FinalizeEx` to indicate it is waiting to set `_finalizing`.
+
+       The remaining bits are a count of the number of finalize blocks that are
+       currently held.  Once bit 0 is set to 1, the number of finalize blocks is
+       not allowed to increase.
+
+       Protected by the main interpreter's GIL `main_interp->ceval.gil->mutex`;
+       `main_interp->ceval.gil->cond` must be broadcast when it becomes 1.
+    */
+    unsigned long finalize_blocks;
+
     struct _pymem_allocators allocators;
     struct _obmalloc_global_state obmalloc;
     struct pyhash_runtime_state pyhash_state;

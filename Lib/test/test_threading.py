@@ -1048,6 +1048,150 @@ class ThreadTests(BaseTestCase):
         self.assertEqual(out, b'')
         self.assertEqual(err, b'')
 
+    @cpython_only
+    def test_finalize_daemon_thread_hang(self):
+        # bpo-42969: tests that daemon threads hang during finalization
+        script = textwrap.dedent('''
+            import os
+            import sys
+            import threading
+            import time
+            import _testcapi
+
+            lock = threading.Lock()
+            lock.acquire()
+            thread_started_event = threading.Event()
+            def thread_func():
+                try:
+                    thread_started_event.set()
+                    _testcapi.finalize_thread_hang(lock.acquire)
+                finally:
+                    # Control must not reach here.
+                    os._exit(2)
+
+            t = threading.Thread(target=thread_func)
+            t.daemon = True
+            t.start()
+            thread_started_event.wait()
+            # Sleep to ensure daemon thread is blocked on `lock.acquire`
+            #
+            # Note: This test is designed so that in the unlikely case that
+            # `0.1` seconds is not sufficient time for the thread to become
+            # blocked on `lock.acquire`, the test will still pass, it just
+            # won't be properly testing the thread behavior during
+            # finalization.
+            time.sleep(0.1)
+
+            def run_during_finalization():
+                # Wake up daemon thread
+                lock.release()
+                # Sleep to give the daemon thread time to crash if it is going
+                # to.
+                #
+                # Note: If due to an exceptionally slow execution this delay is
+                # insufficient, the test will still pass but will simply be
+                # ineffective as a test.
+                time.sleep(0.1)
+                # If control reaches here, the test succeeded.
+                os._exit(0)
+
+            # Replace sys.stderr.flush as a way to run code during finalization
+            orig_flush = sys.stderr.flush
+            def do_flush(*args, **kwargs):
+                orig_flush(*args, **kwargs)
+                if not sys.is_finalizing:
+                    return
+                sys.stderr.flush = orig_flush
+                run_during_finalization()
+
+            sys.stderr.flush = do_flush
+
+            # If the follow exit code is retained, `run_during_finalization`
+            # did not run.
+            sys.exit(1)
+        ''')
+        assert_python_ok("-c", script)
+
+    @cpython_only
+    def test_finalize_block(self):
+        # bpo-42969: tests `PyThread_{Acquire,Release}FinalizeBlock`
+        script = textwrap.dedent('''
+            import atexit
+            import os
+            import sys
+            import threading
+            import time
+            import _testcapi
+
+            sem = threading.Semaphore(0)
+            atexit_handlers_called = threading.Event()
+            atexit.register(atexit_handlers_called.set)
+
+            def thread_func():
+                # Should not return False
+                if not _testcapi.acquire_finalize_block():
+                    os._exit(5)
+                try:
+                    sem.release()
+                    # Wait until `atexit` handlers are called.
+                    atexit_handlers_called.wait()
+                    # Sleep to allow Python interpreter to begin exiting, so
+                    # that we are properly testing the finalize block.
+                    #
+                    # Note: If for some reason this delay is insufficient, the
+                    # test will still pass but will simply be ineffective as a
+                    # test.
+                    time.sleep(0.1)
+                    sys.stdout.write('A')
+                    sys.stdout.flush()
+                finally:
+                    _testcapi.release_finalize_block()
+
+                time.sleep(0.1)
+                # Thread should hang before control reaches here.
+                os._exit(1)
+
+
+            t = threading.Thread(target=thread_func)
+            t.daemon = True
+            t.start()
+
+            # Wait until thread has blocked finalization.
+            sem.acquire()
+
+            def run_during_finalization():
+                # Should return False since this is during finalization.
+                if _testcapi.acquire_finalize_block():
+                    os._exit(4)
+                sys.stdout.write('B')
+                sys.stdout.flush()
+                # Sleep to give the daemon thread time to crash if it is going
+                # to.
+                #
+                # Note: If for some reason this delay is insufficient, the
+                # test will still pass but will simply be ineffective as a
+                # test.
+                time.sleep(0.2)
+                # If control reaches here, the test succeeded.
+                os._exit(0)
+
+            # Replace sys.stderr.flush as a way to run code during finalization
+            orig_flush = sys.stderr.flush
+            def do_flush(*args, **kwargs):
+                orig_flush(*args, **kwargs)
+                if not sys.is_finalizing:
+                    return
+                sys.stderr.flush = orig_flush
+                run_during_finalization()
+
+            sys.stderr.flush = do_flush
+
+            # If the follow exit code is retained, `run_during_finalization`
+            # did not run.
+            sys.exit(2)
+        ''')
+        _, out, _ = assert_python_ok("-c", script)
+        assert out == b"AB"
 
 class ThreadJoinOnShutdown(BaseTestCase):
 

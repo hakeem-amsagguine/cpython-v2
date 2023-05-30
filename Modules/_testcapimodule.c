@@ -3244,6 +3244,45 @@ test_atexit(PyObject *self, PyObject *Py_UNUSED(args))
     Py_RETURN_NONE;
 }
 
+// Used by `finalize_thread_hang`.
+#ifdef _POSIX_THREADS
+static void finalize_thread_hang_cleanup_callback(void *Py_UNUSED(arg)) {
+    // Should not reach here.
+    assert(0 && "pthread thread termination was triggered unexpectedly");
+}
+#endif
+
+// Tests that finalization does not trigger pthread cleanup.
+//
+// Must be called with a single nullary callable function that should block
+// (with GIL released) until finalization is in progress.
+static PyObject *
+finalize_thread_hang(PyObject *self, PyObject *arg)
+{
+#ifdef _POSIX_THREADS
+    pthread_cleanup_push(finalize_thread_hang_cleanup_callback, NULL);
+#endif
+    PyObject_CallNoArgs(arg);
+    // Should not reach here.
+    Py_FatalError("thread unexpectedly did not hang");
+#ifdef _POSIX_THREADS
+    pthread_cleanup_pop(0);
+#endif
+    Py_RETURN_NONE;
+}
+
+static PyObject *
+acquire_finalize_block(PyObject *self, PyObject *Py_UNUSED(args)) {
+    PyObject *result;
+    result = PyThread_TryAcquireFinalizeBlock() ? Py_True : Py_False;
+    return Py_NewRef(result);
+}
+
+static PyObject *
+release_finalize_block(PyObject *self, PyObject *Py_UNUSED(args)) {
+    PyThread_ReleaseFinalizeBlock();
+    Py_RETURN_NONE;
+}
 
 static PyObject *test_buildvalue_issue38913(PyObject *, PyObject *);
 
@@ -3387,6 +3426,9 @@ static PyMethodDef TestMethods[] = {
     {"function_get_kw_defaults", function_get_kw_defaults, METH_O, NULL},
     {"function_set_kw_defaults", function_set_kw_defaults, METH_VARARGS, NULL},
     {"test_atexit", test_atexit, METH_NOARGS},
+    {"finalize_thread_hang", finalize_thread_hang, METH_O, NULL},
+    {"acquire_finalize_block", acquire_finalize_block, METH_NOARGS, NULL},
+    {"release_finalize_block", release_finalize_block, METH_NOARGS, NULL},
     {NULL, NULL} /* sentinel */
 };
 
