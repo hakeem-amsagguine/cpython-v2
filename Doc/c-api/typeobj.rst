@@ -677,6 +677,24 @@ and :c:type:`PyType_Type` effectively act as defaults.)
    :c:func:`PyObject_GC_Del` if the instance was allocated using
    :c:func:`PyObject_GC_New` or :c:func:`PyObject_GC_NewVar`.
 
+   If you may call functions that may set the error indicator, you must
+   use :c:func:`PyErr_Fetch` and :c:func:`PyErr_Restore` to ensure you
+   don't clobber a preexisting error indicator (the deallocation could
+   have occurred while processing a different error):
+
+   .. code-block:: c
+
+     static void foo_dealloc(foo_object *self) {
+         PyObject *et, *ev, *etb;
+         PyErr_Fetch(&et, &ev, &etb);
+         ...
+         PyErr_Restore(et, ev, etb);
+     }
+
+   The dealloc handler itself must not raise an exception; if it hits an error
+   case it should call :c:func:`PyErr_WriteUnraisable` to log (and clear) an
+   unraisable exception.
+
    If the type supports garbage collection (has the :const:`Py_TPFLAGS_HAVE_GC`
    flag bit set), the destructor should call :c:func:`PyObject_GC_UnTrack`
    before clearing any member fields.
