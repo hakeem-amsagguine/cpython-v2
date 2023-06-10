@@ -163,11 +163,107 @@ exit:
     return return_value;
 }
 
+PyDoc_STRVAR(_sre_SRE_Pattern_prefixmatch__doc__,
+"prefixmatch($self, /, string, pos=0, endpos=sys.maxsize)\n"
+"--\n"
+"\n"
+"Matches zero or more characters at the beginning of the string.");
+
+#define _SRE_SRE_PATTERN_PREFIXMATCH_METHODDEF    \
+    {"prefixmatch", _PyCFunction_CAST(_sre_SRE_Pattern_prefixmatch), METH_METHOD|METH_FASTCALL|METH_KEYWORDS, _sre_SRE_Pattern_prefixmatch__doc__},
+
+static PyObject *
+_sre_SRE_Pattern_prefixmatch_impl(PatternObject *self, PyTypeObject *cls,
+                                  PyObject *string, Py_ssize_t pos,
+                                  Py_ssize_t endpos);
+
+static PyObject *
+_sre_SRE_Pattern_prefixmatch(PatternObject *self, PyTypeObject *cls, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    PyObject *return_value = NULL;
+    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
+
+    #define NUM_KEYWORDS 3
+    static struct {
+        PyGC_Head _this_is_not_used;
+        PyObject_VAR_HEAD
+        PyObject *ob_item[NUM_KEYWORDS];
+    } _kwtuple = {
+        .ob_base = PyVarObject_HEAD_INIT(&PyTuple_Type, NUM_KEYWORDS)
+        .ob_item = { &_Py_ID(string), &_Py_ID(pos), &_Py_ID(endpos), },
+    };
+    #undef NUM_KEYWORDS
+    #define KWTUPLE (&_kwtuple.ob_base.ob_base)
+
+    #else  // !Py_BUILD_CORE
+    #  define KWTUPLE NULL
+    #endif  // !Py_BUILD_CORE
+
+    static const char * const _keywords[] = {"string", "pos", "endpos", NULL};
+    static _PyArg_Parser _parser = {
+        .keywords = _keywords,
+        .fname = "prefixmatch",
+        .kwtuple = KWTUPLE,
+    };
+    #undef KWTUPLE
+    PyObject *argsbuf[3];
+    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
+    PyObject *string;
+    Py_ssize_t pos = 0;
+    Py_ssize_t endpos = PY_SSIZE_T_MAX;
+
+    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 3, 0, argsbuf);
+    if (!args) {
+        goto exit;
+    }
+    string = args[0];
+    if (!noptargs) {
+        goto skip_optional_pos;
+    }
+    if (args[1]) {
+        {
+            Py_ssize_t ival = -1;
+            PyObject *iobj = _PyNumber_Index(args[1]);
+            if (iobj != NULL) {
+                ival = PyLong_AsSsize_t(iobj);
+                Py_DECREF(iobj);
+            }
+            if (ival == -1 && PyErr_Occurred()) {
+                goto exit;
+            }
+            pos = ival;
+        }
+        if (!--noptargs) {
+            goto skip_optional_pos;
+        }
+    }
+    {
+        Py_ssize_t ival = -1;
+        PyObject *iobj = _PyNumber_Index(args[2]);
+        if (iobj != NULL) {
+            ival = PyLong_AsSsize_t(iobj);
+            Py_DECREF(iobj);
+        }
+        if (ival == -1 && PyErr_Occurred()) {
+            goto exit;
+        }
+        endpos = ival;
+    }
+skip_optional_pos:
+    return_value = _sre_SRE_Pattern_prefixmatch_impl(self, cls, string, pos, endpos);
+
+exit:
+    return return_value;
+}
+
 PyDoc_STRVAR(_sre_SRE_Pattern_match__doc__,
 "match($self, /, string, pos=0, endpos=sys.maxsize)\n"
 "--\n"
 "\n"
-"Matches zero or more characters at the beginning of the string.");
+"Matches zero or more characters at the beginning of the string.\n"
+"\n"
+"This is the legacy non-explicit method name. Prefer using it\'s\n"
+"explicit spelling of prefixmatch in 3.11+ code.");
 
 #define _SRE_SRE_PATTERN_MATCH_METHODDEF    \
     {"match", _PyCFunction_CAST(_sre_SRE_Pattern_match), METH_METHOD|METH_FASTCALL|METH_KEYWORDS, _sre_SRE_Pattern_match__doc__},
@@ -1419,6 +1515,27 @@ PyDoc_STRVAR(_sre_SRE_Match___deepcopy____doc__,
 #define _SRE_SRE_MATCH___DEEPCOPY___METHODDEF    \
     {"__deepcopy__", (PyCFunction)_sre_SRE_Match___deepcopy__, METH_O, _sre_SRE_Match___deepcopy____doc__},
 
+PyDoc_STRVAR(_sre_SRE_Scanner_prefixmatch__doc__,
+"prefixmatch($self, /)\n"
+"--\n"
+"\n");
+
+#define _SRE_SRE_SCANNER_PREFIXMATCH_METHODDEF    \
+    {"prefixmatch", _PyCFunction_CAST(_sre_SRE_Scanner_prefixmatch), METH_METHOD|METH_FASTCALL|METH_KEYWORDS, _sre_SRE_Scanner_prefixmatch__doc__},
+
+static PyObject *
+_sre_SRE_Scanner_prefixmatch_impl(ScannerObject *self, PyTypeObject *cls);
+
+static PyObject *
+_sre_SRE_Scanner_prefixmatch(ScannerObject *self, PyTypeObject *cls, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    if (nargs) {
+        PyErr_SetString(PyExc_TypeError, "prefixmatch() takes no arguments");
+        return NULL;
+    }
+    return _sre_SRE_Scanner_prefixmatch_impl(self, cls);
+}
+
 PyDoc_STRVAR(_sre_SRE_Scanner_match__doc__,
 "match($self, /)\n"
 "--\n"
@@ -1460,4 +1577,4 @@ _sre_SRE_Scanner_search(ScannerObject *self, PyTypeObject *cls, PyObject *const 
     }
     return _sre_SRE_Scanner_search_impl(self, cls);
 }
-/*[clinic end generated code: output=e3ba72156dd71572 input=a9049054013a1b77]*/
+/*[clinic end generated code: output=d12901f83c78a837 input=a9049054013a1b77]*/

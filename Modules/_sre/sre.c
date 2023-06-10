@@ -618,7 +618,7 @@ sre_search(SRE_STATE* state, SRE_CODE* pattern)
 }
 
 /*[clinic input]
-_sre.SRE_Pattern.match
+_sre.SRE_Pattern.prefixmatch
 
     cls: defining_class
     /
@@ -630,10 +630,10 @@ Matches zero or more characters at the beginning of the string.
 [clinic start generated code]*/
 
 static PyObject *
-_sre_SRE_Pattern_match_impl(PatternObject *self, PyTypeObject *cls,
-                            PyObject *string, Py_ssize_t pos,
-                            Py_ssize_t endpos)
-/*[clinic end generated code: output=ec6208ea58a0cca0 input=4bdb9c3e564d13ac]*/
+_sre_SRE_Pattern_prefixmatch_impl(PatternObject *self, PyTypeObject *cls,
+                                  PyObject *string, Py_ssize_t pos,
+                                  Py_ssize_t endpos)
+/*[clinic end generated code: output=a0e079fb4f875240 input=e2a7e68ea47d048c]*/
 {
     _sremodulestate *module_state = get_sre_module_state_by_class(cls);
     SRE_STATE state;
@@ -658,6 +658,33 @@ _sre_SRE_Pattern_match_impl(PatternObject *self, PyTypeObject *cls,
     match = pattern_new_match(module_state, self, &state, status);
     state_fini(&state);
     return match;
+}
+
+/*[clinic input]
+_sre.SRE_Pattern.match
+
+    cls: defining_class
+    /
+    string: object
+    pos: Py_ssize_t = 0
+    endpos: Py_ssize_t(c_default="PY_SSIZE_T_MAX") = sys.maxsize
+
+Matches zero or more characters at the beginning of the string.
+
+This is the legacy non-explicit method name. Prefer using it's
+explicit spelling of prefixmatch in 3.11+ code.
+
+[clinic start generated code]*/
+
+static PyObject *
+_sre_SRE_Pattern_match_impl(PatternObject *self, PyTypeObject *cls,
+                            PyObject *string, Py_ssize_t pos,
+                            Py_ssize_t endpos)
+/*[clinic end generated code: output=ec6208ea58a0cca0 input=d63ebdd3c7c96189]*/
+{
+    /* TODO(https://bugs.python.org/issue42353): Plan if we EVER want to
+     * issue a PendingDeprecationWarning here. */
+    return _sre_SRE_Pattern_prefixmatch_impl(self, cls, string, pos, endpos);
 }
 
 /*[clinic input]
@@ -2466,7 +2493,7 @@ _sre_SRE_Match___deepcopy__(MatchObject *self, PyObject *memo)
 }
 
 PyDoc_STRVAR(match_doc,
-"The result of re.match() and re.search().\n\
+"The result of re.search(), re.prefixmatch(), and re.fullmatch().\n\
 Match objects always have a boolean value of True.");
 
 PyDoc_STRVAR(match_group_doc,
@@ -2646,7 +2673,7 @@ scanner_end(ScannerObject* self)
 }
 
 /*[clinic input]
-_sre.SRE_Scanner.match
+_sre.SRE_Scanner.prefixmatch
 
     cls: defining_class
     /
@@ -2654,8 +2681,8 @@ _sre.SRE_Scanner.match
 [clinic start generated code]*/
 
 static PyObject *
-_sre_SRE_Scanner_match_impl(ScannerObject *self, PyTypeObject *cls)
-/*[clinic end generated code: output=6e22c149dc0f0325 input=b5146e1f30278cb7]*/
+_sre_SRE_Scanner_prefixmatch_impl(ScannerObject *self, PyTypeObject *cls)
+/*[clinic end generated code: output=02b3b9d2954a2157 input=3049b20466c56a8e]*/
 {
     _sremodulestate *module_state = get_sre_module_state_by_class(cls);
     SRE_STATE* state = &self->state;
@@ -2692,6 +2719,23 @@ _sre_SRE_Scanner_match_impl(ScannerObject *self, PyTypeObject *cls)
 
     scanner_end(self);
     return match;
+}
+
+/*[clinic input]
+_sre.SRE_Scanner.match
+
+    cls: defining_class
+    /
+
+[clinic start generated code]*/
+
+static PyObject *
+_sre_SRE_Scanner_match_impl(ScannerObject *self, PyTypeObject *cls)
+/*[clinic end generated code: output=6e22c149dc0f0325 input=b5146e1f30278cb7]*/
+{
+    /* TODO(https://bugs.python.org/issue42353): Plan if we EVER want to
+     * issue a PendingDeprecationWarning here. */
+    return _sre_SRE_Scanner_prefixmatch_impl(self, cls);
 }
 
 
@@ -2949,6 +2993,7 @@ pattern_richcompare(PyObject *lefto, PyObject *righto, int op)
 #include "clinic/sre.c.h"
 
 static PyMethodDef pattern_methods[] = {
+    _SRE_SRE_PATTERN_PREFIXMATCH_METHODDEF
     _SRE_SRE_PATTERN_MATCH_METHODDEF
     _SRE_SRE_PATTERN_FULLMATCH_METHODDEF
     _SRE_SRE_PATTERN_SEARCH_METHODDEF
@@ -3075,6 +3120,7 @@ static PyType_Spec match_spec = {
 };
 
 static PyMethodDef scanner_methods[] = {
+    _SRE_SRE_SCANNER_PREFIXMATCH_METHODDEF
     _SRE_SRE_SCANNER_MATCH_METHODDEF
     _SRE_SRE_SCANNER_SEARCH_METHODDEF
     {NULL, NULL}
