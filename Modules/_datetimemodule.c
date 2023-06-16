@@ -4636,6 +4636,10 @@ time_fromisoformat(PyObject *cls, PyObject *tstr) {
         return NULL;
     }
 
+    if (hour == 24 && minute == 0 && second == 0 && microsecond == 0) {
+        hour = 0;
+    }
+
     PyObject *t;
     if ( (PyTypeObject *)cls == &PyDateTime_TimeType ) {
         t = new_time(hour, minute, second, microsecond, tzinfo, 0);
