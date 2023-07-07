@@ -13,60 +13,6 @@
 
 #include <lzma.h>
 
-// Blocks output buffer wrappers
-#include "pycore_blocks_output_buffer.h"
-
-#if OUTPUT_BUFFER_MAX_BLOCK_SIZE > SIZE_MAX
-    #error "The maximum block size accepted by liblzma is SIZE_MAX."
-#endif
-
-/* On success, return value >= 0
-   On failure, return -1 */
-static inline Py_ssize_t
-OutputBuffer_InitAndGrow(_BlocksOutputBuffer *buffer, Py_ssize_t max_length,
-                         uint8_t **next_out, size_t *avail_out)
-{
-    Py_ssize_t allocated;
-
-    allocated = _BlocksOutputBuffer_InitAndGrow(
-                    buffer, max_length, (void**) next_out);
-    *avail_out = (size_t) allocated;
-    return allocated;
-}
-
-/* On success, return value >= 0
-   On failure, return -1 */
-static inline Py_ssize_t
-OutputBuffer_Grow(_BlocksOutputBuffer *buffer,
-                  uint8_t **next_out, size_t *avail_out)
-{
-    Py_ssize_t allocated;
-
-    allocated = _BlocksOutputBuffer_Grow(
-                    buffer, (void**) next_out, (Py_ssize_t) *avail_out);
-    *avail_out = (size_t) allocated;
-    return allocated;
-}
-
-static inline Py_ssize_t
-OutputBuffer_GetDataSize(_BlocksOutputBuffer *buffer, size_t avail_out)
-{
-    return _BlocksOutputBuffer_GetDataSize(buffer, (Py_ssize_t) avail_out);
-}
-
-static inline PyObject *
-OutputBuffer_Finish(_BlocksOutputBuffer *buffer, size_t avail_out)
-{
-    return _BlocksOutputBuffer_Finish(buffer, (Py_ssize_t) avail_out);
-}
-
-static inline void
-OutputBuffer_OnError(_BlocksOutputBuffer *buffer)
-{
-    _BlocksOutputBuffer_OnError(buffer);
-}
-
-
 #define ACQUIRE_LOCK(obj) do { \
     if (!PyThread_acquire_lock((obj)->lock, 0)) { \
         Py_BEGIN_ALLOW_THREADS \
@@ -178,6 +124,25 @@ static void
 PyLzma_Free(void *opaque, void *ptr)
 {
     PyMem_RawFree(ptr);
+}
+
+
+#if BUFSIZ < 8192
+#define INITIAL_BUFFER_SIZE 8192
+#else
+#define INITIAL_BUFFER_SIZE BUFSIZ
+#endif
+
+static int
+grow_buffer(PyObject **buf, Py_ssize_t max_length)
+{
+    Py_ssize_t size = PyBytes_GET_SIZE(*buf);
+    Py_ssize_t newsize = size << 1;
+
+    if (max_length > 0 && newsize > max_length) {
+        newsize = max_length;
+    }
+    return _PyBytes_Resize(buf, newsize);
 }
 
 
@@ -347,9 +312,10 @@ lzma_filter_converter(_lzma_state *state, PyObject *spec, void *ptr)
     }
     id_obj = PyMapping_GetItemString(spec, "id");
     if (id_obj == NULL) {
-        if (PyErr_ExceptionMatches(PyExc_KeyError))
+        if (PyErr_ExceptionMatches(PyExc_KeyError)) {
             PyErr_SetString(PyExc_ValueError,
                             "Filter specifier must have an \"id\" entry");
+        }
         return 0;
     }
     f->id = PyLong_AsUnsignedLongLong(id_obj);
@@ -544,24 +510,25 @@ class lzma_filter_converter(CConverter):
 static PyObject *
 compress(Compressor *c, uint8_t *data, size_t len, lzma_action action)
 {
-    PyObject *result;
-    _BlocksOutputBuffer buffer = {.list = NULL};
+    Py_ssize_t data_size = 0;
     _lzma_state *state = PyType_GetModuleState(Py_TYPE(c));
     assert(state != NULL);
-
-    if (OutputBuffer_InitAndGrow(&buffer, -1, &c->lzs.next_out, &c->lzs.avail_out) < 0) {
-        goto error;
+    PyObject * result = PyBytes_FromStringAndSize(NULL, INITIAL_BUFFER_SIZE);
+    if (result == NULL) {
+        return NULL;
     }
     c->lzs.next_in = data;
     c->lzs.avail_in = len;
+    c->lzs.next_out = (uint8_t *)PyBytes_AS_STRING(result);
+    c->lzs.avail_out = PyBytes_GET_SIZE(result);
 
-    for (;;) {
+    while(1) {
         lzma_ret lzret;
 
         Py_BEGIN_ALLOW_THREADS
         lzret = lzma_code(&c->lzs, action);
         Py_END_ALLOW_THREADS
-
+        data_size = (char *)c->lzs.next_out - PyBytes_AS_STRING(result);
         if (lzret == LZMA_BUF_ERROR && len == 0 && c->lzs.avail_out > 0) {
             lzret = LZMA_OK; /* That wasn't a real error */
         }
@@ -572,19 +539,20 @@ compress(Compressor *c, uint8_t *data, size_t len, lzma_action action)
             (action == LZMA_FINISH && lzret == LZMA_STREAM_END)) {
             break;
         } else if (c->lzs.avail_out == 0) {
-            if (OutputBuffer_Grow(&buffer, &c->lzs.next_out, &c->lzs.avail_out) < 0) {
+            if (grow_buffer(&result, -1) == -1) {
                 goto error;
             }
+            c->lzs.next_out = (uint8_t *)PyBytes_AS_STRING(result) + data_size;
+            c->lzs.avail_out = PyBytes_GET_SIZE(result) - data_size;
         }
     }
 
-    result = OutputBuffer_Finish(&buffer, c->lzs.avail_out);
-    if (result != NULL) {
-        return result;
+    if (_PyBytes_Resize(&result, data_size) == -1) {
+        goto error;
     }
-
+    return result;
 error:
-    OutputBuffer_OnError(&buffer);
+    Py_XDECREF(result);
     return NULL;
 }
 
@@ -936,22 +904,31 @@ static PyType_Spec lzma_compressor_type_spec = {
 static PyObject*
 decompress_buf(Decompressor *d, Py_ssize_t max_length)
 {
+    Py_ssize_t data_size = 0;
     PyObject *result;
     lzma_stream *lzs = &d->lzs;
-    _BlocksOutputBuffer buffer = {.list = NULL};
     _lzma_state *state = PyType_GetModuleState(Py_TYPE(d));
     assert(state != NULL);
 
-    if (OutputBuffer_InitAndGrow(&buffer, max_length, &lzs->next_out, &lzs->avail_out) < 0) {
-        goto error;
+    if (max_length < 0 || max_length >= INITIAL_BUFFER_SIZE) {
+        result = PyBytes_FromStringAndSize(NULL, INITIAL_BUFFER_SIZE);
+    } else {
+        result = PyBytes_FromStringAndSize(NULL, max_length);
+    }
+    if (result == NULL) {
+        return NULL;
     }
 
-    for (;;) {
+    lzs->next_out = (uint8_t *)PyBytes_AS_STRING(result);
+    lzs->avail_out = PyBytes_GET_SIZE(result);
+
+    while(1) {
         lzma_ret lzret;
 
         Py_BEGIN_ALLOW_THREADS
         lzret = lzma_code(lzs, LZMA_RUN);
         Py_END_ALLOW_THREADS
+        data_size = (char *)lzs->next_out - PyBytes_AS_STRING(result);
 
         if (lzret == LZMA_BUF_ERROR && lzs->avail_in == 0 && lzs->avail_out > 0) {
             lzret = LZMA_OK; /* That wasn't a real error */
@@ -970,24 +947,26 @@ decompress_buf(Decompressor *d, Py_ssize_t max_length)
                Maybe lzs's internal state still have a few bytes
                can be output, grow the output buffer and continue
                if max_lengh < 0. */
-            if (OutputBuffer_GetDataSize(&buffer, lzs->avail_out) == max_length) {
+            if (data_size == max_length) {
                 break;
             }
-            if (OutputBuffer_Grow(&buffer, &lzs->next_out, &lzs->avail_out) < 0) {
+            if (grow_buffer(&result, max_length) == -1) {
                 goto error;
             }
+            lzs->next_out = (uint8_t *)PyBytes_AS_STRING(result) + data_size;
+            lzs->avail_out = PyBytes_GET_SIZE(result) - data_size;
         } else if (lzs->avail_in == 0) {
             break;
         }
     }
 
-    result = OutputBuffer_Finish(&buffer, lzs->avail_out);
-    if (result != NULL) {
-        return result;
+    if (_PyBytes_Resize(&result, data_size) == -1) {
+        goto error;
     }
+    return result;
 
 error:
-    OutputBuffer_OnError(&buffer);
+    Py_XDECREF(result);
     return NULL;
 }
 
@@ -1144,10 +1123,11 @@ _lzma_LZMADecompressor_decompress_impl(Decompressor *self, Py_buffer *data,
     PyObject *result = NULL;
 
     ACQUIRE_LOCK(self);
-    if (self->eof)
+    if (self->eof) {
         PyErr_SetString(PyExc_EOFError, "Already at end of stream");
-    else
+    } else {
         result = decompress(self, data->buf, data->len, max_length);
+    }
     RELEASE_LOCK(self);
     return result;
 }
@@ -1304,9 +1284,7 @@ error:
 static void
 Decompressor_dealloc(Decompressor *self)
 {
-    if(self->input_buffer != NULL)
-        PyMem_Free(self->input_buffer);
-
+    PyMem_Free(self->input_buffer);
     lzma_end(&self->lzs);
     Py_CLEAR(self->unused_data);
     if (self->lock != NULL) {
