@@ -1,4 +1,3 @@
-import asyncio
 from contextlib import (
     asynccontextmanager, AbstractAsyncContextManager,
     AsyncExitStack, nullcontext, aclosing, contextmanager)
@@ -9,21 +8,46 @@ import traceback
 
 from test.test_contextlib import TestBaseExitStack
 
-support.requires_working_socket(module=True)
 
-def _async_test(func):
+def _run_async_fn(async_fn, /, *args, **kwargs):
+    coro = async_fn(*args, **kwargs)
+    gen = type(coro).__await__(coro)
+    try:
+        gen.send(None)
+    except StopIteration as e:
+        return e.value
+    else:
+        raise AssertionError("coroutine did not stop")
+    finally:
+        gen.close()
+
+
+def _async_test(async_fn):
     """Decorator to turn an async function into a test case."""
-    @functools.wraps(func)
+    @functools.wraps(async_fn)
     def wrapper(*args, **kwargs):
-        coro = func(*args, **kwargs)
-        asyncio.run(coro)
-    return wrapper
+        return _run_async_fn(async_fn, *args, **kwargs)
 
-def tearDownModule():
-    asyncio.set_event_loop_policy(None)
+    return wrapper
 
 
 class TestAbstractAsyncContextManager(unittest.TestCase):
+
+    def test_async_test_self_test(self):
+        class _async_yield:
+            def __init__(self, v):
+                self.v = v
+
+            def __await__(self):
+                return (yield self.v)
+
+        @_async_test
+        async def do_not_stop_coro():
+            while True:
+                await _async_yield(None)
+
+        with self.assertRaisesRegex(AssertionError, "coroutine did not stop"):
+            do_not_stop_coro()
 
     @_async_test
     async def test_enter(self):
@@ -524,48 +548,23 @@ class AclosingTestCase(unittest.TestCase):
 
 class TestAsyncExitStack(TestBaseExitStack, unittest.TestCase):
     class SyncAsyncExitStack(AsyncExitStack):
-        @staticmethod
-        def run_coroutine(coro):
-            loop = asyncio.get_event_loop_policy().get_event_loop()
-            t = loop.create_task(coro)
-            t.add_done_callback(lambda f: loop.stop())
-            loop.run_forever()
-
-            exc = t.exception()
-            if not exc:
-                return t.result()
-            else:
-                context = exc.__context__
-
-                try:
-                    raise exc
-                except:
-                    exc.__context__ = context
-                    raise exc
 
         def close(self):
-            return self.run_coroutine(self.aclose())
+            return _run_async_fn(self.aclose)
 
         def __enter__(self):
-            return self.run_coroutine(self.__aenter__())
+            return _run_async_fn(self.__aenter__)
 
         def __exit__(self, *exc_details):
-            return self.run_coroutine(self.__aexit__(*exc_details))
+            return _run_async_fn(self.__aexit__, *exc_details)
 
     exit_stack = SyncAsyncExitStack
     callback_error_internal_frames = [
-        ('__exit__', 'return self.run_coroutine(self.__aexit__(*exc_details))'),
-        ('run_coroutine', 'raise exc'),
-        ('run_coroutine', 'raise exc'),
+        ('__exit__', 'return _run_async_fn(self.__aexit__, *exc_details)'),
+        ('_run_async_fn', 'gen.send(None)'),
         ('__aexit__', 'raise exc_details[1]'),
         ('__aexit__', 'cb_suppress = cb(*exc_details)'),
     ]
-
-    def setUp(self):
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
-        self.addCleanup(self.loop.close)
-        self.addCleanup(asyncio.set_event_loop_policy, None)
 
     @_async_test
     async def test_async_callback(self):
