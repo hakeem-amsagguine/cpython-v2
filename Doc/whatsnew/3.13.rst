@@ -102,6 +102,12 @@ array
   It can be used instead of ``'u'`` type code, which is deprecated.
   (Contributed by Inada Naoki in :gh:`80480`.)
 
+curses
+------
+
+* Add :func:`curses.window.in_wch` function. (Contributed by Anthony Sottile
+  in :gh:`83395`.)
+
 io
 --
 
