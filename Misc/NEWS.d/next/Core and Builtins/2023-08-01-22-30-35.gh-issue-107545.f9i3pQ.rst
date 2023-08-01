@@ -1,0 +1,1 @@
+Better error message raised when `setsockopt` is called with value too big.
