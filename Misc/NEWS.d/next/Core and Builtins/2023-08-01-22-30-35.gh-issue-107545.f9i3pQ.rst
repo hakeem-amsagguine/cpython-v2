@@ -1,1 +1,1 @@
-Better error message raised when `setsockopt` is called with value too big.
+Improve error message when :meth:`setsockopt` raises an error other than a :exc:`TypeError`.
