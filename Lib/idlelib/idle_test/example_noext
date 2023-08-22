@@ -1,4 +1,4 @@
-#!usr/bin/env python
+#!usr/bin/env python3
 
 def example_function(some_argument):
     pass
