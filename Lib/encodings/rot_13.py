@@ -47,7 +47,7 @@ def getregentry():
 
 ### Map
 
-rot13_map = codecs.make_identity_dict(list(range(256)))
+rot13_map = codecs.make_identity_dict(range(256))
 rot13_map.update({
    0x0041: 0x004e,
    0x0042: 0x004f,
