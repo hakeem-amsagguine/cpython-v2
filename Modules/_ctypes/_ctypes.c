@@ -5139,8 +5139,8 @@ static PyObject *
 Pointer_get_contents(CDataObject *self, void *closure)
 {
     StgDictObject *stgdict;
-    PyObject *keep, *ptr_probe;
-    CDataObject *ptr2ptr;
+    PyObject *ptr2ptr;
+    CDataObject *p2p;
 
     if (*(void **)self->b_ptr == NULL) {
         PyErr_SetString(PyExc_ValueError,
@@ -5150,30 +5150,40 @@ Pointer_get_contents(CDataObject *self, void *closure)
 
     stgdict = PyObject_stgdict((PyObject *)self);
     assert(stgdict); /* Cannot be NULL for pointer instances */
+    assert(stgdict->proto);
 
-    keep = GetKeepedObjects(self);
-    if (keep != NULL) {
-        // check if it's a pointer to a pointer:
-        // pointers will have '0' key in the _objects
-        ptr_probe = PyDict_GetItemString(keep, "0");
-
-        if (ptr_probe != NULL) {
-            ptr2ptr = (CDataObject*) PyDict_GetItemString(keep, "1");
-            if (ptr2ptr ==  NULL) {
-                PyErr_SetString(PyExc_ValueError,
-                "Unexpected NULL pointer in _objects");
-                return NULL;
-            }
-            // don't construct a new object,
+    if (self->b_objects != NULL && PyDict_CheckExact(self->b_objects)) {
+        // Pointer_set_contents uses KeepRef(self, 1, value); we retrieve that
+        ptr2ptr = PyDict_GetItemString(self->b_objects, "1");
+        if (ptr2ptr ==  NULL) {
+            PyErr_SetString(PyExc_ValueError,
+            "Unexpected NULL pointer in _objects");
+            return NULL;
+        }
+        // if our base pointer is cast from another type,
+        // its `_type_` proto will be incompatible with the
+        // type of the object stored in `b_objects["1"]` because
+        // `_objects` is shared between casts and the original.
+        int res = PyObject_IsInstance(ptr2ptr, stgdict->proto);
+        if (res == -1) {
+            return NULL;
+        }
+        if (res) {
+            // It's not a cast: don't construct a new object,
             // return existing one instead to preserve refcount
+            p2p = (CDataObject*) ptr2ptr;
+            printf("self->b_ptr=%lu\n", *(void**) self->b_ptr);
+            printf("p2p->b_ptr=%lu\n", *(void**) p2p->b_ptr);
+            printf("self->b_value.c=%lu\n", *(void**) self->b_value.c);
+            printf("p2p->b_value.c=%lu\n", *(void**) p2p->b_value.c);
             assert(
-                *(void**) self->b_ptr == ptr2ptr->b_ptr ||
-                *(void**) self->b_value.c == ptr2ptr->b_ptr ||
-                *(void**) self->b_ptr == ptr2ptr->b_value.c ||
-                *(void**) self->b_value.c == ptr2ptr->b_value.c
+                *(void**) self->b_ptr == *(void**) p2p->b_ptr ||
+                *(void**) self->b_value.c == *(void**) p2p->b_ptr ||
+                *(void**) self->b_ptr == *(void**) p2p->b_value.c ||
+                *(void**) self->b_value.c == *(void**) p2p->b_value.c
             ); // double-check that we are returning the same thing
             Py_INCREF(ptr2ptr);
-            return (PyObject *) ptr2ptr;
+            return ptr2ptr;
         }
     }
 
