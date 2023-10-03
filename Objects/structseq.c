@@ -18,6 +18,8 @@ static const char visible_length_key[] = "n_sequence_fields";
 static const char real_length_key[] = "n_fields";
 static const char unnamed_fields_key[] = "n_unnamed_fields";
 static const char match_args_key[] = "__match_args__";
+static const char named_fields_list_key[] = "_fields";
+static const char named_fields_defaults_key[] = "_field_defaults";
 
 /* Fields with this name have only a field index, not a field name.
    They are only allowed for indices < n_visible_fields. */
@@ -365,8 +367,41 @@ error:
     return NULL;
 }
 
+static PyObject *
+structseq_asdict(PyStructSequence* self, PyObject *Py_UNUSED(ignored))
+{
+    PyObject* dict = NULL;
+    Py_ssize_t n_visible_fields, n_unnamed_fields, i;
+
+    n_visible_fields = VISIBLE_SIZE(self);
+    n_unnamed_fields = UNNAMED_FIELDS(self);
+
+    if (n_unnamed_fields != 0) {
+        PyErr_SetString(PyExc_ValueError, "named tuples with both named and "
+                                          "unnamed fields don't support _asdict");
+        return NULL;
+    }
+
+    dict = PyDict_New();
+    if (!dict)
+        return NULL;
+
+    for (i = 0; i < n_visible_fields; i++) {
+        const char *n = Py_TYPE(self)->tp_members[i-n_unnamed_fields].name;
+        if (PyDict_SetItemString(dict, n, self->ob_item[i]) < 0)
+            goto error;
+    }
+
+    return dict;
+
+error:
+    Py_DECREF(dict);
+    return NULL;
+}
+
 static PyMethodDef structseq_methods[] = {
     {"__reduce__", (PyCFunction)structseq_reduce, METH_NOARGS, NULL},
+    {"_asdict", (PyCFunction)structseq_asdict, METH_NOARGS, NULL},
     {NULL, NULL}
 };
 
@@ -386,7 +421,7 @@ count_members(PyStructSequence_Desc *desc, Py_ssize_t *n_unnamed_members) {
 static int
 initialize_structseq_dict(PyStructSequence_Desc *desc, PyObject* dict,
                           Py_ssize_t n_members, Py_ssize_t n_unnamed_members) {
-    PyObject *v;
+    PyObject *v, *defaults = NULL;
 
 #define SET_DICT_FROM_SIZE(key, value)                                         \
     do {                                                                       \
@@ -432,10 +467,29 @@ initialize_structseq_dict(PyStructSequence_Desc *desc, PyObject* dict,
         goto error;
     }
 
+    // Set _field and _field_defaults when we have no unnammed members
+    if (n_unnamed_members == 0) {
+        if (PyDict_SetItemString(dict, named_fields_list_key, keys) < 0) {
+            goto error;
+        }
+
+        // Set _fields_defaults to an empty dir, as we don't support defaults
+        defaults = PyDict_New();
+        if (!defaults)
+            goto error;
+
+        if (PyDict_SetItemString(dict, named_fields_defaults_key, defaults) < 0) {
+            goto error;
+        }
+
+        Py_DECREF(defaults);
+    }
+
     Py_DECREF(keys);
     return 0;
 
 error:
+    Py_XDECREF(defaults);
     Py_DECREF(keys);
     return -1;
 }
