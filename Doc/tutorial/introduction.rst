@@ -389,7 +389,7 @@ Lists
 Python knows a number of *compound* data types, used to group together other
 values.  The most versatile is the *list*, which can be written as a list of
 comma-separated values (items) between square brackets.  Lists might contain
-items of different types, but usually the items all have the same type. ::
+items of different types, but usually the items all have the same type::
 
    >>> squares = [1, 4, 9, 16, 25]
    >>> squares
@@ -478,73 +478,123 @@ example::
 First Steps Towards Programming
 ===============================
 
-Of course, we can use Python for more complicated tasks than adding two and two
-together.  For instance, we can write an initial sub-sequence of the
-`Fibonacci series <https://en.wikipedia.org/wiki/Fibonacci_number>`_
-as follows::
+We can use Python for more complex tasks than adding two and two together.
+For instance, we can compute the numbers of the
+`Fibonacci series <https://en.wikipedia.org/wiki/Fibonacci_number>`_.
+To do that we need to utilize three following concepts.
 
-   >>> # Fibonacci series:
-   ... # the sum of two elements defines the next
-   ... a, b = 0, 1
-   >>> while a < 10:
-   ...     print(a)
-   ...     a, b = b, a+b
-   ...
-   0
+Multiple Assignment
+-------------------
+
+A *multiple assignment* of variables us allows to set values of more than one
+variable on a single line.  Notice that if the value assignment is a
+expression, it is first evaluated and then assigned::
+
+   >>> a, b = 1, 5  # multiple assignment of two variables
+   >>> a
    1
+   >>> b
+   5
+   >>> a, b = b, a + b  # first a is set to value of b, then b is set to sum of a and b
+   >>> a
+   5
+   >>> b
+   6
+
+Repeating our code
+------------------
+
+The :keyword:`while` loop is example of a repeating cycle. It performs
+a block of code continuously as long as the condition is
+fulfilled.  The test used in the example is a simple comparison you might
+know from arithmetics.  Fulfilled conditions have the value ``True``.
+Unfulfilled conditions have the value ``False``::
+
+   >>> 1 < 3  # 1 is less than 3
+   True
+   >>> 'king' == "king"  # the strings are equal
+   True
+   >>> 4 >= 6  # 4 is not greater than or equal to 6
+   False
+
+In Python, the following comparison operators are used:
+
+  * ``<``: Less than
+  * ``>``: Greater than
+  * ``==``: Equal to
+  * ``<=``: Less than or equal to
+  * ``>=``: Greater than or equal to
+  * ``!=``: Not equal to
+
+Let's create a simple loop.  We need the keyword ``while`` and a condition;
+in this case, ``count < 5``.  To ensure that the loop finishes, we must make
+sure that the condition is *not fulfilled* at a certain step.  Otherwise, the
+code would repeat indefinitely.  To achieve that, we can increase the value
+of count.  As soon as the variable ``count`` reaches the value 5, the
+condition will be ``False``::
+
+   >>> count = 0;  # define variable to which we will be adding 1 in a loop
+   >>> while count < 5: count = count + 1  # hit enter one more time to start the loop
+   ...
+   >>> count  # when count reached value of 5, while loop finished
+   5
+
+Note that block inside the ``while`` loop, or *body* of the loop is *indented*.
+Indentation is Python's way of grouping statements together.  When you use
+the Python shell, you need to type a tab or space(s) for each indented line.
+Each line within a block must be indented by the same amount.
+When we want to exit the indented block of code in the Python shell, we must
+follow it by a blank line to indicate its completion.  This way, the parser
+knows we have finished typing the last line)::
+
+   >>> number = 1
+   >>> while number < 5:
+   ...     print(number)
+   ...     number = number + 1  # increase the value by one with each repetition
+   ...
    1
    2
    3
-   5
-   8
+   4
 
-This example introduces several new features.
+Function arguments
+------------------
 
-* The first line contains a *multiple assignment*: the variables ``a`` and ``b``
-  simultaneously get the new values 0 and 1.  On the last line this is used again,
-  demonstrating that the expressions on the right-hand side are all evaluated
-  first before any of the assignments take place.  The right-hand side expressions
-  are evaluated  from the left to the right.
+We already know the :func:`print` function, which writes the value of the
+argument(s) it receives on screen.  The arguments are enclosed within
+parentheses ``()``. In simplest form, like ``print(a, b)``, the arguments
+are positional,  meaning the function processes them in the same order
+as they are written::
 
-* The :keyword:`while` loop executes as long as the condition (here: ``a < 10``)
-  remains true.  In Python, like in C, any non-zero integer value is true; zero is
-  false.  The condition may also be a string or list value, in fact any sequence;
-  anything with a non-zero length is true, empty sequences are false.  The test
-  used in the example is a simple comparison.  The standard comparison operators
-  are written the same as in C: ``<`` (less than), ``>`` (greater than), ``==``
-  (equal to), ``<=`` (less than or equal to), ``>=`` (greater than or equal to)
-  and ``!=`` (not equal to).
+   >>> group = "Knights"
+   >>> say_what = '"Ni!"'
+   >>> print(group, 'Who Say', say_what)
+   Knights Who Say "Ni!"
 
-* The *body* of the loop is *indented*: indentation is Python's way of grouping
-  statements.  At the interactive prompt, you have to type a tab or space(s) for
-  each indented line.  In practice you will prepare more complicated input
-  for Python with a text editor; all decent text editors have an auto-indent
-  facility.  When a compound statement is entered interactively, it must be
-  followed by a blank line to indicate completion (since the parser cannot
-  guess when you have typed the last line).  Note that each line within a basic
-  block must be indented by the same amount.
+The ``print()`` function also offers a useful keyword argument called *end*,
+which can be used to avoid the newline after the output, or end the output
+with a different string::
 
-* The :func:`print` function writes the value of the argument(s) it is given.
-  It differs from just writing the expression you want to write (as we did
-  earlier in the calculator examples) in the way it handles multiple arguments,
-  floating point quantities, and strings.  Strings are printed without quotes,
-  and a space is inserted between items, so you can format things nicely, like
-  this::
+   >>> count = 0
+   >>> count = 10
+   >>> while count > 5:
+   ...     print(count, end=' ')  # end the output of print() with a whitespace
+   ...     count = count - 1  # decrease the value by one with each repetition
+   ...
+   10 9 8 7 6
 
-     >>> i = 256*256
-     >>> print('The value of i is', i)
-     The value of i is 65536
+Fibonacci series
+----------------
 
-  The keyword argument *end* can be used to avoid the newline after the output,
-  or end the output with a different string::
+Great!  Now that we have the knowledge, let's write code to print all numbers
+from the Fibonacci series that are lower than 150::
 
-     >>> a, b = 0, 1
-     >>> while a < 1000:
-     ...     print(a, end=',')
-     ...     a, b = b, a+b
-     ...
-     0,1,1,2,3,5,8,13,21,34,55,89,144,233,377,610,987,
-
+   >>> a, b = 0, 1
+   >>> while a < 150:
+   ...      print('', a, '', end='->')
+   ...      a, b = b, a + b
+   ...
+    0 -> 1 -> 1 -> 2 -> 3 -> 5 -> 8 -> 13 -> 21 -> 34 -> 55 -> 89 -> 144 ->
 
 .. rubric:: Footnotes
 
