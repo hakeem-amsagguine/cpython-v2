@@ -3183,6 +3183,27 @@ def test_no_trailing_whitespace_stripping():
     """
 
 
+def test_unable_to_check_for_wrapped_attr(): r"""
+Before bpo-25998, DocTestFinder.find() failed when inspect.unwrap()
+raised anything else but AttributeError while checking if a given
+object had the __wrapped__ attribute.
+
+    >>> # An unwrapable class
+    >>> class UnwrapMeAndDie:
+    ...     def __getattr__(self, name):
+    ...         raise RuntimeError('boom')
+    >>> # A module using this class
+    >>> import types
+    >>> m = types.ModuleType('some_module')
+    >>> m.__dict__.update({'unwrap_me_not': UnwrapMeAndDie()})
+    >>> # DocTestFinder.find() should fail with a specific ValueError, nothing else
+    >>> finder = doctest.DocTestFinder()
+    >>> finder.find(m)  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ValueError: DocTestFinder.find: __wrapped__ threw RuntimeError('boom'): ...
+    """
+
+
 def test_run_doctestsuite_multiple_times():
     """
     It was not possible to run the same DocTestSuite multiple times

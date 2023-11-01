@@ -1029,6 +1029,11 @@ class DocTestFinder:
         if inspect.ismodule(obj) and self._recurse:
             for valname, val in obj.__dict__.items():
                 valname = '%s.%s' % (name, valname)
+                try:
+                    unwraped_obj = inspect.unwrap(val)
+                except Exception as exc:
+                    raise ValueError("DocTestFinder.find: __wrapped__ threw %r: %r"
+                                     % (exc, type(val))) from None
 
                 # Recurse to functions & classes.
                 if ((self._is_routine(val) or inspect.isclass(val)) and
