@@ -319,20 +319,20 @@ def _85encode(b, chars, chars2, pad=False, foldnuls=False, foldspaces=False):
                chars[word % 85])
               for word in words)
 
-    last = None
+    chunk = None
     ret = bytearray()
     for chunk in chunks:
-        last = chunk
-        ret.extend(chunk)
+        ret += chunk
 
-    if last and padding and not pad:
-        ret[-len(last):] = []
+    # update of the last chunk afterwards
+    if chunk and padding and not pad:
+        ret[-len(chunk):] = []
 
-        if last == b'z':
-            last = chars[0] * 5
-        last = last[:-padding]
+        if chunk == b'z':
+            chunk = chars[0] * 5
+        chunk = chunk[:-padding]
 
-        ret.extend(last)
+        ret += chunk
 
     return bytes(ret)
 
