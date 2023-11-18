@@ -307,21 +307,35 @@ def _85encode(b, chars, chars2, pad=False, foldnuls=False, foldspaces=False):
     padding = (-len(b)) % 4
     if padding:
         b = b + b'\0' * padding
-    words = struct.Struct('!%dI' % (len(b) // 4)).unpack(b)
 
-    chunks = [b'z' if foldnuls and not word else
+    unpack = struct.Struct("!I").unpack
+    ibytes = (b[i:i+4] for i in range(0, len(b), 4))  # 4 bytes each
+    words = (unpack(i)[0] for i in ibytes)
+
+    chunks = (b'z' if foldnuls and not word else
               b'y' if foldspaces and word == 0x20202020 else
               (chars2[word // 614125] +
                chars2[word // 85 % 7225] +
                chars[word % 85])
-              for word in words]
+              for word in words)
 
-    if padding and not pad:
-        if chunks[-1] == b'z':
-            chunks[-1] = chars[0] * 5
-        chunks[-1] = chunks[-1][:-padding]
+    last = None
+    ret = bytearray()
+    for chunk in chunks:
+        last = chunk
+        ret.extend(chunk)
 
-    return b''.join(chunks)
+    if last and padding and not pad:
+        ret[-len(last):] = []
+
+        if last == b'z':
+            last = chars[0] * 5
+        last = last[:-padding]
+
+        ret.extend(last)
+
+    return bytes(ret)
+
 
 def a85encode(b, *, foldspaces=False, wrapcol=0, pad=False, adobe=False):
     """Encode bytes-like object b using Ascii85 and return a bytes object.
