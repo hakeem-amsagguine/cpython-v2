@@ -299,19 +299,36 @@ _a85chars2 = None
 _A85START = b"<~"
 _A85END = b"~>"
 
+def _85buffer_iter_words(b):
+    # Utility method for _85encode
+    # yield unpacked int32 words from buffer, hopefully in an efficient manner,
+    # padding the last part with NULL bytes if necessary
+    n1 = len(b) // 512  # number of 512 bytes unpack
+    n2 = (len(b) - n1 * 512) // 4  # number of 4 bytes unpack
+    padding = (-len(b)) % 4
+
+    unpack512 = struct.Struct("!128I").unpack
+    unpack4 = struct.Struct("!I").unpack
+
+    offset = 0
+    for _ in range(n1):
+        for c in unpack512(b[offset:offset+512]):
+            yield c
+        offset += 512
+
+    for _ in range(n2):
+        yield unpack4(b[offset:offset+4])[0]
+        offset += 4
+
+    if padding:
+        yield unpack4(b[offset:] + b'\0' * padding)[0]
+
 def _85encode(b, chars, chars2, pad=False, foldnuls=False, foldspaces=False):
     # Helper function for a85encode and b85encode
     if not isinstance(b, bytes_types):
         b = memoryview(b).tobytes()
 
-    padding = (-len(b)) % 4
-    if padding:
-        b = b + b'\0' * padding
-
-    unpack = struct.Struct("!I").unpack
-    ibytes = (b[i:i+4] for i in range(0, len(b), 4))  # 4 bytes each
-    words = (unpack(i)[0] for i in ibytes)
-
+    words = _85buffer_iter_words(b)
     chunks = (b'z' if foldnuls and not word else
               b'y' if foldspaces and word == 0x20202020 else
               (chars2[word // 614125] +
@@ -325,6 +342,7 @@ def _85encode(b, chars, chars2, pad=False, foldnuls=False, foldspaces=False):
         ret += chunk
 
     # update of the last chunk afterwards
+    padding = (-len(b)) % 4
     if chunk and padding and not pad:
         ret[-len(chunk):] = []
 
