@@ -40,6 +40,12 @@ _Py_IsMainInterpreterFinalizing(PyInterpreterState *interp)
             interp == &interp->runtime->_main_interpreter);
 }
 
+// Export for _xxsubinterpreters module.
+PyAPI_FUNC(int) _PyInterpreterState_SetRunningMain(PyInterpreterState *);
+PyAPI_FUNC(void) _PyInterpreterState_SetNotRunningMain(PyInterpreterState *);
+PyAPI_FUNC(int) _PyInterpreterState_IsRunningMain(PyInterpreterState *);
+PyAPI_FUNC(int) _PyInterpreterState_FailIfRunningMain(PyInterpreterState *);
+
 
 static inline const PyConfig *
 _Py_GetMainConfig(void)
@@ -147,6 +153,8 @@ PyAPI_FUNC(PyStatus) _PyInterpreterState_Enable(_PyRuntimeState *runtime);
 extern PyStatus _PyInterpreterState_DeleteExceptMain(_PyRuntimeState *runtime);
 extern void _PySignal_AfterFork(void);
 #endif
+
+PyAPI_FUNC(int) _PyCrossInterpreterData_ReleaseAndRawFree(_PyCrossInterpreterData *);
 
 
 PyAPI_FUNC(int) _PyState_AddModule(
