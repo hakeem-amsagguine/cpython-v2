@@ -1430,6 +1430,13 @@ encoder_listencode_obj(PyEncoderObject *s, _PyUnicodeWriter *writer,
             Py_XDECREF(ident);
             return -1;
         }
+        if (Py_TYPE(newobj) == Py_TYPE(obj)) {
+            PyErr_SetString(PyExc_TypeError, "Default serialization function "
+                            "returning same type");
+            Py_DECREF(newobj);
+            Py_XDECREF(ident);
+            return -1;
+        }
 
         if (_Py_EnterRecursiveCall(" while encoding a JSON object")) {
             Py_DECREF(newobj);
