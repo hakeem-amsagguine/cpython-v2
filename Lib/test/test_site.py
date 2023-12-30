@@ -523,6 +523,28 @@ class ImportSideEffectTests(unittest.TestCase):
         self.assertEqual(code, 200, msg="Can't find " + url)
 
 
+class DetectPipUsageInReplTests(unittest.TestCase):
+    def setUp(self):
+        self.old_excepthook = sys.excepthook
+        site._register_detect_pip_usage_in_repl()
+
+    def tearDown(self):
+        sys.excepthook = self.old_excepthook
+
+    def test_detect_pip_usage_in_repl(self):
+        for pip_cmd in [
+            'pip install a', 'pip3 install b', 'python -m pip install c'
+        ]:
+            with self.subTest(pip_cmd=pip_cmd):
+                try:
+                    exec(pip_cmd, {}, {})
+                except SyntaxError as exc:
+                    with captured_stderr() as err_out:
+                        sys.excepthook(SyntaxError, exc, exc.__traceback__)
+
+                self.assertIn("the `pip` command", err_out.getvalue())
+
+
 class StartupImportTests(unittest.TestCase):
 
     @support.requires_subprocess()
@@ -593,8 +615,8 @@ class StartupImportTests(unittest.TestCase):
     def test_startup_interactivehook_isolated_explicit(self):
         # issue28192 readline can be explicitly enabled in isolated mode
         r = subprocess.Popen([sys.executable, '-I', '-c',
-            'import site, sys; site.enablerlcompleter(); sys.exit(hasattr(sys, "__interactivehook__"))']).wait()
-        self.assertTrue(r, "'__interactivehook__' not added by enablerlcompleter()")
+            'import site, sys; site._set_interactive_hook(); sys.exit(hasattr(sys, "__interactivehook__"))']).wait()
+        self.assertTrue(r, "'__interactivehook__' not added by _set_interactive_hook()")
 
 class _pthFileTests(unittest.TestCase):
 

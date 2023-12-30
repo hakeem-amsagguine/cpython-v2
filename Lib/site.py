@@ -434,62 +434,88 @@ def sethelper():
     builtins.help = _sitebuiltins._Helper()
 
 def enablerlcompleter():
-    """Enable default readline configuration on interactive prompts, by
-    registering a sys.__interactivehook__.
-
-    If the readline module can be imported, the hook will set the Tab key
+    """If the readline module can be imported, the hook will set the Tab key
     as completion key and register ~/.python_history as history file.
     This can be overridden in the sitecustomize or usercustomize module,
     or in a PYTHONSTARTUP file.
     """
-    def register_readline():
-        import atexit
-        try:
-            import readline
-            import rlcompleter
-        except ImportError:
-            return
+    import atexit
+    try:
+        import readline
+        import rlcompleter
+    except ImportError:
+        return
 
-        # Reading the initialization (config) file may not be enough to set a
-        # completion key, so we set one first and then read the file.
-        if readline.backend == 'editline':
-            readline.parse_and_bind('bind ^I rl_complete')
-        else:
-            readline.parse_and_bind('tab: complete')
+    # Reading the initialization (config) file may not be enough to set a
+    # completion key, so we set one first and then read the file.
+    if readline.backend == 'editline':
+        readline.parse_and_bind('bind ^I rl_complete')
+    else:
+        readline.parse_and_bind('tab: complete')
 
+    try:
+        readline.read_init_file()
+    except OSError:
+        # An OSError here could have many causes, but the most likely one
+        # is that there's no .inputrc file (or .editrc file in the case of
+        # Mac OS X + libedit) in the expected location.  In that case, we
+        # want to ignore the exception.
+        pass
+
+    if readline.get_current_history_length() == 0:
+        # If no history was loaded, default to .python_history.
+        # The guard is necessary to avoid doubling history size at
+        # each interpreter exit when readline was already configured
+        # through a PYTHONSTARTUP hook, see:
+        # http://bugs.python.org/issue5845#msg198636
+        history = os.path.join(os.path.expanduser('~'),
+                               '.python_history')
         try:
-            readline.read_init_file()
+            readline.read_history_file(history)
         except OSError:
-            # An OSError here could have many causes, but the most likely one
-            # is that there's no .inputrc file (or .editrc file in the case of
-            # Mac OS X + libedit) in the expected location.  In that case, we
-            # want to ignore the exception.
             pass
 
-        if readline.get_current_history_length() == 0:
-            # If no history was loaded, default to .python_history.
-            # The guard is necessary to avoid doubling history size at
-            # each interpreter exit when readline was already configured
-            # through a PYTHONSTARTUP hook, see:
-            # http://bugs.python.org/issue5845#msg198636
-            history = os.path.join(os.path.expanduser('~'),
-                                   '.python_history')
+        def write_history():
             try:
-                readline.read_history_file(history)
+                readline.write_history_file(history)
             except OSError:
+                # bpo-19891, bpo-41193: Home directory does not exist
+                # or is not writable, or the filesystem is read-only.
                 pass
 
-            def write_history():
-                try:
-                    readline.write_history_file(history)
-                except OSError:
-                    # bpo-19891, bpo-41193: Home directory does not exist
-                    # or is not writable, or the filesystem is read-only.
-                    pass
+        atexit.register(write_history)
 
-            atexit.register(write_history)
+def _register_detect_pip_usage_in_repl():
+    old_excepthook = sys.excepthook
 
-    sys.__interactivehook__ = register_readline
+    def detect_pip_usage_in_repl(typ, value, traceback):
+        if typ is SyntaxError and (
+            "pip install" in value.text or "pip3 install" in value.text
+        ):
+            value.add_note(
+                "The Python package manager (pip) can only be used"
+                " from outside of Python.\n"
+                "Please try the `pip` command in a"
+                " separate terminal or command prompt."
+            )
+
+        old_excepthook(typ, value, traceback)
+
+    detect_pip_usage_in_repl.__wrapped__ = old_excepthook
+    sys.excepthook = detect_pip_usage_in_repl
+
+
+def _set_interactive_hook():
+    """Register a sys.__interactivehook__ to:
+        - Enable default readline configuration on interactive prompts.
+        - Register an excepthook to detect pip usage in the REPL.
+    """
+    def interactivehook():
+        enablerlcompleter()
+        _register_detect_pip_usage_in_repl()
+
+    sys.__interactivehook__ = interactivehook
+
 
 def venv(known_paths):
     global PREFIXES, ENABLE_USER_SITE
@@ -610,7 +636,7 @@ def main():
     setcopyright()
     sethelper()
     if not sys.flags.isolated:
-        enablerlcompleter()
+        _set_interactive_hook()
     execsitecustomize()
     if ENABLE_USER_SITE:
         execusercustomize()
