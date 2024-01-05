@@ -7,13 +7,14 @@ import contextvars
 import contextlib
 from asyncio import taskgroups
 import unittest
+from test import support
 
 from test.test_asyncio.utils import await_without_task
 
 
 # To prevent a warning "test altered the execution environment"
 def tearDownModule():
-    asyncio.set_event_loop_policy(None)
+    support.set_event_loop_policy(None)
 
 
 class MyExc(Exception):

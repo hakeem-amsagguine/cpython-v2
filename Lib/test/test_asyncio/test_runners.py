@@ -7,12 +7,13 @@ import sys
 import threading
 import unittest
 from test.test_asyncio import utils as test_utils
+from test import support
 from unittest import mock
 from unittest.mock import patch
 
 
 def tearDownModule():
-    asyncio.set_event_loop_policy(None)
+    support.set_event_loop_policy(None)
 
 
 def interrupt_self():
@@ -61,7 +62,7 @@ class BaseTest(unittest.TestCase):
         super().setUp()
 
         policy = TestPolicy(self.new_loop)
-        asyncio.set_event_loop_policy(policy)
+        support.set_event_loop_policy(policy)
 
     def tearDown(self):
         policy = asyncio.get_event_loop_policy()
@@ -69,7 +70,7 @@ class BaseTest(unittest.TestCase):
             self.assertTrue(policy.loop.is_closed())
             self.assertTrue(policy.loop.shutdown_ag_run)
 
-        asyncio.set_event_loop_policy(None)
+        support.set_event_loop_policy(None)
         super().tearDown()
 
 
@@ -259,7 +260,7 @@ class RunTests(BaseTest):
             loop.set_task_factory(Task)
             return loop
 
-        asyncio.set_event_loop_policy(TestPolicy(new_event_loop))
+        support.set_event_loop_policy(TestPolicy(new_event_loop))
         with self.assertRaises(asyncio.CancelledError):
             asyncio.run(main())
 
