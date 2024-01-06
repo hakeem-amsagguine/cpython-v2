@@ -302,6 +302,9 @@ os
   :c:func:`!posix_spawn_file_actions_addclosefrom_np`.
   (Contributed by Jakub Kulik in :gh:`113117`.)
 
+* :func:`os.makedirs` function now has a *recursive_mode* parameter.
+  (Contributed by Zackery Spytz in :gh:`86533`.)
+
 pathlib
 -------
 
