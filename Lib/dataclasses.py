@@ -304,10 +304,11 @@ class Field:
                  'metadata',
                  'kw_only',
                  '_field_type',  # Private: not to be used by user code.
+                 'doc',
                  )
 
     def __init__(self, default, default_factory, init, repr, hash, compare,
-                 metadata, kw_only):
+                 metadata, kw_only, doc=''):
         self.name = None
         self.type = None
         self.default = default
@@ -321,6 +322,7 @@ class Field:
                          types.MappingProxyType(metadata))
         self.kw_only = kw_only
         self._field_type = None
+        self.doc = doc
 
     @_recursive_repr
     def __repr__(self):
@@ -402,7 +404,7 @@ class _DataclassParams:
 # so that a type checker can be told (via overloads) that this is a
 # function whose type depends on its parameters.
 def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
-          hash=None, compare=True, metadata=None, kw_only=MISSING):
+          hash=None, compare=True, metadata=None, kw_only=MISSING, doc=''):
     """Return an object to identify dataclass fields.
 
     default is the default value of the field.  default_factory is a
@@ -422,7 +424,7 @@ def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
     if default is not MISSING and default_factory is not MISSING:
         raise ValueError('cannot specify both default and default_factory')
     return Field(default, default_factory, init, repr, hash, compare,
-                 metadata, kw_only)
+                 metadata, kw_only, doc)
 
 
 def _fields_in_init_order(fields):
@@ -1590,3 +1592,15 @@ def _replace(obj, /, **changes):
     # changes that aren't fields, this will correctly raise a
     # TypeError.
     return obj.__class__(**changes)
+
+def add_field_docs(cls, doc):
+    if not cls.__dataclass_fields__:
+        return doc
+    if doc:
+        doc += '\n'
+    for name, f in cls.__dataclass_fields__.items():
+        dflt = f' [{f.default}]' if f.default is not MISSING else ' '
+        fdoc = f' -- {f.doc}' if f.doc else ''
+        doc += f'\n{name}: {f.type}{dflt}{fdoc}\n'
+    doc = doc[:-1]
+    return doc
