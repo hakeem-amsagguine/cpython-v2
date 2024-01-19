@@ -550,6 +550,9 @@ then
 	*-*-cygwin*)
 		ac_sys_system=Cygwin
 		;;
+	*-*-gnu)
+		ac_sys_system=GNU
+		;;
 	*-*-vxworks*)
 	    ac_sys_system=VxWorks
 	    ;;
