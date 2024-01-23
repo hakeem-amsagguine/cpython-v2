@@ -1520,8 +1520,10 @@ bytes_compare_eq(PyBytesObject *a, PyBytesObject *b)
 }
 
 static PyObject*
-bytes_richcompare(PyBytesObject *a, PyBytesObject *b, int op)
+bytes_richcompare(PyObject *o1, PyObject *o2, int op)
 {
+    PyBytesObject *a = (PyBytesObject *)o1;
+    PyBytesObject *b = (PyBytesObject *)o2;
     int c;
     Py_ssize_t len_a, len_b;
     Py_ssize_t min_len;
@@ -1581,8 +1583,9 @@ bytes_richcompare(PyBytesObject *a, PyBytesObject *b, int op)
 }
 
 static Py_hash_t
-bytes_hash(PyBytesObject *a)
+bytes_hash(PyObject *obj)
 {
+    PyBytesObject *a = (PyBytesObject *)obj;
 _Py_COMP_DIAG_PUSH
 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
     if (a->ob_shash == -1) {
@@ -1659,8 +1662,9 @@ bytes_subscript(PyBytesObject* self, PyObject* item)
 }
 
 static int
-bytes_buffer_getbuffer(PyBytesObject *self, Py_buffer *view, int flags)
+bytes_buffer_getbuffer(PyObject *obj, Py_buffer *view, int flags)
 {
+    PyBytesObject *self = (PyBytesObject *)obj;
     return PyBuffer_FillInfo(view, (PyObject*)self, (void *)self->ob_sval, Py_SIZE(self),
                              1, flags);
 }
@@ -1683,7 +1687,7 @@ static PyMappingMethods bytes_as_mapping = {
 };
 
 static PyBufferProcs bytes_as_buffer = {
-    (getbufferproc)bytes_buffer_getbuffer,
+    bytes_buffer_getbuffer,
     NULL,
 };
 
@@ -2937,7 +2941,7 @@ PyTypeObject PyBytes_Type = {
     &bytes_as_number,                           /* tp_as_number */
     &bytes_as_sequence,                         /* tp_as_sequence */
     &bytes_as_mapping,                          /* tp_as_mapping */
-    (hashfunc)bytes_hash,                       /* tp_hash */
+    bytes_hash,                                 /* tp_hash */
     0,                                          /* tp_call */
     bytes_str,                                  /* tp_str */
     PyObject_GenericGetAttr,                    /* tp_getattro */
@@ -2949,7 +2953,7 @@ PyTypeObject PyBytes_Type = {
     bytes_doc,                                  /* tp_doc */
     0,                                          /* tp_traverse */
     0,                                          /* tp_clear */
-    (richcmpfunc)bytes_richcompare,             /* tp_richcompare */
+    bytes_richcompare,                          /* tp_richcompare */
     0,                                          /* tp_weaklistoffset */
     bytes_iter,                                 /* tp_iter */
     0,                                          /* tp_iternext */

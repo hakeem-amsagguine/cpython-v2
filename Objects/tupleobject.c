@@ -183,8 +183,9 @@ PyTuple_Pack(Py_ssize_t n, ...)
 /* Methods */
 
 static void
-tupledealloc(PyTupleObject *op)
+tupledealloc(PyObject *obj)
 {
+    PyTupleObject *op = (PyTupleObject *)obj;
     if (Py_SIZE(op) == 0) {
         /* The empty tuple is statically allocated. */
         if (op == &_Py_SINGLETON(tuple_empty)) {
@@ -318,8 +319,9 @@ error:
 /* Tests have shown that it's not worth to cache the hash value, see
    https://bugs.python.org/issue9685 */
 static Py_hash_t
-tuplehash(PyTupleObject *v)
+tuplehash(PyObject *obj)
 {
+    PyTupleObject *v = (PyTupleObject *)obj;
     Py_ssize_t i, len = Py_SIZE(v);
     PyObject **item = v->ob_item;
 
@@ -439,8 +441,9 @@ PyTuple_GetSlice(PyObject *op, Py_ssize_t i, Py_ssize_t j)
 }
 
 static PyObject *
-tupleconcat(PyTupleObject *a, PyObject *bb)
+tupleconcat(PyObject *aa, PyObject *bb)
 {
+    PyTupleObject *a = (PyTupleObject *)aa;
     Py_ssize_t size;
     Py_ssize_t i;
     PyObject **src, **dest;
@@ -752,7 +755,7 @@ tuple_subtype_new(PyTypeObject *type, PyObject *iterable)
 
 static PySequenceMethods tuple_as_sequence = {
     (lenfunc)tuplelength,                       /* sq_length */
-    (binaryfunc)tupleconcat,                    /* sq_concat */
+    tupleconcat,                                /* sq_concat */
     (ssizeargfunc)tuplerepeat,                  /* sq_repeat */
     (ssizeargfunc)tupleitem,                    /* sq_item */
     0,                                          /* sq_slice */
@@ -848,7 +851,7 @@ PyTypeObject PyTuple_Type = {
     "tuple",
     sizeof(PyTupleObject) - sizeof(PyObject *),
     sizeof(PyObject *),
-    (destructor)tupledealloc,                   /* tp_dealloc */
+    tupledealloc,                               /* tp_dealloc */
     0,                                          /* tp_vectorcall_offset */
     0,                                          /* tp_getattr */
     0,                                          /* tp_setattr */
@@ -857,7 +860,7 @@ PyTypeObject PyTuple_Type = {
     0,                                          /* tp_as_number */
     &tuple_as_sequence,                         /* tp_as_sequence */
     &tuple_as_mapping,                          /* tp_as_mapping */
-    (hashfunc)tuplehash,                        /* tp_hash */
+    tuplehash,                                  /* tp_hash */
     0,                                          /* tp_call */
     0,                                          /* tp_str */
     PyObject_GenericGetAttr,                    /* tp_getattro */
@@ -980,23 +983,26 @@ _PyTuple_ClearFreeList(_PyFreeListState *state, int is_finalization)
 
 
 static void
-tupleiter_dealloc(_PyTupleIterObject *it)
+tupleiter_dealloc(PyObject *obj)
 {
+    _PyTupleIterObject *it = (_PyTupleIterObject *)obj;
     _PyObject_GC_UNTRACK(it);
     Py_XDECREF(it->it_seq);
     PyObject_GC_Del(it);
 }
 
 static int
-tupleiter_traverse(_PyTupleIterObject *it, visitproc visit, void *arg)
+tupleiter_traverse(PyObject *obj, visitproc visit, void *arg)
 {
+    _PyTupleIterObject *it = (_PyTupleIterObject *)obj;
     Py_VISIT(it->it_seq);
     return 0;
 }
 
 static PyObject *
-tupleiter_next(_PyTupleIterObject *it)
+tupleiter_next(PyObject *obj)
 {
+    _PyTupleIterObject *it = (_PyTupleIterObject *)obj;
     PyTupleObject *seq;
     PyObject *item;
 
@@ -1075,7 +1081,7 @@ PyTypeObject PyTupleIter_Type = {
     sizeof(_PyTupleIterObject),                    /* tp_basicsize */
     0,                                          /* tp_itemsize */
     /* methods */
-    (destructor)tupleiter_dealloc,              /* tp_dealloc */
+    tupleiter_dealloc,                          /* tp_dealloc */
     0,                                          /* tp_vectorcall_offset */
     0,                                          /* tp_getattr */
     0,                                          /* tp_setattr */
@@ -1092,12 +1098,12 @@ PyTypeObject PyTupleIter_Type = {
     0,                                          /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,/* tp_flags */
     0,                                          /* tp_doc */
-    (traverseproc)tupleiter_traverse,           /* tp_traverse */
+    tupleiter_traverse,                         /* tp_traverse */
     0,                                          /* tp_clear */
     0,                                          /* tp_richcompare */
     0,                                          /* tp_weaklistoffset */
     PyObject_SelfIter,                          /* tp_iter */
-    (iternextfunc)tupleiter_next,               /* tp_iternext */
+    tupleiter_next,                             /* tp_iternext */
     tupleiter_methods,                          /* tp_methods */
     0,
 };

@@ -2299,8 +2299,6 @@ long_from_binary_base(const char *start, const char *end, Py_ssize_t digits, int
     return 0;
 }
 
-static PyObject *long_neg(PyLongObject *v);
-
 #ifdef WITH_PYLONG_MODULE
 /* asymptotically faster str-to-long conversion for base 10, using _pylong.py */
 static int
@@ -3292,8 +3290,9 @@ long_dealloc(PyObject *self)
 }
 
 static Py_hash_t
-long_hash(PyLongObject *v)
+long_hash(PyObject *obj)
 {
+    PyLongObject *v = (PyLongObject *)obj;
     Py_uhash_t x;
     Py_ssize_t i;
     int sign;
@@ -4850,8 +4849,9 @@ long_pow(PyObject *v, PyObject *w, PyObject *x)
 }
 
 static PyObject *
-long_invert(PyLongObject *v)
+long_invert(PyObject *obj)
 {
+    PyLongObject *v = (PyLongObject *)obj;
     /* Implement ~x as -(x+1) */
     PyLongObject *x;
     if (_PyLong_IsCompact(v))
@@ -4866,8 +4866,9 @@ long_invert(PyLongObject *v)
 }
 
 static PyObject *
-long_neg(PyLongObject *v)
+long_neg(PyObject *obj)
 {
+    PyLongObject *v = (PyLongObject *)obj;
     PyLongObject *z;
     if (_PyLong_IsCompact(v))
         return _PyLong_FromSTwoDigits(-medium_value(v));
@@ -4878,17 +4879,19 @@ long_neg(PyLongObject *v)
 }
 
 static PyObject *
-long_abs(PyLongObject *v)
+long_abs(PyObject *obj)
 {
+    PyLongObject *v = (PyLongObject *)obj;
     if (_PyLong_IsNegative(v))
-        return long_neg(v);
+        return long_neg((PyObject *)v);
     else
         return long_long((PyObject *)v);
 }
 
 static int
-long_bool(PyLongObject *v)
+long_bool(PyObject *obj)
 {
+    PyLongObject *v = (PyLongObject *)obj;
     return !_PyLong_IsZero(v);
 }
 
@@ -5333,10 +5336,10 @@ _PyLong_GCD(PyObject *aarg, PyObject *barg)
     }
 
     /* Initial reduction: make sure that 0 <= b <= a. */
-    a = (PyLongObject *)long_abs(a);
+    a = (PyLongObject *)long_abs((PyObject *)a);
     if (a == NULL)
         return NULL;
-    b = (PyLongObject *)long_abs(b);
+    b = (PyLongObject *)long_abs((PyObject *)b);
     if (b == NULL) {
         Py_DECREF(a);
         return NULL;
@@ -5723,7 +5726,7 @@ _PyLong_DivmodNear(PyObject *a, PyObject *b)
     if (twice_rem == NULL)
         goto error;
     if (quo_is_neg) {
-        temp = long_neg((PyLongObject*)twice_rem);
+        temp = long_neg(twice_rem);
         Py_SETREF(twice_rem, temp);
         if (twice_rem == NULL)
             goto error;
@@ -5811,7 +5814,7 @@ int___round___impl(PyObject *self, PyObject *o_ndigits)
     }
 
     /* result = self - divmod_near(self, 10 ** -ndigits)[1] */
-    temp = long_neg((PyLongObject*)ndigits);
+    temp = long_neg(ndigits);
     Py_SETREF(ndigits, temp);
     if (ndigits == NULL)
         return NULL;
@@ -6198,9 +6201,15 @@ static PyMethodDef long_methods[] = {
     {NULL,              NULL}           /* sentinel */
 };
 
+static PyObject *
+long_long_meth_getter(PyObject *self, void *arg)
+{
+    return long_long_meth(self, arg);
+}
+
 static PyGetSetDef long_getset[] = {
     {"real",
-     (getter)long_long_meth, (setter)NULL,
+     long_long_meth_getter, (setter)NULL,
      "the real part of a complex number",
      NULL},
     {"imag",
@@ -6208,7 +6217,7 @@ static PyGetSetDef long_getset[] = {
      "the imaginary part of a complex number",
      NULL},
     {"numerator",
-     (getter)long_long_meth, (setter)NULL,
+     long_long_meth_getter, (setter)NULL,
      "the numerator of a rational number in lowest terms",
      NULL},
     {"denominator",
@@ -6234,18 +6243,40 @@ Base 0 means to interpret the base from the string as an integer literal.\n\
 >>> int('0b100', base=0)\n\
 4");
 
+static PyObject *
+long_add_wrap(PyObject *o1, PyObject *o2)
+{
+    PyLongObject *a = (PyLongObject *)o1;
+    PyLongObject *b = (PyLongObject *)o2;
+    return long_add(a, b);
+}
+static PyObject *
+long_sub_wrap(PyObject *o1, PyObject *o2)
+{
+    PyLongObject *a = (PyLongObject *)o1;
+    PyLongObject *b = (PyLongObject *)o2;
+    return long_sub(a, b);
+}
+static PyObject *
+long_mul_wrap(PyObject *o1, PyObject *o2)
+{
+    PyLongObject *a = (PyLongObject *)o1;
+    PyLongObject *b = (PyLongObject *)o2;
+    return long_mul(a, b);
+}
+
 static PyNumberMethods long_as_number = {
-    (binaryfunc)long_add,       /*nb_add*/
-    (binaryfunc)long_sub,       /*nb_subtract*/
-    (binaryfunc)long_mul,       /*nb_multiply*/
+    long_add_wrap,              /*nb_add*/
+    long_sub_wrap,              /*nb_subtract*/
+    long_mul_wrap,              /*nb_multiply*/
     long_mod,                   /*nb_remainder*/
     long_divmod,                /*nb_divmod*/
     long_pow,                   /*nb_power*/
-    (unaryfunc)long_neg,        /*nb_negative*/
+    long_neg,                   /*nb_negative*/
     long_long,                  /*tp_positive*/
-    (unaryfunc)long_abs,        /*tp_absolute*/
-    (inquiry)long_bool,         /*tp_bool*/
-    (unaryfunc)long_invert,     /*nb_invert*/
+    long_abs,                   /*tp_absolute*/
+    long_bool,                  /*tp_bool*/
+    long_invert,                /*nb_invert*/
     long_lshift,                /*nb_lshift*/
     long_rshift,                /*nb_rshift*/
     long_and,                   /*nb_and*/
@@ -6285,7 +6316,7 @@ PyTypeObject PyLong_Type = {
     &long_as_number,                            /* tp_as_number */
     0,                                          /* tp_as_sequence */
     0,                                          /* tp_as_mapping */
-    (hashfunc)long_hash,                        /* tp_hash */
+    long_hash,                                  /* tp_hash */
     0,                                          /* tp_call */
     0,                                          /* tp_str */
     PyObject_GenericGetAttr,                    /* tp_getattro */
