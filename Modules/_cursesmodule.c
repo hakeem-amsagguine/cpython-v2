@@ -4801,6 +4801,9 @@ PyInit__curses(void)
     PyDict_SetItemString(d, "ncurses_version", v);
     Py_DECREF(v);
 #endif /* NCURSES_VERSION */
+#ifdef NCURSES_EXT_FUNCS
+    SetDictInt("NCURSES_EXT_FUNCS", NCURSES_EXT_FUNCS);
+#endif
 
     SetDictInt("ERR", ERR);
     SetDictInt("OK", OK);
