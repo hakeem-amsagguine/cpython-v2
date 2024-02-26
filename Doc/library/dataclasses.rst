@@ -293,6 +293,7 @@ Module contents
     .. versionadded:: 3.10
 
    - ``doc``: optional docstring for this field.
+     In CPython it is only used for documenting :attr:`~object.__slots__`.
 
     .. versionadded:: 3.13
 
