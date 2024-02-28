@@ -655,7 +655,6 @@ class CmdLineTest(unittest.TestCase):
             exitcode, stdout, stderr = assert_python_failure(
                 '-Werror', script_name,
             )
-            print(stderr)
             self.assertEqual(
                 stderr.splitlines()[-3:],
                 [   b'    foo = """\\q"""',
