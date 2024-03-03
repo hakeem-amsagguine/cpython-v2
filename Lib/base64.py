@@ -312,8 +312,7 @@ def _85buffer_iter_words(b):
 
     offset = 0
     for _ in range(n1):
-        for c in unpack512(b[offset:offset+512]):
-            yield c
+        yield from unpack512(b[offset:offset+512])
         offset += 512
 
     for _ in range(n2):

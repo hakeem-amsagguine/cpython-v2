@@ -553,10 +553,10 @@ class BaseXYTestCase(unittest.TestCase):
         result = base64.b85encode(large_input)
 
         # since the result is to large to fit inside a test,
-        # use a hash method to validate the test
+        # use a hash method to validate the value
         self.assertEqual(len(result), 784)
-        self.assertEqual(hashlib.md5(result).hexdigest(),
-                         "0537cfca1aed7495e80d3328e9ef3008")
+        self.assertEqual(hashlib.sha1(result).hexdigest(),
+                         "01a925210f86cf17dece89052406fbd68edb750e")
 
     def test_z85encode(self):
         eq = self.assertEqual
