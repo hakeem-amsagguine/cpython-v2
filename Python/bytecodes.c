@@ -229,6 +229,8 @@ dummy_func(
             Py_INCREF(value2);
         }
 
+        replicate_only super(_LOAD_FAST__LOAD_FAST) = LOAD_FAST + LOAD_FAST;
+
         pure inst(LOAD_CONST, (-- value)) {
             value = GETITEM(FRAME_CO_CONSTS, oparg);
             Py_INCREF(value);
@@ -249,6 +251,8 @@ dummy_func(
             value2 = GETLOCAL(oparg2);
             Py_INCREF(value2);
         }
+
+        replicate_only super(_STORE_FAST__LOAD_FAST) = STORE_FAST + LOAD_FAST;
 
         inst(STORE_FAST_STORE_FAST, (value2, value1 --)) {
             uint32_t oparg1 = oparg >> 4;
@@ -444,6 +448,13 @@ dummy_func(
         macro(BINARY_OP_SUBTRACT_INT) =
             _GUARD_BOTH_INT + unused/1 + _BINARY_OP_SUBTRACT_INT;
 
+        super(_GUARD_BOTH_INT__BINARY_OP_MULTIPLY_INT) =
+            _GUARD_BOTH_INT + _BINARY_OP_MULTIPLY_INT;
+        super(_GUARD_BOTH_INT__BINARY_OP_ADD_INT) =
+            _GUARD_BOTH_INT + _BINARY_OP_ADD_INT;
+        super(_GUARD_BOTH_INT__BINARY_OP_SUBTRACT_INT) =
+            _GUARD_BOTH_INT + _BINARY_OP_SUBTRACT_INT;
+
         op(_GUARD_BOTH_FLOAT, (left, right -- left, right)) {
             EXIT_IF(!PyFloat_CheckExact(left));
             EXIT_IF(!PyFloat_CheckExact(right));
@@ -480,6 +491,13 @@ dummy_func(
         macro(BINARY_OP_SUBTRACT_FLOAT) =
             _GUARD_BOTH_FLOAT + unused/1 + _BINARY_OP_SUBTRACT_FLOAT;
 
+        super(_GUARD_BOTH_FLOAT__BINARY_OP_MULTIPLY_FLOAT) =
+            _GUARD_BOTH_FLOAT + _BINARY_OP_MULTIPLY_FLOAT;
+        super(_GUARD_BOTH_FLOAT__BINARY_OP_ADD_FLOAT) =
+            _GUARD_BOTH_FLOAT + _BINARY_OP_ADD_FLOAT;
+        super(_GUARD_BOTH_FLOAT__BINARY_OP_SUBTRACT_FLOAT) =
+            _GUARD_BOTH_FLOAT + _BINARY_OP_SUBTRACT_FLOAT;
+
         op(_GUARD_BOTH_UNICODE, (left, right -- left, right)) {
             EXIT_IF(!PyUnicode_CheckExact(left));
             EXIT_IF(!PyUnicode_CheckExact(right));
@@ -495,6 +513,9 @@ dummy_func(
 
         macro(BINARY_OP_ADD_UNICODE) =
             _GUARD_BOTH_UNICODE + unused/1 + _BINARY_OP_ADD_UNICODE;
+
+        super(_GUARD_BOTH_UNICODE__BINARY_OP_ADD_UNICODE) =
+            _GUARD_BOTH_UNICODE + _BINARY_OP_ADD_UNICODE;
 
         // This is a subtle one. It's a super-instruction for
         // BINARY_OP_ADD_UNICODE followed by STORE_FAST
@@ -3091,7 +3112,7 @@ dummy_func(
             DEOPT_IF(tstate->interp->eval_frame);
         }
 
-        op(_CHECK_FUNCTION_EXACT_ARGS, (func_version/2, callable, self_or_null, unused[oparg] -- callable, self_or_null, unused[oparg])) {
+        replicate(5) op(_CHECK_FUNCTION_EXACT_ARGS, (func_version/2, callable, self_or_null, unused[oparg] -- callable, self_or_null, unused[oparg])) {
             DEOPT_IF(!PyFunction_Check(callable));
             PyFunctionObject *func = (PyFunctionObject *)callable;
             DEOPT_IF(func->func_version != func_version);
@@ -3099,7 +3120,7 @@ dummy_func(
             DEOPT_IF(code->co_argcount != oparg + (self_or_null != NULL));
         }
 
-        op(_CHECK_STACK_SPACE, (callable, unused, unused[oparg] -- callable, unused, unused[oparg])) {
+        replicate(5) op(_CHECK_STACK_SPACE, (callable, unused, unused[oparg] -- callable, unused, unused[oparg])) {
             PyFunctionObject *func = (PyFunctionObject *)callable;
             PyCodeObject *code = (PyCodeObject *)func->func_code;
             DEOPT_IF(!_PyThreadState_HasStackSpace(tstate, code->co_framesize));
@@ -3154,6 +3175,13 @@ dummy_func(
             _SAVE_RETURN_OFFSET +
             _PUSH_FRAME;
 
+        super(_CALL_BOUND_METHOD_EXACT_ARGS) =
+            _CHECK_CALL_BOUND_METHOD_EXACT_ARGS +
+            _INIT_CALL_BOUND_METHOD_EXACT_ARGS +
+            _CHECK_FUNCTION_EXACT_ARGS +
+            _CHECK_STACK_SPACE +
+            _INIT_CALL_PY_EXACT_ARGS;
+
         macro(CALL_PY_EXACT_ARGS) =
             unused/1 + // Skip over the counter
             _CHECK_PEP_523 +
@@ -3162,6 +3190,13 @@ dummy_func(
             _INIT_CALL_PY_EXACT_ARGS +
             _SAVE_RETURN_OFFSET +
             _PUSH_FRAME;
+
+        super(_CHECK_CALL_PY_EXACT_ARGS) =
+            _CHECK_FUNCTION_EXACT_ARGS +
+            _CHECK_STACK_SPACE +
+            _INIT_CALL_PY_EXACT_ARGS;
+
+        super(_SAVE_RETURN_OFFSET__PUSH_FRAME) = _SAVE_RETURN_OFFSET + _PUSH_FRAME;
 
         inst(CALL_PY_WITH_DEFAULTS, (unused/1, func_version/2, callable, self_or_null, args[oparg] -- unused)) {
             DEOPT_IF(tstate->interp->eval_frame);

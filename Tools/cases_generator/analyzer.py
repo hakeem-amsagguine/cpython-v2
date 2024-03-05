@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 import lexer
 import parser
 import re
+import itertools
 from typing import Optional
 
 
@@ -24,6 +25,7 @@ class Properties:
     side_exit: bool
     pure: bool
     passthrough: bool
+    replicate_only: bool
     tier: int | None = None
     oparg_and_1: bool = False
     const_oparg: int = -1
@@ -53,6 +55,7 @@ class Properties:
             side_exit=any(p.side_exit for p in properties),
             pure=all(p.pure for p in properties),
             passthrough=all(p.passthrough for p in properties),
+            replicate_only=all(p.replicate_only for p in properties),
         )
 
 
@@ -74,6 +77,7 @@ SKIP_PROPERTIES = Properties(
     side_exit=False,
     pure=False,
     passthrough=False,
+    replicate_only=False,
 )
 
 
@@ -183,6 +187,13 @@ Part = Uop | Skip
 
 
 @dataclass
+class SuperUop:
+    name: str
+    parts: list[Uop]
+    is_replicates_only: bool = False
+
+
+@dataclass
 class Instruction:
     name: str
     parts: list[Part]
@@ -247,6 +258,7 @@ class Family:
 class Analysis:
     instructions: dict[str, Instruction]
     uops: dict[str, Uop]
+    super_uops: dict[str, SuperUop]
     families: dict[str, Family]
     pseudos: dict[str, PseudoInstruction]
     opmap: dict[str, int]
@@ -513,6 +525,7 @@ def compute_properties(op: parser.InstDef) -> Properties:
         pure="pure" in op.annotations,
         passthrough=passthrough,
         tier=tier_variable(op),
+        replicate_only="replicate_only" in op.annotations,
     )
 
 
@@ -587,6 +600,13 @@ def add_instruction(
     instructions[name] = Instruction(name, parts, None)
 
 
+def add_superuop(
+    name: str, parts: list[Uop], instructions: dict[str, SuperUop],
+    is_replicate_only: bool = False
+) -> None:
+    instructions[name] = SuperUop(name, parts, is_replicate_only)
+
+
 def desugar_inst(
     inst: parser.InstDef, instructions: dict[str, Instruction], uops: dict[str, Uop]
 ) -> None:
@@ -631,6 +651,70 @@ def add_macro(
                 assert False
     assert parts
     add_instruction(macro.name, parts, instructions)
+
+
+def add_super(
+    super: parser.Super, super_uops: dict[str, SuperUop], uops: dict[str, Uop]
+) -> None:
+    parts: list[Uop] = []
+    for part in super.uops:
+        match part:
+            case parser.OpName():
+                if part.name not in uops:
+                    analysis_error(f"No Uop named {part.name}", super.tokens[0])
+                parts.append(uops[part.name])
+            case _:
+                assert False
+    assert parts
+    # All uop parts in a super-uop must respect the instruction format.
+    # 1. At most one operand can be used across all constituent uops (this can be repeated).
+    # 2. At most one oparg can be used across all constituent uops (we assume this, since it cannot be easily checked).
+    operand_uses = set()
+    for op in parts:
+        assert isinstance(op, Uop)
+        for cache_entry in op.caches:
+            if (cache_name := cache_entry.name)  == "unused":
+                continue
+            operand_uses.add(cache_name)
+    if len(operand_uses) > 1:
+        analysis_error(f"Uop super {super.name}'s cache entry cannot fit in one operand.", super.tokens[0])
+
+    replicate_only = "replicate_only" in super.annotations
+    if not replicate_only:
+        add_superuop(super.name, parts, super_uops)
+
+    replicates_count = [p.replicated for p in parts if p.replicated != 0]
+    if len(set(replicates_count)) > 1:
+        analysis_error(f"Uop super {super.name}'s replicates are not all the same count: {replicates_count}", super.tokens[0])
+
+    if replicates_count and not replicate_only:
+        replicate_count = replicates_count[0]
+        for i in range(replicate_count):
+            res = []
+            for part in parts:
+                if part.replicated > 0:
+                    assert part.replicated == replicate_count
+                    res.append(uops[part.name + f"_{i}"])
+                else:
+                    res.append(part)
+            add_superuop(super.name + f"_{i}", res, super_uops)
+    elif replicate_only:
+        # For instructions consisting only of replicates, we can just make a cross
+        # product of all their replicates. Expanding the uops we cover.
+        # Since their oparg doesn't matter.
+
+        replicate_count = replicates_count[0]
+        replicate_parts = []
+
+        for part in parts:
+            assert part.replicated > 0
+            res = []
+            for i in range(replicate_count):
+                res.append(uops[part.name + f"_{i}"])
+            replicate_parts.append(res)
+        for permutation in itertools.product(*replicate_parts):
+            add_superuop('_' + '_'.join([op.name for op in permutation]), permutation, super_uops, is_replicate_only=True)
+
 
 
 def add_family(
@@ -754,6 +838,7 @@ def assign_opcodes(
 def analyze_forest(forest: list[parser.AstNode]) -> Analysis:
     instructions: dict[str, Instruction] = {}
     uops: dict[str, Uop] = {}
+    super_uops: dict[str, SuperUop] = {}
     families: dict[str, Family] = {}
     pseudos: dict[str, PseudoInstruction] = {}
     for node in forest:
@@ -766,6 +851,8 @@ def analyze_forest(forest: list[parser.AstNode]) -> Analysis:
                     add_op(node, uops)
             case parser.Macro():
                 pass
+            case parser.Super():
+                pass
             case parser.Family():
                 pass
             case parser.Pseudo():
@@ -775,6 +862,8 @@ def analyze_forest(forest: list[parser.AstNode]) -> Analysis:
     for node in forest:
         if isinstance(node, parser.Macro):
             add_macro(node, instructions, uops)
+        if isinstance(node, parser.Super):
+            add_super(node, super_uops, uops)
     for node in forest:
         match node:
             case parser.Family():
@@ -804,7 +893,7 @@ def analyze_forest(forest: list[parser.AstNode]) -> Analysis:
         families["BINARY_OP"].members.append(inst)
     opmap, first_arg, min_instrumented = assign_opcodes(instructions, families, pseudos)
     return Analysis(
-        instructions, uops, families, pseudos, opmap, first_arg, min_instrumented
+        instructions, uops, super_uops, families, pseudos, opmap, first_arg, min_instrumented
     )
 
 
