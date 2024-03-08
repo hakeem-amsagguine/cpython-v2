@@ -1798,7 +1798,7 @@ deque___reversed___impl(dequeobject *deque)
 
 static PyGetSetDef deque_getset[] = {
     {"maxlen", (getter)deque_get_maxlen, (setter)NULL,
-     "maximum size of a deque or None if unbounded"},
+     PyDoc_STR("maximum size of a deque or None if unbounded")},
     {0}
 };
 

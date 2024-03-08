@@ -6378,18 +6378,18 @@ long_vectorcall(PyObject *type, PyObject * const*args,
 
 static PyMethodDef long_methods[] = {
     {"conjugate",       long_long_meth, METH_NOARGS,
-     "Returns self, the complex conjugate of any int."},
+     PyDoc_STR("Returns self, the complex conjugate of any int.")},
     INT_BIT_LENGTH_METHODDEF
     INT_BIT_COUNT_METHODDEF
     INT_TO_BYTES_METHODDEF
     INT_FROM_BYTES_METHODDEF
     INT_AS_INTEGER_RATIO_METHODDEF
     {"__trunc__",       long_long_meth, METH_NOARGS,
-     "Truncating an Integral returns itself."},
+     PyDoc_STR("Truncating an Integral returns itself.")},
     {"__floor__",       long_long_meth, METH_NOARGS,
-     "Flooring an Integral returns itself."},
+     PyDoc_STR("Flooring an Integral returns itself.")},
     {"__ceil__",        long_long_meth, METH_NOARGS,
-     "Ceiling of an Integral returns itself."},
+     PyDoc_STR("Ceiling of an Integral returns itself.")},
     INT___ROUND___METHODDEF
     INT___GETNEWARGS___METHODDEF
     INT___FORMAT___METHODDEF
@@ -6525,10 +6525,10 @@ A named tuple that holds information about Python's\n\
 internal representation of integers.  The attributes are read only.");
 
 static PyStructSequence_Field int_info_fields[] = {
-    {"bits_per_digit", "size of a digit in bits"},
-    {"sizeof_digit", "size in bytes of the C type used to represent a digit"},
-    {"default_max_str_digits", "maximum string conversion digits limitation"},
-    {"str_digits_check_threshold", "minimum positive value for int_max_str_digits"},
+    {"bits_per_digit", PyDoc_STR("size of a digit in bits")},
+    {"sizeof_digit", PyDoc_STR("size in bytes of the C type used to represent a digit")},
+    {"default_max_str_digits", PyDoc_STR("maximum string conversion digits limitation")},
+    {"str_digits_check_threshold", PyDoc_STR("minimum positive value for int_max_str_digits")},
     {NULL, NULL}
 };
 
