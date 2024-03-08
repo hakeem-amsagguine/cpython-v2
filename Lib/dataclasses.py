@@ -581,8 +581,14 @@ def _init_fn(fields, std_fields, kw_only_fields, frozen, has_post_init,
 
     # Does this class have a post-init function?
     if has_post_init:
-        params_str = ','.join(f.name for f in fields
-                              if f._field_type is _FIELD_INITVAR)
+        # KEYWORD_ONLY (after 'self')
+        if has_post_init is KW_ONLY:
+            params_str = ', '.join(f'{f.name}={f.name}' for f in fields
+                                   if f._field_type is _FIELD_INITVAR)
+        # POSITIONAL_OR_KEYWORD, or no args other than 'self'
+        else:
+            params_str = ','.join(f.name for f in fields
+                                  if f._field_type is _FIELD_INITVAR)
         body_lines.append(f'{self_name}.{_POST_INIT_NAME}({params_str})')
 
     # If no body lines, use 'pass'.
@@ -1044,6 +1050,20 @@ def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
     if init:
         # Does this class have a post-init function?
         has_post_init = hasattr(cls, _POST_INIT_NAME)
+
+        # Does it only accept kwargs?
+        if has_post_init:
+
+            # get params
+            post_init_sig = inspect.signature(getattr(cls, _POST_INIT_NAME))
+            post_init_params = post_init_sig.parameters
+
+            # does params have any args other than self? is second arg KEYWORD_ONLY?
+            if len(post_init_params) > 1:
+                second_arg = next(itertools.islice(post_init_params.values(), 1, 2))
+                kw_only_post_init = second_arg.kind == second_arg.KEYWORD_ONLY
+                if kw_only_post_init:
+                    has_post_init = KW_ONLY
 
         _set_new_attribute(cls, '__init__',
                            _init_fn(all_init_fields,
