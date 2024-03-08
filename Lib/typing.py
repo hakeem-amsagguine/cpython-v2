@@ -2794,10 +2794,6 @@ _special = frozenset({'__module__', '__name__', '__annotations__'})
 class NamedTupleMeta(type):
     def __new__(cls, typename, bases, ns):
         assert _NamedTuple in bases
-        for base in bases:
-            if base is not _NamedTuple and base is not Generic:
-                raise TypeError(
-                    'can only inherit from a NamedTuple type and Generic')
         bases = tuple(tuple if base is _NamedTuple else base for base in bases)
         types = ns.get('__annotations__', {})
         default_names = []
