@@ -1436,6 +1436,7 @@ do_start_new_thread(thread_module_state* state,
     if (err) {
         PyErr_SetString(ThreadError, "can't start new thread");
         PyThreadState_Clear(boot->tstate);
+        PyThreadState_Delete(boot->tstate);
         thread_bootstate_free(boot, 1);
         return -1;
     }
