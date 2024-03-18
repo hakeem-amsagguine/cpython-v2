@@ -349,6 +349,8 @@ def b85decode(b):
     b = _bytes_from_decode_data(b)
     return binascii.a2b_base85(b, strict_mode=True)
 
+_b85alphabet = (b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                b"abcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~")
 _z85alphabet = (b'0123456789abcdefghijklmnopqrstuvwxyz'
                 b'ABCDEFGHIJKLMNOPQRSTUVWXYZ.-:+=^!/*?&<>()[]{}@%$#')
 # Translating b85 valid but z85 invalid chars to b'\x00' is required
