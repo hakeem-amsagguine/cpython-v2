@@ -120,7 +120,7 @@ The :mod:`binascii` module defines the following functions:
    If *pad* is true, the input is padded to a multiple of 4 before encoding.
 
 
-.. function:: a2b_base85(string, /, *, strict_mode=False)
+.. function:: a2b_base85(string, /, *, strict_mode=False, z85=False)
 
    Convert base85 data back to binary and return the binary data.
    More than one line may be passed at a time.
@@ -128,13 +128,16 @@ The :mod:`binascii` module defines the following functions:
    If *strict_mode* is true, only valid base85 data will be converted.
    Invalid base85 data will raise :exc:`binascii.Error`.
 
+   If *z85* is true, the base85 data uses the Z85 alphabet.
+   See `Z85 specification <https://rfc.zeromq.org/spec/32/>`_ for more information.
+
    Valid base85 data contains characters from the base85 alphabet in groups
    of five (except for the final group, which may have from two to five
    characters). Each group encodes 32 bits of binary data in the range from
    ``0`` to ``2 ** 32 - 1``, inclusive.
 
 
-.. function:: b2a_base85(data, /, *, pad=False, newline=True)
+.. function:: b2a_base85(data, /, *, pad=False, newline=True, z85=False)
 
    Convert binary data to a line of ASCII characters in base85 coding.
    The return value is the converted line.
@@ -142,6 +145,9 @@ The :mod:`binascii` module defines the following functions:
    If *pad* is true, the input is padded to a multiple of 4 before encoding.
 
    If *newline* is true, a newline char is appended to the result.
+
+   If *z85* is true, the Z85 alphabet is used for conversion.
+   See `Z85 specification <https://rfc.zeromq.org/spec/32/>`_ for more information.
 
 
 .. function:: a2b_qp(data, header=False)

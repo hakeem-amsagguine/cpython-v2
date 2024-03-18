@@ -1289,6 +1289,7 @@ extern "C" {
     INIT_ID(write_through), \
     INIT_ID(x), \
     INIT_ID(year), \
+    INIT_ID(z85), \
     INIT_ID(zdict), \
 }
 

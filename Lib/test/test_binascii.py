@@ -518,6 +518,13 @@ class BinASCIITest(unittest.TestCase):
         self.assertEqual(binascii.b2a_base85(b, newline=True), b"bTe}aAO\n")
         self.assertEqual(binascii.b2a_base85(b, newline=False), b"bTe}aAO")
 
+    def test_base85_z85(self):
+        # Test base85 z85 parameter
+        b = self.type2test(b"t3s\t ")
+        a = self.type2test(b"BtE$Aao\n")
+        self.assertEqual(binascii.b2a_base85(b, z85=True), b"BtE$Aao\n")
+        self.assertEqual(binascii.a2b_base85(a, z85=True), b"t3s\t ")
+
     def test_uu(self):
         MAX_UU = 45
         for backtick in (True, False):

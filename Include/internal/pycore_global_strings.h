@@ -780,6 +780,7 @@ struct _Py_global_strings {
         STRUCT_FOR_ID(write_through)
         STRUCT_FOR_ID(x)
         STRUCT_FOR_ID(year)
+        STRUCT_FOR_ID(z85)
         STRUCT_FOR_ID(zdict)
     } identifiers;
     struct {

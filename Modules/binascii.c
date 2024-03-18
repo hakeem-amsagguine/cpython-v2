@@ -145,6 +145,26 @@ static const unsigned char table_a2b_base85_a85[] = {
     -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
 };
 
+static const unsigned char table_a2b_base85_z85[] = {
+    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
+    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
+    -1,68,-1,84, 83,82,72,-1, 75,76,70,65, -1,63,62,69,
+     0, 1, 2, 3,  4, 5, 6, 7,  8, 9,64,-1, 73,66,74,71,
+    81,36,37,38, 39,40,41,42, 43,44,45,46, 47,48,49,50,
+    51,52,53,54, 55,56,57,58, 59,60,61,77, -1,78,67,-1,
+    -1,10,11,12, 13,14,15,16, 17,18,19,20, 21,22,23,24,
+    25,26,27,28, 29,30,31,32, 33,34,35,79, -1,80,-1,-1,
+
+    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
+    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
+    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
+    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
+    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
+    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
+    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
+    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
+};
+
 static const unsigned char table_b2a_base85[] =
     "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
     "abcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~";
@@ -152,6 +172,10 @@ static const unsigned char table_b2a_base85[] =
 static const unsigned char table_b2a_base85_a85[] =
     "!\"#$%&\'()*+,-./0123456789:;<=>?@" \
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstu";
+
+static const unsigned char table_b2a_base85_z85[] =
+    "0123456789abcdefghijklmnopqrstuvwxyz" \
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ.-:+=^!/\x2a?&<>()[]{}@%$#"; /* clinic doesn't like '/' followed by '*' */
 
 #define BASE85_A85_PREFIX '<'
 #define BASE85_A85_AFFIX '~'
@@ -911,17 +935,21 @@ binascii.a2b_base85
     /
     *
     strict_mode: bool = False
-        When set to True, bytes that are not part of the base85 standard
-        are not allowed.
+        When set to True, bytes that are not in the base85 alphabet
+        (or the Z85 alphabet, if z85 is True) are not allowed.
+    z85: bool = False
+        When set to True, the Z85 alphabet is used instead of the standard
+        base85 alphabet.
 
 Decode a line of base85 data.
 [clinic start generated code]*/
 
 static PyObject *
-binascii_a2b_base85_impl(PyObject *module, Py_buffer *data, int strict_mode)
-/*[clinic end generated code: output=337b9418636f30f4 input=a7555d0e33783562]*/
+binascii_a2b_base85_impl(PyObject *module, Py_buffer *data, int strict_mode,
+                         int z85)
+/*[clinic end generated code: output=c5b9118ffe77f1cb input=65c2a532ad64ebd5]*/
 {
-    const unsigned char *ascii_data;
+    const unsigned char *ascii_data, *table_a2b;
     unsigned char *bin_data;
     int group_pos = 0;
     unsigned char this_ch, this_digit;
@@ -930,6 +958,7 @@ binascii_a2b_base85_impl(PyObject *module, Py_buffer *data, int strict_mode)
     _PyBytesWriter writer;
     binascii_state *state;
 
+    table_a2b = z85 ? table_a2b_base85_z85 : table_a2b_base85;
     ascii_data = data->buf;
     ascii_len = data->len;
 
@@ -948,7 +977,7 @@ binascii_a2b_base85_impl(PyObject *module, Py_buffer *data, int strict_mode)
         /* Shift (in radix-85) data or padding into our buffer. */
         if (ascii_len > 0) {
             this_ch = *ascii_data;
-            this_digit = table_a2b_base85[this_ch];
+            this_digit = table_a2b[this_ch];
         } else {
             /* Pad with largest radix-85 digit when decoding. */
             this_digit = 84;
@@ -960,7 +989,8 @@ binascii_a2b_base85_impl(PyObject *module, Py_buffer *data, int strict_mode)
                 if (state == NULL) {
                     goto error_end;
                 }
-                PyErr_SetString(state->Error, "base85 overflow");
+                PyErr_SetString(state->Error,
+                                z85 ? "z85 overflow" : "base85 overflow");
                 goto error_end;
             }
             leftchar += this_digit;
@@ -970,7 +1000,8 @@ binascii_a2b_base85_impl(PyObject *module, Py_buffer *data, int strict_mode)
             if (state == NULL) {
                 goto error_end;
             }
-            PyErr_Format(state->Error, "'%c' invalid in base85", this_ch);
+            PyErr_Format(state->Error, "'%c' %s", this_ch,
+                         z85 ? "invalid in z85" : "invalid in base85");
             goto error_end;
         }
 
@@ -985,7 +1016,8 @@ binascii_a2b_base85_impl(PyObject *module, Py_buffer *data, int strict_mode)
             if (state == NULL) {
                 goto error_end;
             }
-            PyErr_SetString(state->Error, "base85 data has invalid length");
+            PyErr_Format(state->Error, "%s data has invalid length",
+                         z85 ? "z85" : "base85");
             goto error_end;
         }
 
@@ -1016,21 +1048,24 @@ binascii.b2a_base85
         Pad input to a multiple of 4 before encoding.
     newline: bool = True
         Append a newline to the result.
+    z85: bool = False
+        Use Z85 alphabet instead of standard base85 alphabet.
 
 Base85-code line of data.
 [clinic start generated code]*/
 
 static PyObject *
 binascii_b2a_base85_impl(PyObject *module, Py_buffer *data, int pad,
-                         int newline)
-/*[clinic end generated code: output=56936eb231e15dc0 input=3899d4f5c3a589a0]*/
+                         int newline, int z85)
+/*[clinic end generated code: output=d3740e9a20c8e071 input=e4e07591f7a11ae4]*/
 {
     unsigned char *ascii_data;
-    const unsigned char *bin_data;
+    const unsigned char *bin_data, *table_b2a;
     uint32_t leftchar = 0;
     Py_ssize_t bin_len, group_len, out_len;
     _PyBytesWriter writer;
 
+    table_b2a = z85 ? table_b2a_base85_z85 : table_b2a_base85;
     bin_data = data->buf;
     bin_len = data->len;
 
@@ -1052,15 +1087,15 @@ binascii_b2a_base85_impl(PyObject *module, Py_buffer *data, int pad,
         leftchar = (bin_data[0] << 24) | (bin_data[1] << 16) |
                    (bin_data[2] << 8)  |  bin_data[3];
 
-        ascii_data[4] = table_b2a_base85[leftchar % 85];
+        ascii_data[4] = table_b2a[leftchar % 85];
         leftchar /= 85;
-        ascii_data[3] = table_b2a_base85[leftchar % 85];
+        ascii_data[3] = table_b2a[leftchar % 85];
         leftchar /= 85;
-        ascii_data[2] = table_b2a_base85[leftchar % 85];
+        ascii_data[2] = table_b2a[leftchar % 85];
         leftchar /= 85;
-        ascii_data[1] = table_b2a_base85[leftchar % 85];
+        ascii_data[1] = table_b2a[leftchar % 85];
         leftchar /= 85;
-        ascii_data[0] = table_b2a_base85[leftchar];
+        ascii_data[0] = table_b2a[leftchar];
 
         ascii_data += 5;
     }
@@ -1076,7 +1111,7 @@ binascii_b2a_base85_impl(PyObject *module, Py_buffer *data, int pad,
         group_len = pad ? 5 : bin_len + 1;
         for (Py_ssize_t i = 4; i >= 0; i--) {
             if (i < group_len) {
-                ascii_data[i] = table_b2a_base85[leftchar % 85];
+                ascii_data[i] = table_b2a[leftchar % 85];
             }
             leftchar /= 85;
         }
