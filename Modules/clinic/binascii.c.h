@@ -3,10 +3,10 @@ preserve
 [clinic start generated code]*/
 
 #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
-#  include "pycore_gc.h"            // PyGC_Head
-#  include "pycore_runtime.h"       // _Py_ID()
+#  include "pycore_gc.h"          // PyGC_Head
+#  include "pycore_runtime.h"     // _Py_ID()
 #endif
-
+#include "pycore_modsupport.h"    // _PyArg_UnpackKeywords()
 
 PyDoc_STRVAR(binascii_a2b_uu__doc__,
 "a2b_uu($module, data, /)\n"
@@ -90,10 +90,6 @@ binascii_b2a_uu(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObj
         goto exit;
     }
     if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
-        goto exit;
-    }
-    if (!PyBuffer_IsContiguous(&data, 'C')) {
-        _PyArg_BadArgument("b2a_uu", "argument 1", "contiguous buffer", args[0]);
         goto exit;
     }
     if (!noptargs) {
@@ -243,10 +239,6 @@ binascii_b2a_base64(PyObject *module, PyObject *const *args, Py_ssize_t nargs, P
     if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
         goto exit;
     }
-    if (!PyBuffer_IsContiguous(&data, 'C')) {
-        _PyArg_BadArgument("b2a_base64", "argument 1", "contiguous buffer", args[0]);
-        goto exit;
-    }
     if (!noptargs) {
         goto skip_optional_kwonly;
     }
@@ -256,397 +248,6 @@ binascii_b2a_base64(PyObject *module, PyObject *const *args, Py_ssize_t nargs, P
     }
 skip_optional_kwonly:
     return_value = binascii_b2a_base64_impl(module, &data, newline);
-
-exit:
-    /* Cleanup for data */
-    if (data.obj) {
-       PyBuffer_Release(&data);
-    }
-
-    return return_value;
-}
-
-PyDoc_STRVAR(binascii_a2b_ascii85__doc__,
-"a2b_ascii85($module, data, /, *, fold_spaces=False, wrap=False,\n"
-"            ignore=b\'\')\n"
-"--\n"
-"\n"
-"Decode Ascii85 data.\n"
-"\n"
-"  fold_spaces\n"
-"    Allow \'y\' as a short form encoding four spaces.\n"
-"  wrap\n"
-"    Expect data to be wrapped in \'<~\' and \'~>\' as in Adobe Ascii85.\n"
-"  ignore\n"
-"    An optional bytes-like object with input characters to be ignored.");
-
-#define BINASCII_A2B_ASCII85_METHODDEF    \
-    {"a2b_ascii85", _PyCFunction_CAST(binascii_a2b_ascii85), METH_FASTCALL|METH_KEYWORDS, binascii_a2b_ascii85__doc__},
-
-static PyObject *
-binascii_a2b_ascii85_impl(PyObject *module, Py_buffer *data, int fold_spaces,
-                          int wrap, Py_buffer *ignore);
-
-static PyObject *
-binascii_a2b_ascii85(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
-{
-    PyObject *return_value = NULL;
-    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
-
-    #define NUM_KEYWORDS 3
-    static struct {
-        PyGC_Head _this_is_not_used;
-        PyObject_VAR_HEAD
-        PyObject *ob_item[NUM_KEYWORDS];
-    } _kwtuple = {
-        .ob_base = PyVarObject_HEAD_INIT(&PyTuple_Type, NUM_KEYWORDS)
-        .ob_item = { &_Py_ID(fold_spaces), &_Py_ID(wrap), &_Py_ID(ignore), },
-    };
-    #undef NUM_KEYWORDS
-    #define KWTUPLE (&_kwtuple.ob_base.ob_base)
-
-    #else  // !Py_BUILD_CORE
-    #  define KWTUPLE NULL
-    #endif  // !Py_BUILD_CORE
-
-    static const char * const _keywords[] = {"", "fold_spaces", "wrap", "ignore", NULL};
-    static _PyArg_Parser _parser = {
-        .keywords = _keywords,
-        .fname = "a2b_ascii85",
-        .kwtuple = KWTUPLE,
-    };
-    #undef KWTUPLE
-    PyObject *argsbuf[4];
-    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
-    Py_buffer data = {NULL, NULL};
-    int fold_spaces = 0;
-    int wrap = 0;
-    Py_buffer ignore = {NULL, NULL};
-
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 1, 0, argsbuf);
-    if (!args) {
-        goto exit;
-    }
-    if (!ascii_buffer_converter(args[0], &data)) {
-        goto exit;
-    }
-    if (!noptargs) {
-        goto skip_optional_kwonly;
-    }
-    if (args[1]) {
-        fold_spaces = PyObject_IsTrue(args[1]);
-        if (fold_spaces < 0) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_kwonly;
-        }
-    }
-    if (args[2]) {
-        wrap = PyObject_IsTrue(args[2]);
-        if (wrap < 0) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_kwonly;
-        }
-    }
-    if (PyObject_GetBuffer(args[3], &ignore, PyBUF_SIMPLE) != 0) {
-        goto exit;
-    }
-    if (!PyBuffer_IsContiguous(&ignore, 'C')) {
-        _PyArg_BadArgument("a2b_ascii85", "argument 'ignore'", "contiguous buffer", args[3]);
-        goto exit;
-    }
-skip_optional_kwonly:
-    return_value = binascii_a2b_ascii85_impl(module, &data, fold_spaces, wrap, &ignore);
-
-exit:
-    /* Cleanup for data */
-    if (data.obj)
-       PyBuffer_Release(&data);
-    /* Cleanup for ignore */
-    if (ignore.obj) {
-       PyBuffer_Release(&ignore);
-    }
-
-    return return_value;
-}
-
-PyDoc_STRVAR(binascii_b2a_ascii85__doc__,
-"b2a_ascii85($module, data, /, *, fold_spaces=False, wrap=False,\n"
-"            width=0, pad=False)\n"
-"--\n"
-"\n"
-"Ascii85-encode data.\n"
-"\n"
-"  fold_spaces\n"
-"    Emit \'y\' as a short form encoding four spaces.\n"
-"  wrap\n"
-"    Wrap result in \'<~\' and \'~>\' as in Adobe Ascii85.\n"
-"  width\n"
-"    Split result into lines of provided width.\n"
-"  pad\n"
-"    Pad input to a multiple of 4 before encoding.");
-
-#define BINASCII_B2A_ASCII85_METHODDEF    \
-    {"b2a_ascii85", _PyCFunction_CAST(binascii_b2a_ascii85), METH_FASTCALL|METH_KEYWORDS, binascii_b2a_ascii85__doc__},
-
-static PyObject *
-binascii_b2a_ascii85_impl(PyObject *module, Py_buffer *data, int fold_spaces,
-                          int wrap, unsigned int width, int pad);
-
-static PyObject *
-binascii_b2a_ascii85(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
-{
-    PyObject *return_value = NULL;
-    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
-
-    #define NUM_KEYWORDS 4
-    static struct {
-        PyGC_Head _this_is_not_used;
-        PyObject_VAR_HEAD
-        PyObject *ob_item[NUM_KEYWORDS];
-    } _kwtuple = {
-        .ob_base = PyVarObject_HEAD_INIT(&PyTuple_Type, NUM_KEYWORDS)
-        .ob_item = { &_Py_ID(fold_spaces), &_Py_ID(wrap), &_Py_ID(width), &_Py_ID(pad), },
-    };
-    #undef NUM_KEYWORDS
-    #define KWTUPLE (&_kwtuple.ob_base.ob_base)
-
-    #else  // !Py_BUILD_CORE
-    #  define KWTUPLE NULL
-    #endif  // !Py_BUILD_CORE
-
-    static const char * const _keywords[] = {"", "fold_spaces", "wrap", "width", "pad", NULL};
-    static _PyArg_Parser _parser = {
-        .keywords = _keywords,
-        .fname = "b2a_ascii85",
-        .kwtuple = KWTUPLE,
-    };
-    #undef KWTUPLE
-    PyObject *argsbuf[5];
-    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
-    Py_buffer data = {NULL, NULL};
-    int fold_spaces = 0;
-    int wrap = 0;
-    unsigned int width = 0;
-    int pad = 0;
-
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 1, 0, argsbuf);
-    if (!args) {
-        goto exit;
-    }
-    if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
-        goto exit;
-    }
-    if (!PyBuffer_IsContiguous(&data, 'C')) {
-        _PyArg_BadArgument("b2a_ascii85", "argument 1", "contiguous buffer", args[0]);
-        goto exit;
-    }
-    if (!noptargs) {
-        goto skip_optional_kwonly;
-    }
-    if (args[1]) {
-        fold_spaces = PyObject_IsTrue(args[1]);
-        if (fold_spaces < 0) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_kwonly;
-        }
-    }
-    if (args[2]) {
-        wrap = PyObject_IsTrue(args[2]);
-        if (wrap < 0) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_kwonly;
-        }
-    }
-    if (args[3]) {
-        width = (unsigned int)PyLong_AsUnsignedLongMask(args[3]);
-        if (width == (unsigned int)-1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_kwonly;
-        }
-    }
-    pad = PyObject_IsTrue(args[4]);
-    if (pad < 0) {
-        goto exit;
-    }
-skip_optional_kwonly:
-    return_value = binascii_b2a_ascii85_impl(module, &data, fold_spaces, wrap, width, pad);
-
-exit:
-    /* Cleanup for data */
-    if (data.obj) {
-       PyBuffer_Release(&data);
-    }
-
-    return return_value;
-}
-
-PyDoc_STRVAR(binascii_a2b_base85__doc__,
-"a2b_base85($module, data, /, *, strict_mode=False)\n"
-"--\n"
-"\n"
-"Decode a line of base85 data.\n"
-"\n"
-"  strict_mode\n"
-"    When set to True, bytes that are not part of the base85 standard\n"
-"    are not allowed.");
-
-#define BINASCII_A2B_BASE85_METHODDEF    \
-    {"a2b_base85", _PyCFunction_CAST(binascii_a2b_base85), METH_FASTCALL|METH_KEYWORDS, binascii_a2b_base85__doc__},
-
-static PyObject *
-binascii_a2b_base85_impl(PyObject *module, Py_buffer *data, int strict_mode);
-
-static PyObject *
-binascii_a2b_base85(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
-{
-    PyObject *return_value = NULL;
-    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
-
-    #define NUM_KEYWORDS 1
-    static struct {
-        PyGC_Head _this_is_not_used;
-        PyObject_VAR_HEAD
-        PyObject *ob_item[NUM_KEYWORDS];
-    } _kwtuple = {
-        .ob_base = PyVarObject_HEAD_INIT(&PyTuple_Type, NUM_KEYWORDS)
-        .ob_item = { &_Py_ID(strict_mode), },
-    };
-    #undef NUM_KEYWORDS
-    #define KWTUPLE (&_kwtuple.ob_base.ob_base)
-
-    #else  // !Py_BUILD_CORE
-    #  define KWTUPLE NULL
-    #endif  // !Py_BUILD_CORE
-
-    static const char * const _keywords[] = {"", "strict_mode", NULL};
-    static _PyArg_Parser _parser = {
-        .keywords = _keywords,
-        .fname = "a2b_base85",
-        .kwtuple = KWTUPLE,
-    };
-    #undef KWTUPLE
-    PyObject *argsbuf[2];
-    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
-    Py_buffer data = {NULL, NULL};
-    int strict_mode = 0;
-
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 1, 0, argsbuf);
-    if (!args) {
-        goto exit;
-    }
-    if (!ascii_buffer_converter(args[0], &data)) {
-        goto exit;
-    }
-    if (!noptargs) {
-        goto skip_optional_kwonly;
-    }
-    strict_mode = PyObject_IsTrue(args[1]);
-    if (strict_mode < 0) {
-        goto exit;
-    }
-skip_optional_kwonly:
-    return_value = binascii_a2b_base85_impl(module, &data, strict_mode);
-
-exit:
-    /* Cleanup for data */
-    if (data.obj)
-       PyBuffer_Release(&data);
-
-    return return_value;
-}
-
-PyDoc_STRVAR(binascii_b2a_base85__doc__,
-"b2a_base85($module, data, /, *, pad=False, newline=True)\n"
-"--\n"
-"\n"
-"Base85-code line of data.\n"
-"\n"
-"  pad\n"
-"    Pad input to a multiple of 4 before encoding.\n"
-"  newline\n"
-"    Append a newline to the result.");
-
-#define BINASCII_B2A_BASE85_METHODDEF    \
-    {"b2a_base85", _PyCFunction_CAST(binascii_b2a_base85), METH_FASTCALL|METH_KEYWORDS, binascii_b2a_base85__doc__},
-
-static PyObject *
-binascii_b2a_base85_impl(PyObject *module, Py_buffer *data, int pad,
-                         int newline);
-
-static PyObject *
-binascii_b2a_base85(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
-{
-    PyObject *return_value = NULL;
-    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
-
-    #define NUM_KEYWORDS 2
-    static struct {
-        PyGC_Head _this_is_not_used;
-        PyObject_VAR_HEAD
-        PyObject *ob_item[NUM_KEYWORDS];
-    } _kwtuple = {
-        .ob_base = PyVarObject_HEAD_INIT(&PyTuple_Type, NUM_KEYWORDS)
-        .ob_item = { &_Py_ID(pad), &_Py_ID(newline), },
-    };
-    #undef NUM_KEYWORDS
-    #define KWTUPLE (&_kwtuple.ob_base.ob_base)
-
-    #else  // !Py_BUILD_CORE
-    #  define KWTUPLE NULL
-    #endif  // !Py_BUILD_CORE
-
-    static const char * const _keywords[] = {"", "pad", "newline", NULL};
-    static _PyArg_Parser _parser = {
-        .keywords = _keywords,
-        .fname = "b2a_base85",
-        .kwtuple = KWTUPLE,
-    };
-    #undef KWTUPLE
-    PyObject *argsbuf[3];
-    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
-    Py_buffer data = {NULL, NULL};
-    int pad = 0;
-    int newline = 1;
-
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 1, 0, argsbuf);
-    if (!args) {
-        goto exit;
-    }
-    if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
-        goto exit;
-    }
-    if (!PyBuffer_IsContiguous(&data, 'C')) {
-        _PyArg_BadArgument("b2a_base85", "argument 1", "contiguous buffer", args[0]);
-        goto exit;
-    }
-    if (!noptargs) {
-        goto skip_optional_kwonly;
-    }
-    if (args[1]) {
-        pad = PyObject_IsTrue(args[1]);
-        if (pad < 0) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_kwonly;
-        }
-    }
-    newline = PyObject_IsTrue(args[2]);
-    if (newline < 0) {
-        goto exit;
-    }
-skip_optional_kwonly:
-    return_value = binascii_b2a_base85_impl(module, &data, pad, newline);
 
 exit:
     /* Cleanup for data */
@@ -680,10 +281,6 @@ binascii_crc_hqx(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
         goto exit;
     }
     if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
-        goto exit;
-    }
-    if (!PyBuffer_IsContiguous(&data, 'C')) {
-        _PyArg_BadArgument("crc_hqx", "argument 1", "contiguous buffer", args[0]);
         goto exit;
     }
     crc = (unsigned int)PyLong_AsUnsignedLongMask(args[1]);
@@ -725,10 +322,6 @@ binascii_crc32(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
         goto exit;
     }
     if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
-        goto exit;
-    }
-    if (!PyBuffer_IsContiguous(&data, 'C')) {
-        _PyArg_BadArgument("crc32", "argument 1", "contiguous buffer", args[0]);
         goto exit;
     }
     if (nargs < 2) {
@@ -826,10 +419,6 @@ binascii_b2a_hex(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyOb
     if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
         goto exit;
     }
-    if (!PyBuffer_IsContiguous(&data, 'C')) {
-        _PyArg_BadArgument("b2a_hex", "argument 'data'", "contiguous buffer", args[0]);
-        goto exit;
-    }
     if (!noptargs) {
         goto skip_optional_pos;
     }
@@ -839,7 +428,7 @@ binascii_b2a_hex(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyOb
             goto skip_optional_pos;
         }
     }
-    bytes_per_sep = _PyLong_AsInt(args[2]);
+    bytes_per_sep = PyLong_AsInt(args[2]);
     if (bytes_per_sep == -1 && PyErr_Occurred()) {
         goto exit;
     }
@@ -919,10 +508,6 @@ binascii_hexlify(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyOb
     if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
         goto exit;
     }
-    if (!PyBuffer_IsContiguous(&data, 'C')) {
-        _PyArg_BadArgument("hexlify", "argument 'data'", "contiguous buffer", args[0]);
-        goto exit;
-    }
     if (!noptargs) {
         goto skip_optional_pos;
     }
@@ -932,7 +517,7 @@ binascii_hexlify(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyOb
             goto skip_optional_pos;
         }
     }
-    bytes_per_sep = _PyLong_AsInt(args[2]);
+    bytes_per_sep = PyLong_AsInt(args[2]);
     if (bytes_per_sep == -1 && PyErr_Occurred()) {
         goto exit;
     }
@@ -1146,10 +731,6 @@ binascii_b2a_qp(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObj
     if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
         goto exit;
     }
-    if (!PyBuffer_IsContiguous(&data, 'C')) {
-        _PyArg_BadArgument("b2a_qp", "argument 'data'", "contiguous buffer", args[0]);
-        goto exit;
-    }
     if (!noptargs) {
         goto skip_optional_pos;
     }
@@ -1186,4 +767,4 @@ exit:
 
     return return_value;
 }
-/*[clinic end generated code: output=feb683eab6f85e36 input=a9049054013a1b77]*/
+/*[clinic end generated code: output=968767b663ed889d input=a9049054013a1b77]*/
