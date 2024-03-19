@@ -700,11 +700,10 @@ binascii_a2b_ascii85_impl(PyObject *module, Py_buffer *data, int fold_spaces,
             ascii_data[ascii_len - 2] != BASE85_A85_AFFIX ||
             ascii_data[ascii_len - 1] != BASE85_A85_SUFFIX) {
             state = get_binascii_state(module);
-            if (state == NULL) {
-                return NULL;
+            if (state != NULL) {
+                PyErr_SetString(state->Error,
+                                "Expected Ascii85 data to end with '~>'");
             }
-            PyErr_SetString(state->Error,
-                            "Expected Ascii85 data to end with '~>'");
             return NULL;
         }
         ascii_len -= 2;
@@ -755,10 +754,9 @@ binascii_a2b_ascii85_impl(PyObject *module, Py_buffer *data, int fold_spaces,
             if (leftchar > UINT32_MAX / 85 ||
                 (leftchar *= 85) > UINT32_MAX - this_digit) {
                 state = get_binascii_state(module);
-                if (state == NULL) {
-                    goto error_end;
+                if (state != NULL) {
+                    PyErr_SetString(state->Error, "Ascii85 overflow");
                 }
-                PyErr_SetString(state->Error, "Ascii85 overflow");
                 goto error_end;
             }
             leftchar += this_digit;
@@ -766,21 +764,19 @@ binascii_a2b_ascii85_impl(PyObject *module, Py_buffer *data, int fold_spaces,
         } else if ((this_ch == 'y' && fold_spaces) || this_ch == 'z') {
             if (group_pos != 0) {
                 state = get_binascii_state(module);
-                if (state == NULL) {
-                    goto error_end;
+                if (state != NULL) {
+                    PyErr_Format(state->Error,
+                                 "'%c' inside Ascii85 5-tuple", this_ch);
                 }
-                PyErr_Format(state->Error,
-                             "'%c' inside Ascii85 5-tuple", this_ch);
                 goto error_end;
             }
             leftchar = this_ch == 'y' ? BASE85_A85_Y : BASE85_A85_Z;
             group_pos = 5;
         } else if (!ignore_map[this_ch]) {
             state = get_binascii_state(module);
-            if (state == NULL) {
-                goto error_end;
+            if (state != NULL) {
+                PyErr_Format(state->Error, "'%c' invalid in Ascii85", this_ch);
             }
-            PyErr_Format(state->Error, "'%c' invalid in Ascii85", this_ch);
             goto error_end;
         }
 
@@ -792,10 +788,10 @@ binascii_a2b_ascii85_impl(PyObject *module, Py_buffer *data, int fold_spaces,
         /* Treat encoded length of 1 mod 5 as an error. */
         if (ascii_len == -3) {
             state = get_binascii_state(module);
-            if (state == NULL) {
-                goto error_end;
+            if (state != NULL) {
+                PyErr_SetString(state->Error,
+                                "Ascii85 data has invalid length");
             }
-            PyErr_SetString(state->Error, "Ascii85 data has invalid length");
             goto error_end;
         }
 
@@ -879,10 +875,9 @@ binascii_b2a_ascii85_impl(PyObject *module, Py_buffer *data, int fold_spaces,
 
     for (; bin_len > 0 || chunk_pos != 0; bin_len--, bin_data++) {
         /* Shift data or padding into our buffer. */
+        leftchar <<= 8;         /* Pad with zero when encoding. */
         if (bin_len > 0) {
-            leftchar = (leftchar << 8) | *bin_data;
-        } else {
-            leftchar <<= 8;     /* Pad with zero when encoding. */
+            leftchar |= *bin_data;
         }
 
         /* Wait until buffer is full. */
@@ -986,22 +981,20 @@ binascii_a2b_base85_impl(PyObject *module, Py_buffer *data, int strict_mode,
             if (leftchar > UINT32_MAX / 85 ||
                 (leftchar *= 85) > UINT32_MAX - this_digit) {
                 state = get_binascii_state(module);
-                if (state == NULL) {
-                    goto error_end;
+                if (state != NULL) {
+                    PyErr_SetString(state->Error,
+                                    z85 ? "z85 overflow" : "base85 overflow");
                 }
-                PyErr_SetString(state->Error,
-                                z85 ? "z85 overflow" : "base85 overflow");
                 goto error_end;
             }
             leftchar += this_digit;
             group_pos++;
         } else if (strict_mode) {
             state = get_binascii_state(module);
-            if (state == NULL) {
-                goto error_end;
+            if (state != NULL) {
+                PyErr_Format(state->Error, "'%c' %s", this_ch,
+                             z85 ? "invalid in z85" : "invalid in base85");
             }
-            PyErr_Format(state->Error, "'%c' %s", this_ch,
-                         z85 ? "invalid in z85" : "invalid in base85");
             goto error_end;
         }
 
@@ -1013,11 +1006,11 @@ binascii_a2b_base85_impl(PyObject *module, Py_buffer *data, int strict_mode,
         /* Treat encoded length of 1 mod 5 as an error. */
         if (ascii_len == -3) {
             state = get_binascii_state(module);
-            if (state == NULL) {
-                goto error_end;
+            if (state != NULL) {
+                PyErr_Format(state->Error,
+                             z85 ? "z85 data has invalid length"
+                                 : "base85 data has invalid length");
             }
-            PyErr_Format(state->Error, "%s data has invalid length",
-                         z85 ? "z85" : "base85");
             goto error_end;
         }
 
