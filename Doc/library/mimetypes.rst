@@ -272,3 +272,96 @@ than one MIME-type database; it provides an interface similar to the one of the
       types, else to the list of non-standard types.
 
       .. versionadded:: 3.2
+
+
+.. mimetypes-cli:
+
+Command-Line Usage
+------------------
+
+The :mod:`mimetypes` module can be executed as a script from the command line.
+
+.. code-block:: sh
+
+   python -m mimetypes [-e] [-l] type [type ...]
+
+The following options are accepted:
+
+.. program:: mimetypes
+
+.. cmdoption:: -h
+               --help
+
+   Show the help message and exit.
+
+.. cmdoption:: -e
+               --extension
+
+   Guess extension instead of type.
+
+.. cmdoption:: -l
+               --lenient
+
+   Additionally search for some common, but non-standard types.
+
+The script converts file extensions to MIME types if ``--extension`` option
+is specified, or vice versa if not.
+
+For each ``type`` entry, the script writes a line into the standard output
+stream. If an unknown type occurs, it writes an error message into the
+standard error stream and aborts with the return code ``1``.
+
+
+.. mimetypes-cli-example:
+
+Command-Line Example
+--------------------
+
+Here are some examples of typical usage of the :mod:`mimetypes` command
+line interface:
+
+.. code-block:: shell
+
+   # get a MIME type by a file name
+   python -m mimetypes filename.png
+   type: image/png encoding: None
+
+   # get a MIME type by a URL
+   python -m mimetypes http://example.com/filename.txt
+   type: text/plain encoding: None
+
+   # get a complex MIME type
+   python -m mimetypes filename.tar.gz
+   type: application/x-tar encoding: gzip
+
+   # get a MIME type for a rare file extension
+   python -m mimetypes filename.pict
+   error: unknown extension of filename.pict
+
+   # now look in the extended database built into Python
+   python -m mimetypes -l filename.pict
+   type: image/pict encoding: None
+
+   # get a file extension by a MIME type
+   python -m mimetypes -e text/javascript
+   .js
+
+   # get a file extension by a rare MIME type
+   python -m mimetypes -e text/xul
+   error: unknown type text/xul
+
+   # now look in the extended database again
+   python -m mimetypes -e -l text/xul
+   .xul
+
+   # try to feed an unknown file extension
+   python -m mimetypes filename.sh filename.nc filename.xxx filename.txt
+   type: application/x-sh encoding: None
+   type: application/x-netcdf encoding: None
+   error: unknown extension of filename.xxx
+
+   # try to feed an unknown MIME type
+   python -m mimetypes -e audio/aac audio/opus audio/future audio/x-wav
+   .aac
+   .opus
+   error: unknown type audio/future
