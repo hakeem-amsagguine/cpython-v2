@@ -2195,7 +2195,7 @@ class SyntaxErrorTests(unittest.TestCase):
             err = err.decode('utf-8').splitlines()
 
             self.assertEqual(err[-3], '    "┬ó┬ó┬ó┬ó┬ó┬ó" + f(4, x for x in range(1))')
-            self.assertEqual(err[-2], '                          ^^^^^^^^^^^^^^^^^^^')
+            self.assertEqual(err[-2], '                            ^^^')
         finally:
             unlink(TESTFN)
 
