@@ -75,6 +75,12 @@
 #  error "OPENSSL_THREADS is not defined, Python requires thread-safe OpenSSL"
 #endif
 
+#ifdef OPENSSL_IS_BORINGSSL
+# ifndef OPENSSL_NO_PSK
+/* PSK APIs not supported by BoringSSL. */
+#  define OPENSSL_NO_PSK 1
+# endif
+#endif
 
 
 struct py_ssl_error_code {
@@ -121,6 +127,7 @@ static void _PySSLFixErrno(void) {
 #define _PySSL_FIX_ERRNO _PySSLFixErrno()
 #endif
 
+#ifndef OPENSSL_IS_BORINGSSL
 /* Include generated data (error codes) */
 #if (OPENSSL_VERSION_NUMBER >= 0x30100000L)
 #include "_ssl_data_31.h"
@@ -131,6 +138,7 @@ static void _PySSLFixErrno(void) {
 #else
 #error Unsupported OpenSSL version
 #endif
+#endif  // !OPENSSL_IS_BORINGSSL
 
 /* OpenSSL API 1.1.0+ does not include version methods */
 #ifndef OPENSSL_NO_SSL3_METHOD
@@ -471,10 +479,30 @@ fill_and_set_sslerror(_sslmodulestate *state,
 {
     PyObject *err_value = NULL, *reason_obj = NULL, *lib_obj = NULL;
     PyObject *verify_obj = NULL, *verify_code_obj = NULL;
-    PyObject *init_value, *msg, *key;
+    PyObject *init_value, *msg;
 
     if (errcode != 0) {
+#if defined(OPENSSL_IS_BORINGSSL)
+        const char *lib_str, *reason_str;
+
+        lib_str = ERR_lib_symbol_name(errcode);
+        if (lib_str != NULL) {
+            lib_obj = PyUnicode_FromString(lib_str);
+            if (lib_obj == NULL) {
+                goto fail;
+            }
+        }
+
+        reason_str = ERR_reason_symbol_name(errcode);
+        if (reason_str != NULL) {
+            reason_obj = PyUnicode_FromString(reason_str);
+            if (reason_obj == NULL) {
+                goto fail;
+            }
+        }
+#else
         int lib, reason;
+        PyObject *key;
 
         lib = ERR_GET_LIB(errcode);
         reason = ERR_GET_REASON(errcode);
@@ -494,6 +522,7 @@ fill_and_set_sslerror(_sslmodulestate *state,
         if (lib_obj == NULL && PyErr_Occurred()) {
             goto fail;
         }
+#endif /* OPENSSL_IS_BORINGSSL */
         if (errstr == NULL)
             errstr = ERR_reason_error_string(errcode);
     }
@@ -874,7 +903,8 @@ newPySSLSocket(PySSLContext *sslctx, PySocketSockObject *sock,
     SSL_set_mode(self->ssl,
                  SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER | SSL_MODE_AUTO_RETRY);
 
-#ifdef TLS1_3_VERSION
+/* https://crbug.com/boringssl/78: BoringSSL will never support PHA. */
+#if defined(TLS1_3_VERSION) && !defined(OPENSSL_IS_BORINGSSL)
     if (sslctx->post_handshake_auth == 1) {
         if (socket_type == PY_SSL_SERVER) {
             /* bpo-37428: OpenSSL does not ignore SSL_VERIFY_POST_HANDSHAKE.
@@ -1870,12 +1900,16 @@ static PyObject *
 _ssl__SSLSocket_get_verified_chain_impl(PySSLSocket *self)
 /*[clinic end generated code: output=802421163cdc3110 input=5fb0714f77e2bd51]*/
 {
+#ifdef OPENSSL_IS_BORINGSSL
+    Py_RETURN_NONE;
+#else
     /* borrowed reference */
     STACK_OF(X509) *chain = SSL_get0_verified_chain(self->ssl);
     if (chain == NULL) {
         Py_RETURN_NONE;
     }
     return _PySSL_CertificateFromX509Stack(self->ctx->state, chain, 1);
+#endif
 }
 
 /*[clinic input]
@@ -2022,44 +2056,25 @@ static PyObject *
 _ssl__SSLSocket_shared_ciphers_impl(PySSLSocket *self)
 /*[clinic end generated code: output=3d174ead2e42c4fd input=0bfe149da8fe6306]*/
 {
-    STACK_OF(SSL_CIPHER) *server_ciphers;
-    STACK_OF(SSL_CIPHER) *client_ciphers;
-    int i, len;
+    STACK_OF(SSL_CIPHER) *ciphers;
+    int i;
     PyObject *res;
-    const SSL_CIPHER* cipher;
 
-    /* Rather than use SSL_get_shared_ciphers, we use an equivalent algorithm because:
-
-       1) It returns a colon separated list of strings, in an undefined
-          order, that we would have to post process back into tuples.
-       2) It will return a truncated string with no indication that it has
-          done so, if the buffer is too small.
-     */
-
-    server_ciphers = SSL_get_ciphers(self->ssl);
-    if (!server_ciphers)
-        Py_RETURN_NONE;
-    client_ciphers = SSL_get_client_ciphers(self->ssl);
-    if (!client_ciphers)
+    ciphers = SSL_get_ciphers(self->ssl);
+    if (!ciphers)
         Py_RETURN_NONE;
 
-    res = PyList_New(sk_SSL_CIPHER_num(server_ciphers));
+    res = PyList_New(sk_SSL_CIPHER_num(ciphers));
     if (!res)
         return NULL;
-    len = 0;
-    for (i = 0; i < sk_SSL_CIPHER_num(server_ciphers); i++) {
-        cipher = sk_SSL_CIPHER_value(server_ciphers, i);
-        if (sk_SSL_CIPHER_find(client_ciphers, cipher) < 0)
-            continue;
-
-        PyObject *tup = cipher_to_tuple(cipher);
+    for (i = 0; i < sk_SSL_CIPHER_num(ciphers); i++) {
+        PyObject *tup = cipher_to_tuple(sk_SSL_CIPHER_value(ciphers, i));
         if (!tup) {
             Py_DECREF(res);
             return NULL;
         }
-        PyList_SET_ITEM(res, len++, tup);
+        PyList_SET_ITEM(res, i, tup);
     }
-    Py_SET_SIZE(res, len);
     return res;
 }
 
@@ -2389,8 +2404,14 @@ _ssl__SSLSocket_write_impl(PySSLSocket *self, Py_buffer *b)
 
     do {
         PySSL_BEGIN_ALLOW_THREADS
+#if defined(OPENSSL_IS_BORINGSSL)
+        retval = SSL_write(self->ssl, b->buf, b->len);
+        count = retval > 0 ? (size_t)retval : 0;
+        err = _PySSL_errno(retval <= 0, self->ssl, retval);
+#else
         retval = SSL_write_ex(self->ssl, b->buf, (size_t)b->len, &count);
         err = _PySSL_errno(retval == 0, self->ssl, retval);
+#endif
         PySSL_END_ALLOW_THREADS
         self->err = err;
 
@@ -2424,7 +2445,11 @@ _ssl__SSLSocket_write_impl(PySSLSocket *self, Py_buffer *b)
              err.ssl == SSL_ERROR_WANT_WRITE);
 
     Py_XDECREF(sock);
+#if defined(OPENSSL_IS_BORINGSSL)
+    if (retval <= 0)
+#else
     if (retval == 0)
+#endif
         return PySSL_SetError(self, __FILE__, __LINE__);
     if (PySSL_ChainExceptions(self) < 0)
         return NULL;
@@ -2542,8 +2567,14 @@ _ssl__SSLSocket_read_impl(PySSLSocket *self, Py_ssize_t len,
 
     do {
         PySSL_BEGIN_ALLOW_THREADS
+#if defined(OPENSSL_IS_BORINGSSL)
+        retval = SSL_read(self->ssl, mem, len);
+        count = retval > 0 ? (size_t)retval : 0;
+        err = _PySSL_errno(retval <= 0, self->ssl, retval);
+#else
         retval = SSL_read_ex(self->ssl, mem, (size_t)len, &count);
         err = _PySSL_errno(retval == 0, self->ssl, retval);
+#endif
         PySSL_END_ALLOW_THREADS
         self->err = err;
 
@@ -2577,7 +2608,11 @@ _ssl__SSLSocket_read_impl(PySSLSocket *self, Py_ssize_t len,
     } while (err.ssl == SSL_ERROR_WANT_READ ||
              err.ssl == SSL_ERROR_WANT_WRITE);
 
+#if defined(OPENSSL_IS_BORINGSSL)
+    if (retval <= 0) {
+#else
     if (retval == 0) {
+#endif
         PySSL_SetError(self, __FILE__, __LINE__);
         goto error;
     }
@@ -2776,7 +2811,8 @@ static PyObject *
 _ssl__SSLSocket_verify_client_post_handshake_impl(PySSLSocket *self)
 /*[clinic end generated code: output=532147f3b1341425 input=6bfa874810a3d889]*/
 {
-#ifdef TLS1_3_VERSION
+/* https://crbug.com/boringssl/78: BoringSSL will never support PHA. */
+#if defined(TLS1_3_VERSION) && !defined(OPENSSL_IS_BORINGSSL)
     int err = SSL_verify_client_post_handshake(self->ssl);
     if (err == 0)
         return _setSSLError(get_state_sock(self), NULL, 0, __FILE__, __LINE__);
@@ -3199,7 +3235,8 @@ _ssl__SSLContext_impl(PyTypeObject *type, int proto_version)
     X509_VERIFY_PARAM_set_flags(params, X509_V_FLAG_TRUSTED_FIRST);
     X509_VERIFY_PARAM_set_hostflags(params, self->hostflags);
 
-#ifdef TLS1_3_VERSION
+/* https://crbug.com/boringssl/78: BoringSSL will never support PHA. */
+#if defined(TLS1_3_VERSION) && !defined(OPENSSL_IS_BORINGSSL)
     self->post_handshake_auth = 0;
     SSL_CTX_set_post_handshake_auth(self->ctx, self->post_handshake_auth);
 #endif
@@ -3613,7 +3650,11 @@ PyDoc_STRVAR(PySSLContext_num_tickets_doc,
 static PyObject *
 get_security_level(PySSLContext *self, void *c)
 {
+#ifdef OPENSSL_IS_BORINGSSL
+    return PyLong_FromLong(0);
+#else
     return PyLong_FromLong(SSL_CTX_get_security_level(self->ctx));
+#endif
 }
 PyDoc_STRVAR(PySSLContext_security_level_doc, "The current security level");
 
@@ -3711,14 +3752,15 @@ set_check_hostname(PySSLContext *self, PyObject *arg, void *c)
 
 static PyObject *
 get_post_handshake_auth(PySSLContext *self, void *c) {
-#if TLS1_3_VERSION
+#if defined(TLS1_3_VERSION) && !defined(OPENSSL_IS_BORINGSSL)
     return PyBool_FromLong(self->post_handshake_auth);
 #else
     Py_RETURN_NONE;
 #endif
 }
 
-#if TLS1_3_VERSION
+/* https://crbug.com/boringssl/78: BoringSSL will never support PHA. */
+#if defined(TLS1_3_VERSION) && !defined(OPENSSL_IS_BORINGSSL)
 static int
 set_post_handshake_auth(PySSLContext *self, PyObject *arg, void *c) {
     if (arg == NULL) {
@@ -4541,50 +4583,6 @@ set_sni_callback(PySSLContext *self, PyObject *arg, void *c)
     return 0;
 }
 
-#if OPENSSL_VERSION_NUMBER < 0x30300000L
-static X509_OBJECT *x509_object_dup(const X509_OBJECT *obj)
-{
-    int ok;
-    X509_OBJECT *ret = X509_OBJECT_new();
-    if (ret == NULL) {
-        return NULL;
-    }
-    switch (X509_OBJECT_get_type(obj)) {
-        case X509_LU_X509:
-            ok = X509_OBJECT_set1_X509(ret, X509_OBJECT_get0_X509(obj));
-            break;
-        case X509_LU_CRL:
-            /* X509_OBJECT_get0_X509_CRL was not const-correct prior to 3.0.*/
-            ok = X509_OBJECT_set1_X509_CRL(
-                ret, X509_OBJECT_get0_X509_CRL((X509_OBJECT *)obj));
-            break;
-        default:
-            /* We cannot duplicate unrecognized types in a polyfill, but it is
-             * safe to leave an empty object. The caller will ignore it. */
-            ok = 1;
-            break;
-    }
-    if (!ok) {
-        X509_OBJECT_free(ret);
-        return NULL;
-    }
-    return ret;
-}
-
-static STACK_OF(X509_OBJECT) *
-X509_STORE_get1_objects(X509_STORE *store)
-{
-    STACK_OF(X509_OBJECT) *ret;
-    if (!X509_STORE_lock(store)) {
-        return NULL;
-    }
-    ret = sk_X509_OBJECT_deep_copy(X509_STORE_get0_objects(store),
-                                   x509_object_dup, X509_OBJECT_free);
-    X509_STORE_unlock(store);
-    return ret;
-}
-#endif
-
 PyDoc_STRVAR(PySSLContext_sni_callback_doc,
 "Set a callback that will be called when a server name is provided by the SSL/TLS client in the SNI extension.\n\
 \n\
@@ -4614,12 +4612,7 @@ _ssl__SSLContext_cert_store_stats_impl(PySSLContext *self)
     int x509 = 0, crl = 0, ca = 0, i;
 
     store = SSL_CTX_get_cert_store(self->ctx);
-    objs = X509_STORE_get1_objects(store);
-    if (objs == NULL) {
-        PyErr_SetString(PyExc_MemoryError, "failed to query cert store");
-        return NULL;
-    }
-
+    objs = X509_STORE_get0_objects(store);
     for (i = 0; i < sk_X509_OBJECT_num(objs); i++) {
         obj = sk_X509_OBJECT_value(objs, i);
         switch (X509_OBJECT_get_type(obj)) {
@@ -4633,11 +4626,12 @@ _ssl__SSLContext_cert_store_stats_impl(PySSLContext *self)
                 crl++;
                 break;
             default:
-                /* Ignore unrecognized types. */
+                /* Ignore X509_LU_FAIL, X509_LU_RETRY, X509_LU_PKEY.
+                 * As far as I can tell they are internal states and never
+                 * stored in a cert store */
                 break;
         }
     }
-    sk_X509_OBJECT_pop_free(objs, X509_OBJECT_free);
     return Py_BuildValue("{sisisi}", "x509", x509, "crl", crl,
         "x509_ca", ca);
 }
@@ -4669,12 +4663,7 @@ _ssl__SSLContext_get_ca_certs_impl(PySSLContext *self, int binary_form)
     }
 
     store = SSL_CTX_get_cert_store(self->ctx);
-    objs = X509_STORE_get1_objects(store);
-    if (objs == NULL) {
-        PyErr_SetString(PyExc_MemoryError, "failed to query cert store");
-        goto error;
-    }
-
+    objs = X509_STORE_get0_objects(store);
     for (i = 0; i < sk_X509_OBJECT_num(objs); i++) {
         X509_OBJECT *obj;
         X509 *cert;
@@ -4702,11 +4691,9 @@ _ssl__SSLContext_get_ca_certs_impl(PySSLContext *self, int binary_form)
         }
         Py_CLEAR(ci);
     }
-    sk_X509_OBJECT_pop_free(objs, X509_OBJECT_free);
     return rlist;
 
   error:
-    sk_X509_OBJECT_pop_free(objs, X509_OBJECT_free);
     Py_XDECREF(ci);
     Py_XDECREF(rlist);
     return NULL;
@@ -4967,7 +4954,7 @@ static PyGetSetDef context_getsetlist[] = {
     {"options", (getter) get_options,
                 (setter) set_options, NULL},
     {"post_handshake_auth", (getter) get_post_handshake_auth,
-#ifdef TLS1_3_VERSION
+#if defined(TLS1_3_VERSION) && !defined(OPENSSL_IS_BORINGSSL)
                             (setter) set_post_handshake_auth,
 #else
                             NULL,
@@ -6318,6 +6305,11 @@ sslmodule_init_constants(PyObject *m)
 static int
 sslmodule_init_errorcodes(PyObject *module)
 {
+#if defined(OPENSSL_IS_BORINGSSL)
+    /* BoringSSL does not use error tables and instead provides the necessary
+       API directly. */
+    return 0;
+#else
     _sslmodulestate *state = get_ssl_state(module);
 
     struct py_ssl_error_code *errcode;
@@ -6366,6 +6358,7 @@ sslmodule_init_errorcodes(PyObject *module)
     }
 
     return 0;
+#endif /* OPENSSL_IS_BORINGSSL */
 }
 
 static void
