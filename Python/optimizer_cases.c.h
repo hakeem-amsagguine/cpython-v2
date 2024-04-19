@@ -257,8 +257,12 @@
                 res = sym_new_const(ctx, temp);
                 Py_DECREF(temp);
                 OUT_OF_SPACE_IF_NULL(res);
-                // TODO gh-115506:
-                // replace opcode with constant propagated one and add tests!
+                if (_PyLong_IsCompact((PyLongObject *)temp)) {
+                    Py_ssize_t val = _PyLong_CompactValue((PyLongObject *)temp);
+                    if (val == (int64_t)val) {
+                        REPLACE_OP(this_instr, _POP_TWO_LOAD_INT, 0, (int64_t)val);
+                    }
+                }
             }
             else {
                 OUT_OF_SPACE_IF_NULL(res = sym_new_type(ctx, &PyLong_Type));
@@ -287,8 +291,12 @@
                 res = sym_new_const(ctx, temp);
                 Py_DECREF(temp);
                 OUT_OF_SPACE_IF_NULL(res);
-                // TODO gh-115506:
-                // replace opcode with constant propagated one and add tests!
+                if (_PyLong_IsCompact((PyLongObject *)temp)) {
+                    Py_ssize_t val = _PyLong_CompactValue((PyLongObject *)temp);
+                    if (val == (int64_t)val) {
+                        REPLACE_OP(this_instr, _POP_TWO_LOAD_INT, 0, (int64_t)val);
+                    }
+                }
             }
             else {
                 OUT_OF_SPACE_IF_NULL(res = sym_new_type(ctx, &PyLong_Type));
@@ -317,8 +325,12 @@
                 res = sym_new_const(ctx, temp);
                 Py_DECREF(temp);
                 OUT_OF_SPACE_IF_NULL(res);
-                // TODO gh-115506:
-                // replace opcode with constant propagated one and add tests!
+                if (_PyLong_IsCompact((PyLongObject *)temp)) {
+                    Py_ssize_t val = _PyLong_CompactValue((PyLongObject *)temp);
+                    if (val == (int64_t)val) {
+                        REPLACE_OP(this_instr, _POP_TWO_LOAD_INT, 0, (int64_t)val);
+                    }
+                }
             }
             else {
                 OUT_OF_SPACE_IF_NULL(res = sym_new_type(ctx, &PyLong_Type));
@@ -366,8 +378,10 @@
                 res = sym_new_const(ctx, temp);
                 Py_DECREF(temp);
                 OUT_OF_SPACE_IF_NULL(res);
-                // TODO gh-115506:
-                // replace opcode with constant propagated one and update tests!
+                if (sizeof(double) == sizeof(int64_t)) {
+                    double f = PyFloat_AS_DOUBLE(temp);
+                    REPLACE_OP(this_instr, _POP_TWO_LOAD_FLOAT, 0, double_as_int64_t(f));
+                }
             }
             else {
                 OUT_OF_SPACE_IF_NULL(res = sym_new_type(ctx, &PyFloat_Type));
@@ -397,8 +411,10 @@
                 res = sym_new_const(ctx, temp);
                 Py_DECREF(temp);
                 OUT_OF_SPACE_IF_NULL(res);
-                // TODO gh-115506:
-                // replace opcode with constant propagated one and update tests!
+                if (sizeof(double) == sizeof(int64_t)) {
+                    double f = PyFloat_AS_DOUBLE(temp);
+                    REPLACE_OP(this_instr, _POP_TWO_LOAD_FLOAT, 0, double_as_int64_t(f));
+                }
             }
             else {
                 OUT_OF_SPACE_IF_NULL(res = sym_new_type(ctx, &PyFloat_Type));
@@ -428,8 +444,10 @@
                 res = sym_new_const(ctx, temp);
                 Py_DECREF(temp);
                 OUT_OF_SPACE_IF_NULL(res);
-                // TODO gh-115506:
-                // replace opcode with constant propagated one and update tests!
+                if (sizeof(double) == sizeof(int64_t)) {
+                    double f = PyFloat_AS_DOUBLE(temp);
+                    REPLACE_OP(this_instr, _POP_TWO_LOAD_FLOAT, 0, double_as_int64_t(f));
+                }
             }
             else {
                 OUT_OF_SPACE_IF_NULL(res = sym_new_type(ctx, &PyFloat_Type));
@@ -2018,6 +2036,42 @@
             stack_pointer[0] = value;
             stack_pointer[1] = null;
             stack_pointer += 2;
+            break;
+        }
+
+        case _LOAD_INT: {
+            _Py_UopsSymbol *value;
+            value = sym_new_not_null(ctx);
+            if (value == NULL) goto out_of_space;
+            stack_pointer[0] = value;
+            stack_pointer += 1;
+            break;
+        }
+
+        case _POP_TWO_LOAD_INT: {
+            _Py_UopsSymbol *value;
+            value = sym_new_not_null(ctx);
+            if (value == NULL) goto out_of_space;
+            stack_pointer[-2] = value;
+            stack_pointer += -1;
+            break;
+        }
+
+        case _LOAD_FLOAT: {
+            _Py_UopsSymbol *value;
+            value = sym_new_not_null(ctx);
+            if (value == NULL) goto out_of_space;
+            stack_pointer[0] = value;
+            stack_pointer += 1;
+            break;
+        }
+
+        case _POP_TWO_LOAD_FLOAT: {
+            _Py_UopsSymbol *value;
+            value = sym_new_not_null(ctx);
+            if (value == NULL) goto out_of_space;
+            stack_pointer[-2] = value;
+            stack_pointer += -1;
             break;
         }
 

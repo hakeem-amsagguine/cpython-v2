@@ -795,8 +795,8 @@ class TestUopsOptimization(unittest.TestCase):
 
     def test_float_add_constant_propagation(self):
         def testfunc(n):
-            a = 1.0
             for _ in range(n):
+                a = 1.0
                 a = a + 0.25
                 a = a + 0.25
                 a = a + 0.25
@@ -804,19 +804,16 @@ class TestUopsOptimization(unittest.TestCase):
             return a
 
         res, ex = self._run_with_optimizer(testfunc, 32)
-        self.assertAlmostEqual(res, 33.0)
+        self.assertAlmostEqual(res, 2.0)
         self.assertIsNotNone(ex)
         uops = get_opnames(ex)
-        guard_both_float_count = [opname for opname in iter_opnames(ex) if opname == "_GUARD_BOTH_FLOAT"]
-        self.assertLessEqual(len(guard_both_float_count), 1)
-        # TODO gh-115506: this assertion may change after propagating constants.
-        # We'll also need to verify that propagation actually occurs.
-        self.assertIn("_BINARY_OP_ADD_FLOAT", uops)
+        self.assertNotIn("_BINARY_OP_ADD_FLOAT", uops)
+        self.assertIn("_LOAD_FLOAT", uops)
 
     def test_float_subtract_constant_propagation(self):
         def testfunc(n):
-            a = 1.0
             for _ in range(n):
+                a = 1.0
                 a = a - 0.25
                 a = a - 0.25
                 a = a - 0.25
@@ -824,19 +821,18 @@ class TestUopsOptimization(unittest.TestCase):
             return a
 
         res, ex = self._run_with_optimizer(testfunc, 32)
-        self.assertAlmostEqual(res, -31.0)
+        self.assertAlmostEqual(res, 0.0)
         self.assertIsNotNone(ex)
         uops = get_opnames(ex)
         guard_both_float_count = [opname for opname in iter_opnames(ex) if opname == "_GUARD_BOTH_FLOAT"]
         self.assertLessEqual(len(guard_both_float_count), 1)
-        # TODO gh-115506: this assertion may change after propagating constants.
-        # We'll also need to verify that propagation actually occurs.
-        self.assertIn("_BINARY_OP_SUBTRACT_FLOAT", uops)
+        self.assertNotIn("_BINARY_OP_SUBTRACT_FLOAT", uops)
+        self.assertIn("_LOAD_FLOAT", uops)
 
     def test_float_multiply_constant_propagation(self):
         def testfunc(n):
-            a = 1.0
             for _ in range(n):
+                a = 1.0
                 a = a * 1.0
                 a = a * 1.0
                 a = a * 1.0
@@ -849,9 +845,22 @@ class TestUopsOptimization(unittest.TestCase):
         uops = get_opnames(ex)
         guard_both_float_count = [opname for opname in iter_opnames(ex) if opname == "_GUARD_BOTH_FLOAT"]
         self.assertLessEqual(len(guard_both_float_count), 1)
-        # TODO gh-115506: this assertion may change after propagating constants.
-        # We'll also need to verify that propagation actually occurs.
-        self.assertIn("_BINARY_OP_MULTIPLY_FLOAT", uops)
+        self.assertNotIn("_BINARY_OP_MULTIPLY_FLOAT", uops)
+        self.assertIn("_LOAD_FLOAT", uops)
+
+    def test_int_add_constant_propagation_peepholer_advanced(self):
+        def testfunc(n):
+            for _ in range(n):
+                a = 1
+                a = (a + a) + (a + a + (a + a))
+            return a
+
+        res, ex = self._run_with_optimizer(testfunc, 32)
+        self.assertAlmostEqual(res, 6)
+        self.assertIsNotNone(ex)
+        uops = get_opnames(ex)
+        self.assertNotIn("_BINARY_OP_ADD_INT", uops)
+        self.assertIn("_LOAD_INT", uops)
 
     def test_add_unicode_propagation(self):
         def testfunc(n):
@@ -942,7 +951,8 @@ class TestUopsOptimization(unittest.TestCase):
         self.assertIsNotNone(ex)
         uops = get_opnames(ex)
         self.assertNotIn("_GUARD_BOTH_INT", uops)
-        self.assertIn("_BINARY_OP_ADD_INT", uops)
+        # Constant folded
+        self.assertIn("_LOAD_INT", uops)
         # Try again, but between the runs, set the global to a float.
         # This should result in no executor the second time.
         ns = {}
@@ -1245,6 +1255,37 @@ class TestUopsOptimization(unittest.TestCase):
         res, ex = self._run_with_optimizer(testfunc, 32)
         self.assertEqual(res, 32 * 32)
         self.assertIsNone(ex)
+
+    def test_int_constant_propagation(self):
+        def testfunc(n):
+            for _ in range(n):
+                a = 1
+                x = a + a - a * a
+            return x
+
+        res, ex = self._run_with_optimizer(testfunc, 32)
+        self.assertTrue(res)
+        self.assertIsNotNone(ex)
+        uops = get_opnames(ex)
+        self.assertNotIn("_BINARY_OP_ADD_INT", uops)
+        self.assertNotIn("_BINARY_OP_MULTIPLY_INT", uops)
+        self.assertNotIn("_BINARY_OP_SUBTRACT_INT", uops)
+
+    def test_no_bigint_constant_propagation(self):
+        # We don't want to hold strong references in the trace.
+        def testfunc(n):
+            for _ in range(n):
+                a = 100000000000000000000000000000000000000
+                x = a + a - a * a
+            return x
+
+        res, ex = self._run_with_optimizer(testfunc, 32)
+        self.assertTrue(res)
+        self.assertIsNotNone(ex)
+        uops = get_opnames(ex)
+        self.assertIn("_BINARY_OP_ADD_INT", uops)
+        self.assertIn("_BINARY_OP_MULTIPLY_INT", uops)
+        self.assertIn("_BINARY_OP_SUBTRACT_INT", uops)
 
 if __name__ == "__main__":
     unittest.main()

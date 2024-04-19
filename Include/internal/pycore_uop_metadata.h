@@ -237,6 +237,10 @@ const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_POP_TOP_LOAD_CONST_INLINE_BORROW] = HAS_PURE_FLAG,
     [_LOAD_CONST_INLINE_WITH_NULL] = HAS_PURE_FLAG,
     [_LOAD_CONST_INLINE_BORROW_WITH_NULL] = HAS_PURE_FLAG,
+    [_LOAD_INT] = HAS_ERROR_FLAG | HAS_PURE_FLAG,
+    [_POP_TWO_LOAD_INT] = HAS_ERROR_FLAG | HAS_PURE_FLAG,
+    [_LOAD_FLOAT] = HAS_ERROR_FLAG | HAS_ESCAPES_FLAG | HAS_PURE_FLAG,
+    [_POP_TWO_LOAD_FLOAT] = HAS_ERROR_FLAG | HAS_ESCAPES_FLAG | HAS_PURE_FLAG,
     [_CHECK_FUNCTION] = HAS_DEOPT_FLAG,
     [_INTERNAL_INCREMENT_OPT_COUNTER] = 0,
     [_COLD_EXIT] = HAS_ARG_FLAG | HAS_ESCAPES_FLAG,
@@ -412,11 +416,13 @@ const char *const _PyOpcode_uop_name[MAX_UOP_ID+1] = {
     [_LOAD_FAST_AND_CLEAR] = "_LOAD_FAST_AND_CLEAR",
     [_LOAD_FAST_CHECK] = "_LOAD_FAST_CHECK",
     [_LOAD_FAST_LOAD_FAST] = "_LOAD_FAST_LOAD_FAST",
+    [_LOAD_FLOAT] = "_LOAD_FLOAT",
     [_LOAD_FROM_DICT_OR_DEREF] = "_LOAD_FROM_DICT_OR_DEREF",
     [_LOAD_FROM_DICT_OR_GLOBALS] = "_LOAD_FROM_DICT_OR_GLOBALS",
     [_LOAD_GLOBAL] = "_LOAD_GLOBAL",
     [_LOAD_GLOBAL_BUILTINS] = "_LOAD_GLOBAL_BUILTINS",
     [_LOAD_GLOBAL_MODULE] = "_LOAD_GLOBAL_MODULE",
+    [_LOAD_INT] = "_LOAD_INT",
     [_LOAD_LOCALS] = "_LOAD_LOCALS",
     [_LOAD_SUPER_ATTR_ATTR] = "_LOAD_SUPER_ATTR_ATTR",
     [_LOAD_SUPER_ATTR_METHOD] = "_LOAD_SUPER_ATTR_METHOD",
@@ -432,6 +438,8 @@ const char *const _PyOpcode_uop_name[MAX_UOP_ID+1] = {
     [_POP_FRAME] = "_POP_FRAME",
     [_POP_TOP] = "_POP_TOP",
     [_POP_TOP_LOAD_CONST_INLINE_BORROW] = "_POP_TOP_LOAD_CONST_INLINE_BORROW",
+    [_POP_TWO_LOAD_FLOAT] = "_POP_TWO_LOAD_FLOAT",
+    [_POP_TWO_LOAD_INT] = "_POP_TWO_LOAD_INT",
     [_PUSH_EXC_INFO] = "_PUSH_EXC_INFO",
     [_PUSH_FRAME] = "_PUSH_FRAME",
     [_PUSH_NULL] = "_PUSH_NULL",
@@ -922,6 +930,14 @@ int _PyUop_num_popped(int opcode, int oparg)
             return 0;
         case _LOAD_CONST_INLINE_BORROW_WITH_NULL:
             return 0;
+        case _LOAD_INT:
+            return 0;
+        case _POP_TWO_LOAD_INT:
+            return 2;
+        case _LOAD_FLOAT:
+            return 0;
+        case _POP_TWO_LOAD_FLOAT:
+            return 2;
         case _CHECK_FUNCTION:
             return 0;
         case _INTERNAL_INCREMENT_OPT_COUNTER:
