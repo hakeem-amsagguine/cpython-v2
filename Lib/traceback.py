@@ -371,11 +371,9 @@ class FrameSummary:
             lines = []
             for lineno in range(self.lineno, self.end_lineno + 1):
                 # treat errors (empty string) and empty lines (newline) as the same
-                line = None
-                if self._code is not None and self.filename.startswith("<"):
+                line = linecache.getline(self.filename, lineno).rstrip()
+                if not line and self._code is not None and self.filename.startswith("<"):
                     line = linecache._getline_from_code(self._code, lineno).rstrip()
-                if line is None:
-                    line = linecache.getline(self.filename, lineno).rstrip()
                 lines.append(line)
             self._lines = "\n".join(lines) + "\n"
 
