@@ -986,6 +986,9 @@ AC_PROG_GREP
 AC_PROG_SED
 AC_PROG_EGREP
 
+dnl GNU Autoconf recommends the use of expr instead of basename.
+AS_VAR_SET([CC_BASENAME], [$(expr "//$CC" : '.*/\(.*\)')])
+
 dnl detect compiler name
 dnl check for xlc before clang, newer xlc's can use clang as frontend.
 dnl check for GCC last, other compilers set __GNUC__, too.
@@ -1011,9 +1014,7 @@ EOF
 
 if $CPP $CPPFLAGS conftest.c >conftest.out 2>/dev/null; then
   ac_cv_cc_name=`grep -v '^#' conftest.out | grep -v '^ *$' | tr -d ' 	'`
-  if test $(expr "//$CC" : '.*/\(.*\)') = "mpicc"; then
-    ac_cv_cc_name="mpicc"
-  fi
+  AS_VAR_IF([CC_BASENAME], [mpicc], [ac_cv_cc_name=mpicc])
 else
   ac_cv_cc_name="unknown"
 fi
@@ -1042,11 +1043,11 @@ AC_SUBST([CXX])
 preset_cxx="$CXX"
 if test -z "$CXX"
 then
-        case "$CC" in
+        case "$CC_BASENAME" in
         gcc)    AC_PATH_TOOL([CXX], [g++], [g++], [notfound]) ;;
         cc)     AC_PATH_TOOL([CXX], [c++], [c++], [notfound]) ;;
-        clang|*/clang)     AC_PATH_TOOL([CXX], [clang++], [clang++], [notfound]) ;;
-        icc|*/icc)         AC_PATH_TOOL([CXX], [icpc], [icpc], [notfound]) ;;
+        clang)             AC_PATH_TOOL([CXX], [clang++], [clang++], [notfound]) ;;
+        icc)               AC_PATH_TOOL([CXX], [icpc], [icpc], [notfound]) ;;
         esac
 	if test "$CXX" = "notfound"
 	then
@@ -1396,7 +1397,7 @@ AC_MSG_RESULT([$EXPORTSYMS])
 AC_SUBST([GNULD])
 AC_MSG_CHECKING([for GNU ld])
 ac_prog=ld
-if test "$GCC" = yes; then
+if test "$ac_cv_cc_name" = "gcc"; then
        ac_prog=`$CC -print-prog-name=ld`
 fi
 case `"$ac_prog" -V 2>&1 < /dev/null` in
@@ -1811,14 +1812,12 @@ if test "$Py_OPT" = 'true' ; then
   DEF_MAKE_ALL_RULE="profile-opt"
   REQUIRE_PGO="yes"
   DEF_MAKE_RULE="build_all"
-  case $CC in
-    *gcc*)
+  AS_VAR_IF([ac_cv_gcc_compat], [yes], [
       AX_CHECK_COMPILE_FLAG([-fno-semantic-interposition],[
       CFLAGS_NODIST="$CFLAGS_NODIST -fno-semantic-interposition"
       LDFLAGS_NODIST="$LDFLAGS_NODIST -fno-semantic-interposition"
       ], [], [-Werror])
-      ;;
-  esac
+  ])
 elif test "$ac_sys_system" = "Emscripten" -o "$ac_sys_system" = "WASI"; then
   dnl Emscripten does not support shared extensions yet. Build
   dnl "python.[js,wasm]", "pybuilddir.txt", and "platform" files.
@@ -1845,7 +1844,7 @@ AC_MSG_RESULT([$PROFILE_TASK])
 
 llvm_bin_dir=''
 llvm_path="${PATH}"
-if test "${CC}" = "clang"
+if test "${ac_cv_cc_name}" = "clang"
 then
   clang_bin=`which clang`
   # Some systems install clang elsewhere as a symlink to the real path
@@ -1892,8 +1891,8 @@ esac
 ],
 [AC_MSG_RESULT([no])])
 if test "$Py_LTO" = 'true' ; then
-  case $CC in
-    *clang*)
+  case $ac_cv_cc_name in
+    clang)
       LDFLAGS_NOLTO="-fno-lto"
       dnl Clang linker requires -flto in order to link objects with LTO information.
       dnl Thin LTO is faster and works for object files with full LTO information, too.
@@ -1956,14 +1955,14 @@ if test "$Py_LTO" = 'true' ; then
           ;;
       esac
       ;;
-    *emcc*)
+    emcc)
       if test "$Py_LTO_POLICY" != "default"; then
         AC_MSG_ERROR([emcc supports only default lto.])
       fi
       LTOFLAGS="-flto"
       LTOCFLAGS="-flto"
       ;;
-    *gcc*)
+    gcc)
       if test $Py_LTO_POLICY = thin
       then
         AC_MSG_ERROR([thin lto is not supported under gcc compiler.])
@@ -2022,10 +2021,8 @@ then
 fi
 LLVM_PROF_ERR=no
 
-# GNU Autoconf recommends the use of expr instead of basename.
-AS_VAR_SET([CC_BASENAME], [$(expr "//$CC" : '.*/\(.*\)')])
-case "$CC_BASENAME" in
-  *clang*)
+case "$ac_cv_cc_name" in
+  clang)
     # Any changes made here should be reflected in the GCC+Darwin case below
     PGO_PROF_GEN_FLAG="-fprofile-instr-generate"
     PGO_PROF_USE_FLAG="-fprofile-instr-use=\"\$(shell pwd)/code.profclangd\""
@@ -2044,35 +2041,13 @@ case "$CC_BASENAME" in
       fi
     fi
     ;;
-  *gcc*)
-    case $ac_sys_system in
-      Darwin*)
-        PGO_PROF_GEN_FLAG="-fprofile-instr-generate"
-        PGO_PROF_USE_FLAG="-fprofile-instr-use=\"\$(shell pwd)/code.profclangd\""
-        LLVM_PROF_MERGER=m4_normalize("
-            ${LLVM_PROFDATA} merge
-                -output=\"\$(shell pwd)/code.profclangd\"
-                \"\$(shell pwd)\"/*.profclangr
-        ")
-        LLVM_PROF_FILE="LLVM_PROFILE_FILE=\"\$(shell pwd)/code-%p.profclangr\""
-        if test "${LLVM_PROF_FOUND}" = "not-found"
-        then
-          LLVM_PROF_ERR=yes
-          if test "${REQUIRE_PGO}" = "yes"
-	  then
-	    AC_MSG_ERROR([llvm-profdata is required for a --enable-optimizations build but could not be found.])
-	  fi
-        fi
-        ;;
-      *)
-        PGO_PROF_GEN_FLAG="-fprofile-generate"
-        PGO_PROF_USE_FLAG="-fprofile-use -fprofile-correction"
-        LLVM_PROF_MERGER="true"
-        LLVM_PROF_FILE=""
-        ;;
-    esac
+  gcc)
+    PGO_PROF_GEN_FLAG="-fprofile-generate"
+    PGO_PROF_USE_FLAG="-fprofile-use -fprofile-correction"
+    LLVM_PROF_MERGER="true"
+    LLVM_PROF_FILE=""
     ;;
-  *icc*)
+  icc)
     PGO_PROF_GEN_FLAG="-prof-gen"
     PGO_PROF_USE_FLAG="-prof-use"
     LLVM_PROF_MERGER="true"
@@ -2196,19 +2171,6 @@ AC_MSG_RESULT([$BOLT_APPLY_FLAGS])
 # compiler and platform.  BASECFLAGS tweaks need to be made even if the
 # user set OPT.
 
-case $CC in
-    *clang*)
-        cc_is_clang=1
-        ;;
-    *)
-        if $CC --version 2>&1 | grep -q clang
-        then
-            cc_is_clang=1
-        else
-            cc_is_clang=
-        fi
-esac
-
 dnl Historically, some of our code assumed that signed integer overflow
 dnl is defined behaviour via twos-complement.
 dnl Set STRICT_OVERFLOW_CFLAGS and NO_STRICT_OVERFLOW_CFLAGS depending on compiler support.
@@ -2278,7 +2240,7 @@ if test "${OPT-unset}" = "unset"
 then
     case $GCC in
     yes)
-        if test -n "${cc_is_clang}"
+        if test "${ac_cv_cc_name}" != "clang"
         then
             # bpo-30104: disable strict aliasing to compile correctly dtoa.c,
             # see Makefile.pre.in for more information
@@ -2427,8 +2389,7 @@ AS_VAR_IF([with_strict_overflow], [yes],
           [BASECFLAGS="$BASECFLAGS $STRICT_OVERFLOW_CFLAGS"],
           [BASECFLAGS="$BASECFLAGS $NO_STRICT_OVERFLOW_CFLAGS"])
 
-case $GCC in
-yes)
+AS_VAR_IF([ac_cv_gcc_compat], [yes], [
     CFLAGS_NODIST="$CFLAGS_NODIST -std=c11"
 
     PY_CHECK_CC_WARNING([enable], [extra], [if we can add -Wextra])
@@ -2469,8 +2430,8 @@ yes)
 
     # ICC doesn't recognize the option, but only emits a warning
     ## XXX does it emit an unused result warning and can it be disabled?
-    AS_CASE(["$CC_BASENAME"],
-            [*icc*], [ac_cv_disable_unused_result_warning=no]
+    AS_CASE(["$ac_cv_cc_name"],
+            [icc], [ac_cv_disable_unused_result_warning=no]
             [PY_CHECK_CC_WARNING([disable], [unused-result])])
     AS_VAR_IF([ac_cv_disable_unused_result_warning], [yes],
               [BASECFLAGS="$BASECFLAGS -Wno-unused-result"
@@ -2563,20 +2524,17 @@ yes)
     Darwin*)
         # -Wno-long-double, -no-cpp-precomp, and -mno-fused-madd
         # used to be here, but non-Apple gcc doesn't accept them.
-        if test "${CC}" = gcc
-        then
-            AC_MSG_CHECKING([which compiler should be used])
-            case "${UNIVERSALSDK}" in
-            */MacOSX10.4u.sdk)
-                # Build using 10.4 SDK, force usage of gcc when the
-                # compiler is gcc, otherwise the user will get very
-                # confusing error messages when building on OSX 10.6
-                CC=gcc-4.0
-                CPP=cpp-4.0
-                ;;
-            esac
-            AC_MSG_RESULT([$CC])
-        fi
+        AC_MSG_CHECKING([which compiler should be used])
+        case "${UNIVERSALSDK}" in
+        */MacOSX10.4u.sdk)
+            # Build using 10.4 SDK, force usage of gcc when the
+            # compiler is gcc, otherwise the user will get very
+            # confusing error messages when building on OSX 10.6
+            CC=gcc-4.0
+            CPP=cpp-4.0
+            ;;
+        esac
+        AC_MSG_RESULT([$CC])
 
         LIPO_INTEL64_FLAGS=""
         if test "${enable_universalsdk}"
@@ -2701,9 +2659,7 @@ yes)
         # end of Darwin* tests
         ;;
     esac
-    ;;
-
-*)
+], [
     case $ac_sys_system in
     OpenUNIX*|UnixWare*)
 	BASECFLAGS="$BASECFLAGS -K pentium,host,inline,loop_unroll,alloca "
@@ -2712,18 +2668,17 @@ yes)
 	BASECFLAGS="$BASECFLAGS -belf -Ki486 -DSCO5"
 	;;
     esac
-    ;;
-esac
+])
 
-case "$CC_BASENAME" in
-*mpicc*)
+case "$ac_cv_cc_name" in
+mpicc)
     CFLAGS_NODIST="$CFLAGS_NODIST"
     ;;
-*icc*)
+icc)
     # ICC needs -fp-model strict or floats behave badly
     CFLAGS_NODIST="$CFLAGS_NODIST -fp-model strict"
     ;;
-*xlc*)
+xlc)
     CFLAGS_NODIST="$CFLAGS_NODIST -qalias=noansi -qmaxmem=-1"
     ;;
 esac
@@ -3331,7 +3286,7 @@ then
 		LDSHARED="\$(LIBPL)/ld_so_aix \$(CC) -bI:\$(LIBPL)/python.exp"
 		;;
 	SunOS/5*)
-		if test "$GCC" = "yes" ; then
+		if test "$ac_cv_gcc_compat" = "yes" ; then
 			LDSHARED='$(CC) -shared'
 			LDCXXSHARED='$(CXX) -shared'
 		else
@@ -3339,7 +3294,7 @@ then
 			LDCXXSHARED='$(CXX) -G'
 		fi ;;
 	hp*|HP*)
-		if test "$GCC" = "yes" ; then
+		if test "$ac_cv_gcc_compat" = "yes" ; then
 			LDSHARED='$(CC) -shared'
 			LDCXXSHARED='$(CXX) -shared'
 		else
@@ -3432,7 +3387,7 @@ then
 		LDSHARED='$(CC) -shared'
 		LDCXXSHARED='$(CXX) -shared';;
 	OpenUNIX*|UnixWare*)
-		if test "$GCC" = "yes" ; then
+		if test "$ac_cv_gcc_compat" = "yes" ; then
 			LDSHARED='$(CC) -shared'
 			LDCXXSHARED='$(CXX) -shared'
 		else
@@ -3472,13 +3427,13 @@ AC_MSG_CHECKING([CCSHARED])
 if test -z "$CCSHARED"
 then
 	case $ac_sys_system/$ac_sys_release in
-	SunOS*) if test "$GCC" = yes;
+	SunOS*) if test "$ac_cv_gcc_compat" = "yes";
 		then CCSHARED="-fPIC";
 		elif test `uname -p` = sparc;
 		then CCSHARED="-xcode=pic32";
 		else CCSHARED="-Kpic";
 		fi;;
-	hp*|HP*) if test "$GCC" = yes;
+	hp*|HP*) if test "$ac_cv_gcc_compat" = "yes";
 		 then CCSHARED="-fPIC";
 		 else CCSHARED="+z";
 		 fi;;
@@ -3490,12 +3445,12 @@ then
 	FreeBSD*|NetBSD*|OpenBSD*|DragonFly*) CCSHARED="-fPIC";;
 	Haiku*) CCSHARED="-fPIC";;
 	OpenUNIX*|UnixWare*)
-		if test "$GCC" = "yes"
+		if test "$ac_cv_gcc_compat" = "yes"
 		then CCSHARED="-fPIC"
 		else CCSHARED="-KPIC"
 		fi;;
 	SCO_SV*)
-		if test "$GCC" = "yes"
+		if test "$ac_cv_gcc_compat" = "yes"
 		then CCSHARED="-fPIC"
 		else CCSHARED="-Kpic -belf"
 		fi;;
@@ -3553,13 +3508,13 @@ then
 		then
 			LINKFORSHARED="-Wl,--export-dynamic"
 		fi;;
-	SunOS/5*) case $CC in
-		  *gcc*)
+    SunOS/5*) if test "$ac_cv_gcc_compat" = "yes"; then
 		    if $CC -Xlinker --help 2>&1 | grep export-dynamic >/dev/null
 		    then
 			LINKFORSHARED="-Xlinker --export-dynamic"
-		    fi;;
-		  esac;;
+		    fi
+        fi
+		;;
 	CYGWIN*)
 		if test $enable_shared = "no"
 		then
@@ -4021,9 +3976,9 @@ elif test $ac_cv_sizeof_size_t -eq 8; then
     fi
 elif test $ac_cv_sizeof_size_t -eq 4; then
     if test "$ac_cv_gcc_asm_for_x87" = yes -a "$libmpdec_system" != sunos; then
-        AS_CASE([$CC],
-            [*gcc*],   [libmpdec_machine=ppro],
-            [*clang*], [libmpdec_machine=ppro],
+        AS_CASE([$ac_cv_cc_name],
+            [gcc],   [libmpdec_machine=ppro],
+            [clang], [libmpdec_machine=ppro],
             [libmpdec_machine=ansi32]
         )
     else
@@ -6937,8 +6892,8 @@ if test "$ac_cv_gcc_asm_for_x87" = yes; then
     # Some versions of gcc miscompile inline asm:
     # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=46491
     # http://gcc.gnu.org/ml/gcc/2010-11/msg00366.html
-    case $CC in
-        *gcc*)
+    case $ac_cv_cc_name in
+        gcc)
             AC_MSG_CHECKING([for gcc ipa-pure-const bug])
             saved_cflags="$CFLAGS"
             CFLAGS="-O2"
