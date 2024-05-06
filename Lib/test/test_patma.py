@@ -3,7 +3,6 @@ import collections
 import dataclasses
 import enum
 import inspect
-from re import I
 import sys
 import unittest
 
@@ -12,6 +11,13 @@ import unittest
 class Point:
     x: int
     y: int
+
+
+@dataclasses.dataclass
+class Point3D:
+    x: int
+    y: int
+    z: int
 
 
 class TestCompiler(unittest.TestCase):
@@ -2895,6 +2901,60 @@ class TestPatma(unittest.TestCase):
                 x = 1
         self.assertEqual(x, 1)
 
+    def test_union_type_positional_subpattern(self):
+        IntOrStr = int | str
+        x = 1
+        w = None
+        match x:
+            case IntOrStr(y):
+                w = y
+        self.assertEqual(w, 1)
+
+    def test_union_type_keyword_subpattern(self):
+        EitherPoint = Point | Point3D
+        p = Point(x=1, y=2)
+        w = None
+        match p:
+            case EitherPoint(x=1, y=2):
+                w = 1
+        self.assertEqual(w, 1)
+
+    def test_patma_union_no_match(self):
+        IntOrStr = int | str
+        x = None
+        match x:
+            case IntOrStr():
+                x = 1
+        self.assertIsNone(x)
+
+    def test_patma_union_arg(self):
+        p = Point(x=1, y=2)
+        IntOrStr = int | str
+        w = None
+        match p:
+            case Point(IntOrStr(), IntOrStr()):
+                w = 1
+        self.assertEqual(w, 1)
+
+    def test_patma_union_kwarg(self):
+        p = Point(x=1, y=2)
+        IntOrStr = int | str
+        w = None
+        match p:
+            case Point(x=IntOrStr(), y=IntOrStr()):
+                w = 1
+        self.assertEqual(w, 1)
+
+    def test_union_type_match_second_member(self):
+        EitherPoint = Point | Point3D
+        p = Point3D(x=1, y=2, z=3)
+        w = None
+        match p:
+            case EitherPoint(x=1, y=2, z=3):
+                w = 1
+        self.assertEqual(w, 1)
+
+
 
 class TestSyntaxErrors(unittest.TestCase):
 
@@ -3367,31 +3427,6 @@ class TestTypeErrors(unittest.TestCase):
         with self.assertRaises(TypeError):
             match A():
                 case P(x, y):
-                    w = 0
-        self.assertIsNone(w)
-
-    def test_union_type_postional_subpattern(self):
-        IntOrStr = int | str
-        x = 1
-        w = None
-        with self.assertRaises(TypeError):
-            match x:
-                case IntOrStr(x):
-                    w = 0
-        self.assertEqual(x, 1)
-        self.assertIsNone(w)
-
-    def test_union_type_keyword_subpattern(self):
-        @dataclasses.dataclass
-        class Point2:
-            x: int
-            y: int
-        EitherPoint = Point | Point2
-        x = Point(x=1, y=2)
-        w = None
-        with self.assertRaises(TypeError):
-            match x:
-                case EitherPoint(x=1, y=2):
                     w = 0
         self.assertIsNone(w)
 
