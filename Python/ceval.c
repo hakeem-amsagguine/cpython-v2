@@ -461,7 +461,7 @@ _PyEval_MatchClass(PyThreadState *tstate, PyObject *subject, PyObject *type,
     if (_PyUnion_Check(type)) {
         // get union members
         PyObject *members = _Py_union_args(type);
-        Py_ssize_t n = PyTuple_GET_SIZE(members);
+        const Py_ssize_t n = PyTuple_GET_SIZE(members);
 
         // iterate over union members and return first match
         for (Py_ssize_t i = 0; i < n; i++) {
@@ -476,8 +476,8 @@ _PyEval_MatchClass(PyThreadState *tstate, PyObject *subject, PyObject *type,
         return NULL;
     }
     if (!PyType_Check(type)) {
-        const char *e = "called match pattern must be a class or a union, (got %s, %s)";
-        _PyErr_Format(tstate, PyExc_TypeError, e, Py_TYPE(type)->tp_name, subject->ob_type->tp_name);
+        const char *e = "called match pattern must be a class or a union (got %s)";
+        _PyErr_Format(tstate, PyExc_TypeError, e, Py_TYPE(type)->tp_name);
         return NULL;
     }
     assert(PyTuple_CheckExact(kwargs));

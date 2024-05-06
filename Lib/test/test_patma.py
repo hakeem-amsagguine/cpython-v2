@@ -3401,6 +3401,16 @@ class TestTypeErrors(unittest.TestCase):
                     w = 0
         self.assertIsNone(w)
 
+    def test_class_or_union_not_specialform(self):
+        w = None
+        from typing import Literal
+        msg = 'called match pattern must be a class or a union'
+        with self.assertRaisesRegex(TypeError, msg):
+            match 1:
+                case Literal():
+                    w = 0
+        self.assertIsNone(w)
+
     def test_regular_protocol(self):
         from typing import Protocol
         class P(Protocol): ...
