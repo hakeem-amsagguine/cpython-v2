@@ -959,10 +959,9 @@ conflict.
 
 .. envvar:: PYTHONPROFILEIMPORTTIME
 
-   If this environment variable is set to a non-empty string, Python will
-   show how long each import takes. If this environment variable is set to
-   ``2``, Python will include about imported modules that have already been
-   loaded.
+   If this environment variable is set to a non-empty string, Python will show
+   how long each import takes. If set to ``2``, Python will include output for
+   imported modules that have already been loaded.
    This is equivalent to setting the :option:`-X` ``importtime`` option.
 
    .. versionadded:: 3.7
