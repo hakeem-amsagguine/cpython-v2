@@ -3402,13 +3402,25 @@ class TestTypeErrors(unittest.TestCase):
         self.assertIsNone(w)
 
     def test_class_or_union_not_specialform(self):
-        w = None
         from typing import Literal
         name = type(Literal).__name__
-        msg = rf"called match pattern must be a class or a union \(got {name}\)"
+        msg = rf"called match pattern must be a class or types.UnionType \(got {name}\)"
+        w = None
         with self.assertRaisesRegex(TypeError, msg):
             match 1:
                 case Literal():
+                    w = 0
+        self.assertIsNone(w)
+
+    def test_patma_legacy_union_type(self):
+        from typing import Union
+        IntOrStr = Union[int, str]
+        name = type(IntOrStr).__name__
+        msg = rf"called match pattern must be a class or types.UnionType \(got {name}\)"
+        w = None
+        with self.assertRaisesRegex(TypeError, msg):
+            match 1:
+                case IntOrStr():
                     w = 0
         self.assertIsNone(w)
 

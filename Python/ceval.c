@@ -476,7 +476,7 @@ _PyEval_MatchClass(PyThreadState *tstate, PyObject *subject, PyObject *type,
         return NULL;
     }
     if (!PyType_Check(type)) {
-        const char *e = "called match pattern must be a class or a union (got %s)";
+        const char *e = "called match pattern must be a class or types.UnionType (got %s)";
         _PyErr_Format(tstate, PyExc_TypeError, e, Py_TYPE(type)->tp_name);
         return NULL;
     }
