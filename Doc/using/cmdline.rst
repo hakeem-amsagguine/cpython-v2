@@ -545,6 +545,7 @@ Miscellaneous options
      All other values (``1``, no value, etc.) invoke the original behavior.
 
      .. versionadded:: 3.7
+
      .. versionchanged:: 3.13
          Added ``-X importtime=2`` to also trace imports of loaded modules.
 
@@ -965,6 +966,9 @@ conflict.
    This is equivalent to setting the :option:`-X` ``importtime`` option.
 
    .. versionadded:: 3.7
+
+   .. versionchanged:: 3.13
+      Added ``PYTHONPROFILEIMPORTTIME=2`` to also trace imports of loaded modules.
 
 
 .. envvar:: PYTHONASYNCIODEBUG
