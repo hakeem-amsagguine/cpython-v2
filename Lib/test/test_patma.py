@@ -2895,20 +2895,27 @@ class TestPatma(unittest.TestCase):
 
     def test_patma_union_type(self):
         IntOrStr = int | str
-        x = 0
-        match x:
+        w = None
+        match 0:
             case IntOrStr():
-                x = 1
-        self.assertEqual(x, 1)
+                w = 0
+        self.assertEqual(w, 0)
+
+    def test_patma_union_no_match(self):
+        StrOrBytes = str | bytes
+        w = None
+        match 0:
+            case StrOrBytes():
+                w = 0
+        self.assertIsNone(w)
 
     def test_union_type_positional_subpattern(self):
         IntOrStr = int | str
-        x = 1
         w = None
-        match x:
+        match 0:
             case IntOrStr(y):
                 w = y
-        self.assertEqual(w, 1)
+        self.assertEqual(w, 0)
 
     def test_union_type_keyword_subpattern(self):
         EitherPoint = Point | Point3D
@@ -2916,16 +2923,9 @@ class TestPatma(unittest.TestCase):
         w = None
         match p:
             case EitherPoint(x=1, y=2):
-                w = 1
-        self.assertEqual(w, 1)
+                w = 0
+        self.assertEqual(w, 0)
 
-    def test_patma_union_no_match(self):
-        IntOrStr = int | str
-        x = None
-        match x:
-            case IntOrStr():
-                x = 1
-        self.assertIsNone(x)
 
     def test_patma_union_arg(self):
         p = Point(x=1, y=2)
@@ -2933,8 +2933,8 @@ class TestPatma(unittest.TestCase):
         w = None
         match p:
             case Point(IntOrStr(), IntOrStr()):
-                w = 1
-        self.assertEqual(w, 1)
+                w = 0
+        self.assertEqual(w, 0)
 
     def test_patma_union_kwarg(self):
         p = Point(x=1, y=2)
@@ -2942,8 +2942,26 @@ class TestPatma(unittest.TestCase):
         w = None
         match p:
             case Point(x=IntOrStr(), y=IntOrStr()):
-                w = 1
-        self.assertEqual(w, 1)
+                w = 0
+        self.assertEqual(w, 0)
+
+    def test_patma_union_arg_no_match(self):
+        p = Point(x=1, y=2)
+        StrOrBytes = str | bytes
+        w = None
+        match p:
+            case Point(StrOrBytes(), StrOrBytes()):
+                w = 0
+        self.assertIsNone(w)
+
+    def test_patma_union_kwarg_no_match(self):
+        p = Point(x=1, y=2)
+        StrOrBytes = str | bytes
+        w = None
+        match p:
+            case Point(x=StrOrBytes(), y=StrOrBytes()):
+                w = 0
+        self.assertIsNone(w)
 
     def test_union_type_match_second_member(self):
         EitherPoint = Point | Point3D
@@ -2951,8 +2969,8 @@ class TestPatma(unittest.TestCase):
         w = None
         match p:
             case EitherPoint(x=1, y=2, z=3):
-                w = 1
-        self.assertEqual(w, 1)
+                w = 0
+        self.assertEqual(w, 0)
 
 
 
