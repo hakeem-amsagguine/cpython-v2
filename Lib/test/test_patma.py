@@ -3404,7 +3404,8 @@ class TestTypeErrors(unittest.TestCase):
     def test_class_or_union_not_specialform(self):
         w = None
         from typing import Literal
-        msg = 'called match pattern must be a class or a union'
+        name = type(Literal).__name__
+        msg = rf"called match pattern must be a class or a union \(got {name}\)"
         with self.assertRaisesRegex(TypeError, msg):
             match 1:
                 case Literal():
