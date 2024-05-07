@@ -3460,6 +3460,48 @@ class TestTypeErrors(unittest.TestCase):
                     w = 0
         self.assertIsNone(w)
 
+    def test_union_mirrors_isinstance_success(self):
+        t = int | list[int]
+
+        try:  # get the isinstance result
+            reference = isinstance(1, t)
+        except TypeError as exc:
+            reference = exc
+
+        try:  # get the match-case result
+            match 1:
+                case t():
+                    result = True
+                case _:
+                    result = False
+        except TypeError as exc:
+            result = exc
+
+        # we should ge the same result
+        self.assertIs(result, True)
+        self.assertIs(reference, True)
+
+    def test_union_mirrors_isinstance_failure(self):
+        t = list[int] | int
+
+        try:  # get the isinstance result
+            reference = isinstance(1, t)
+        except TypeError as exc:
+            reference = exc
+
+        try:  # get the match-case result
+            match 1:
+                case t():
+                    result = True
+                case _:
+                    result = False
+        except TypeError as exc:
+            result = exc
+
+        # we should ge the same result
+        self.assertIsInstance(result, TypeError)
+        self.assertIsInstance(reference, TypeError)
+
     def test_generic_union_type(self):
         from collections.abc import Sequence, Set
         t = Sequence[str] | Set[str]
