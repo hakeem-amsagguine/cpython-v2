@@ -2926,7 +2926,6 @@ class TestPatma(unittest.TestCase):
                 w = 0
         self.assertEqual(w, 0)
 
-
     def test_patma_union_arg(self):
         p = Point(x=1, y=2)
         IntOrStr = int | str
