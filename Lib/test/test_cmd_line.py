@@ -1061,6 +1061,7 @@ class CmdLineTest(unittest.TestCase):
             res.err.decode("utf-8"),
             r"import time: \s*\d+ | \s*\d+ | \s*os"
         )
+        code = "import os; import os"
         res = assert_python_ok('-X', 'importtime=2', '-c', code)
         self.assertRegex(
             res.err.decode("utf-8"),
