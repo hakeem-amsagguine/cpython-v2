@@ -2972,7 +2972,6 @@ class TestPatma(unittest.TestCase):
         self.assertEqual(w, 0)
 
 
-
 class TestSyntaxErrors(unittest.TestCase):
 
     def assert_syntax_error(self, code: str):
@@ -3307,6 +3306,7 @@ class TestSyntaxErrors(unittest.TestCase):
                 pass
         """)
 
+
 class TestTypeErrors(unittest.TestCase):
 
     def test_generic_type(self):
@@ -3502,7 +3502,6 @@ class TestTypeErrors(unittest.TestCase):
         # we should ge the same result
         self.assertIsInstance(result, TypeError)
         self.assertIsInstance(reference, TypeError)
-
 
     def test_union_type_mirrors_isinstance_success(self):
         t = int | list[int]
