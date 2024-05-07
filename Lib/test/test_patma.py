@@ -3309,6 +3309,25 @@ class TestSyntaxErrors(unittest.TestCase):
 
 class TestTypeErrors(unittest.TestCase):
 
+    def test_generic_type(self):
+        t = list[str]
+        w = None
+        with self.assertRaises(TypeError):
+            match ["s"]:
+                case t():
+                    w = 0
+        self.assertIsNone(w)
+
+    def test_legacy_generic_type(self):
+        from typing import List
+        t = List[str]
+        w = None
+        with self.assertRaises(TypeError):
+            match ["s"]:
+                case t():
+                    w = 0
+        self.assertIsNone(w)
+
     def test_accepts_positional_subpatterns_0(self):
         class Class:
             __match_args__ = ()
@@ -3438,6 +3457,16 @@ class TestTypeErrors(unittest.TestCase):
         with self.assertRaisesRegex(TypeError, msg):
             match 1:
                 case IntOrStr():
+                    w = 0
+        self.assertIsNone(w)
+
+    def test_generic_union_type(self):
+        from typing import List
+        t = list[str] | List[str]
+        w = None
+        with self.assertRaises(TypeError):
+            match ["s"]:
+                case t():
                     w = 0
         self.assertIsNone(w)
 
