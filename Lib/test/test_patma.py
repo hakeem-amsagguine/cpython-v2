@@ -3461,8 +3461,8 @@ class TestTypeErrors(unittest.TestCase):
         self.assertIsNone(w)
 
     def test_generic_union_type(self):
-        from typing import List
-        t = list[str] | List[str]
+        from collections.abc import Sequence, Set
+        t = Sequence[str] | Set[str]
         w = None
         with self.assertRaises(TypeError):
             match ["s"]:
