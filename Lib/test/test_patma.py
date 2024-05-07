@@ -3460,7 +3460,51 @@ class TestTypeErrors(unittest.TestCase):
                     w = 0
         self.assertIsNone(w)
 
-    def test_union_mirrors_isinstance_success(self):
+    def test_expanded_union_mirrors_isinstance_success(self):
+        ListOfInt = list[int]
+        t = int | ListOfInt
+        try:  # get the isinstance result
+            reference = isinstance(1, t)
+        except TypeError as exc:
+            reference = exc
+
+        try:  # get the match-case result
+            match 1:
+                case int() | ListOfInt():
+                    result = True
+                case _:
+                    result = False
+        except TypeError as exc:
+            result = exc
+
+        # we should ge the same result
+        self.assertIs(result, True)
+        self.assertIs(reference, True)
+
+    def test_expanded_union_mirrors_isinstance_failure(self):
+        ListOfInt = list[int]
+        t = ListOfInt | int
+
+        try:  # get the isinstance result
+            reference = isinstance(1, t)
+        except TypeError as exc:
+            reference = exc
+
+        try:  # get the match-case result
+            match 1:
+                case ListOfInt() | int():
+                    result = True
+                case _:
+                    result = False
+        except TypeError as exc:
+            result = exc
+
+        # we should ge the same result
+        self.assertIsInstance(result, TypeError)
+        self.assertIsInstance(reference, TypeError)
+
+
+    def test_union_type_mirrors_isinstance_success(self):
         t = int | list[int]
 
         try:  # get the isinstance result
@@ -3481,7 +3525,7 @@ class TestTypeErrors(unittest.TestCase):
         self.assertIs(result, True)
         self.assertIs(reference, True)
 
-    def test_union_mirrors_isinstance_failure(self):
+    def test_union_type_mirrors_isinstance_failure(self):
         t = list[int] | int
 
         try:  # get the isinstance result
