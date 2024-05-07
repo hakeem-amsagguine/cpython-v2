@@ -15,9 +15,9 @@ from test.support.import_helper import import_module
 # Optionally test pyrepl.  This currently requires that the
 # 'curses' resource be given on the regrtest command line using the -u
 # option.  Additionally, we need to attempt to import curses and readline.
-requires('curses')
-curses = import_module('curses')
-readline = import_module('readline')
+requires("curses")
+curses = import_module("curses")
+readline = import_module("readline")
 
 from _pyrepl.console import Console, Event
 from _pyrepl.readline import ReadlineAlikeReader, ReadlineConfig
@@ -813,6 +813,46 @@ class TestPasteEvent(TestCase):
         # fmt: on
 
         events = code_to_events(input_code)
+        reader = self.prepare_reader(events)
+        output = multiline_input(reader)
+        self.assertEqual(output, output_code)
+
+    def test_bracketed_paste(self):
+        """Test that bracketed paste using \x1b[200~ and \x1b[201~ works."""
+        # fmt: off
+        input_code = (
+            'def a():\n'
+            '  for x in range(10):\n'
+            '\n'
+            '    if x%2:\n'
+            '      print(x)\n'
+            '\n'
+            '    else:\n'
+            '      pass\n'
+        )
+        # fmt: on
+
+        output_code = (
+            'def a():\n'
+            '  for x in range(10):\n'
+            '\n'
+            '    if x%2:\n'
+            '      print(x)\n'
+            '\n'
+            '    else:\n'
+            '      pass\n'
+            '\n'
+        )
+
+        paste_start = "\x1b[200~"
+        paste_end = "\x1b[201~"
+
+        events = itertools.chain(
+            code_to_events(paste_start),
+            code_to_events(input_code),
+            code_to_events(paste_end),
+            code_to_events("\n"),
+        )
         reader = self.prepare_reader(events)
         output = multiline_input(reader)
         self.assertEqual(output, output_code)
