@@ -3448,7 +3448,7 @@ class TestTypeErrors(unittest.TestCase):
                     w = 0
         self.assertIsNone(w)
 
-    def test_patma_legacy_union_type(self):
+    def test_legacy_union_type(self):
         from typing import Union
         IntOrStr = Union[int, str]
         name = type(IntOrStr).__name__
