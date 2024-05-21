@@ -1,6 +1,7 @@
 """Implementation of JSONEncoder
 """
 import re
+import warnings
 
 try:
     from _json import encode_basestring_ascii as c_encode_basestring_ascii
@@ -148,6 +149,13 @@ class JSONEncoder(object):
         self.skipkeys = skipkeys
         self.ensure_ascii = ensure_ascii
         self.check_circular = check_circular
+        if isinstance(allow_nan, str) and allow_nan != 'as_null':
+            warnings.warn(
+                "in the future, allow_nan will no longer accept strings "
+                "other than 'as_null'. Use a boolean instead.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
         self.allow_nan = allow_nan
         self.sort_keys = sort_keys
         self.indent = indent
@@ -236,7 +244,9 @@ class JSONEncoder(object):
             else:
                 return _repr(o)
 
-            if not allow_nan:
+            if allow_nan == 'as_null':
+                return 'null'
+            elif not allow_nan:
                 raise ValueError(
                     "Out of range float values are not JSON compliant: " +
                     repr(o))
