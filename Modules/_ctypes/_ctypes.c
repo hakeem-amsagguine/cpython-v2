@@ -5690,6 +5690,17 @@ wstring_at(const wchar_t *ptr, int size)
     return PyUnicode_FromWideChar(ptr, ssize);
 }
 
+static PyObject *
+memoryview_at(char *ptr, Py_ssize_t size, int readonly)
+{
+    if (PySys_Audit("ctypes.memoryview_at", "nni", (Py_ssize_t)ptr, size,
+                    readonly) < 0) {
+        return NULL;
+    }
+
+    return PyMemoryView_FromMemory(ptr, size,
+                                   readonly ? PyBUF_READ : PyBUF_WRITE);
+}
 
 static int
 _ctypes_add_types(PyObject *mod)
@@ -5818,6 +5829,7 @@ _ctypes_add_objects(PyObject *mod)
     MOD_ADD("_string_at_addr", PyLong_FromVoidPtr(string_at));
     MOD_ADD("_cast_addr", PyLong_FromVoidPtr(cast));
     MOD_ADD("_wstring_at_addr", PyLong_FromVoidPtr(wstring_at));
+    MOD_ADD("_memoryview_at_addr", PyLong_FromVoidPtr(memoryview_at));
 
 /* If RTLD_LOCAL is not defined (Windows!), set it to zero. */
 #if !HAVE_DECL_RTLD_LOCAL
