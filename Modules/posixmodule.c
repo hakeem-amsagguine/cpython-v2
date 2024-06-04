@@ -5253,6 +5253,61 @@ os__path_islink_impl(PyObject *module, path_t *path)
 
 
 /*[clinic input]
+os._path_splitroot_ex
+
+    path: path_t(make_wide=True, nonstrict=True)
+
+Split a pathname into drive, root and tail.
+
+The tail contains anything after the root.
+[clinic start generated code]*/
+
+static PyObject *
+os__path_splitroot_ex_impl(PyObject *module, path_t *path)
+/*[clinic end generated code: output=4b0072b6cdf4b611 input=6eb76e9173412c92]*/
+{
+    Py_ssize_t drvsize, rootsize;
+    PyObject *drv = NULL, *root = NULL, *tail = NULL, *result = NULL;
+
+    const wchar_t *buffer = path->wide;
+    _Py_skiproot(buffer, path->length, &drvsize, &rootsize);
+    drv = PyUnicode_FromWideChar(buffer, drvsize);
+    if (drv == NULL) {
+        goto exit;
+    }
+    root = PyUnicode_FromWideChar(&buffer[drvsize], rootsize);
+    if (root == NULL) {
+        goto exit;
+    }
+    tail = PyUnicode_FromWideChar(&buffer[drvsize + rootsize],
+                                  path->length - drvsize - rootsize);
+    if (tail == NULL) {
+        goto exit;
+    }
+    if (PyBytes_Check(path->object)) {
+        Py_SETREF(drv, PyUnicode_EncodeFSDefault(drv));
+        if (drv == NULL) {
+            goto exit;
+        }
+        Py_SETREF(root, PyUnicode_EncodeFSDefault(root));
+        if (root == NULL) {
+            goto exit;
+        }
+        Py_SETREF(tail, PyUnicode_EncodeFSDefault(tail));
+        if (tail == NULL) {
+            goto exit;
+        }
+    }
+    result = PyTuple_Pack(3, drv, root, tail);
+exit:
+    Py_XDECREF(drv);
+    Py_XDECREF(root);
+    Py_XDECREF(tail);
+    return result;
+}
+
+
+/*[clinic input]
 os._path_normpath
 
     path: path_t(make_wide=True, nonstrict=True)
@@ -15995,6 +16050,7 @@ static PyMethodDef posix_methods[] = {
     OS__GETFINALPATHNAME_METHODDEF
     OS__GETVOLUMEPATHNAME_METHODDEF
     OS__PATH_SPLITROOT_METHODDEF
+    OS__PATH_SPLITROOT_EX_METHODDEF
     OS__PATH_NORMPATH_METHODDEF
     OS_GETLOADAVG_METHODDEF
     OS_URANDOM_METHODDEF
