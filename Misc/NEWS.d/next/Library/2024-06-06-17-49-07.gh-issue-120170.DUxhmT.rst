@@ -1,0 +1,1 @@
+We fixed an issue in the `_pickle` extension module in which importing `multiprocessing` could change the how pickle identifies which module an object belongs to, potentially breaking the unpickling of those objects.
