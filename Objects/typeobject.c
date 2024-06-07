@@ -8367,8 +8367,10 @@ init_static_type(PyInterpreterState *interp, PyTypeObject *self,
         self->tp_flags |= Py_TPFLAGS_IMMUTABLETYPE;
 
         assert(NEXT_GLOBAL_VERSION_TAG <= _Py_MAX_GLOBAL_TYPE_VERSION_TAG);
-        self->tp_version_tag = NEXT_GLOBAL_VERSION_TAG++;
-        self->tp_flags |= Py_TPFLAGS_VALID_VERSION_TAG;
+        if ((self->tp_flags & Py_TPFLAGS_VALID_VERSION_TAG) == 0) {
+            self->tp_version_tag = NEXT_GLOBAL_VERSION_TAG++;
+            self->tp_flags |= Py_TPFLAGS_VALID_VERSION_TAG;
+        }
     }
     else {
         assert(!initial);
@@ -11528,4 +11530,19 @@ PyTypeObject PySuper_Type = {
     PyType_GenericNew,                          /* tp_new */
     PyObject_GC_Del,                            /* tp_free */
     .tp_vectorcall = (vectorcallfunc)super_vectorcall,
+};
+
+PyTypeObject *const _Py_PreAllocatedTypes[_Py_TYPE_VERSIONS_PREALLOCATED] = {
+    [_Py_TYPE_VERSION_INT] = &PyLong_Type,
+    [_Py_TYPE_VERSION_FLOAT] = &PyFloat_Type,
+    [_Py_TYPE_VERSION_LIST] = &PyList_Type,
+    [_Py_TYPE_VERSION_TUPLE] = &PyTuple_Type,
+    [_Py_TYPE_VERSION_STR] = &PyUnicode_Type,
+    [_Py_TYPE_VERSION_SET] = &PySet_Type,
+    [_Py_TYPE_VERSION_FROZEN_SET] = &PyFrozenSet_Type,
+    [_Py_TYPE_VERSION_DICT] = &PyDict_Type,
+    [_Py_TYPE_VERSION_BYTES] = &PyBytes_Type,
+    [_Py_TYPE_VERSION_COMPLEX] = &PyComplex_Type,
+    [_Py_TYPE_VERSION_DICTITEMS] = &PyDictItems_Type,
+    [_Py_TYPE_VERSION_BYTEARRAY] = &PyByteArray_Type,
 };

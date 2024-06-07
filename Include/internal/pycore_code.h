@@ -51,6 +51,7 @@ typedef struct {
 
 typedef struct {
     _Py_BackoffCounter counter;
+    uint16_t type_versions;
 } _PyBinaryOpCache;
 
 #define INLINE_CACHE_ENTRIES_BINARY_OP CACHE_ENTRIES(_PyBinaryOpCache)
@@ -298,6 +299,8 @@ extern void _Py_Specialize_Send(PyObject *receiver, _Py_CODEUNIT *instr);
 extern void _Py_Specialize_ToBool(PyObject *value, _Py_CODEUNIT *instr);
 extern void _Py_Specialize_ContainsOp(PyObject *value, _Py_CODEUNIT *instr);
 
+
+PyAPI_DATA(const binaryfunc) _Py_BinaryFunctionTable[];
 #ifdef Py_STATS
 
 #include "pycore_bitutils.h"  // _Py_bit_length

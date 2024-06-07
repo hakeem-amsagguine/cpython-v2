@@ -4847,7 +4847,7 @@ PyTypeObject PyDict_Type = {
     PyObject_GenericGetAttr,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_VALID_VERSION_TAG |
         Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DICT_SUBCLASS |
         _Py_TPFLAGS_MATCH_SELF | Py_TPFLAGS_MAPPING,  /* tp_flags */
     dictionary_doc,                             /* tp_doc */
@@ -4870,6 +4870,7 @@ PyTypeObject PyDict_Type = {
     dict_new,                                   /* tp_new */
     PyObject_GC_Del,                            /* tp_free */
     .tp_vectorcall = dict_vectorcall,
+    .tp_version_tag = _Py_TYPE_VERSION_DICT,
 };
 
 /* For backward compatibility with old dictionary interface */
@@ -6499,7 +6500,8 @@ PyTypeObject PyDictItems_Type = {
     PyObject_GenericGetAttr,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,/* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
+    Py_TPFLAGS_VALID_VERSION_TAG,               /* tp_flags */
     0,                                          /* tp_doc */
     dictview_traverse,                          /* tp_traverse */
     0,                                          /* tp_clear */
@@ -6509,6 +6511,7 @@ PyTypeObject PyDictItems_Type = {
     0,                                          /* tp_iternext */
     dictitems_methods,                          /* tp_methods */
     .tp_getset = dictview_getset,
+    .tp_version_tag = _Py_TYPE_VERSION_DICTITEMS,
 };
 
 /*[clinic input]

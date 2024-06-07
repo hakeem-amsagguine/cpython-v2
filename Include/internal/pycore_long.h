@@ -110,9 +110,17 @@ PyAPI_DATA(PyObject*) _PyLong_Rshift(PyObject *, size_t);
 // Export for 'math' shared extension
 PyAPI_DATA(PyObject*) _PyLong_Lshift(PyObject *, size_t);
 
+PyAPI_FUNC(PyObject*) _PyLong_Add_1X(PyLongObject *left, PyLongObject *right);
+PyAPI_FUNC(PyObject*) _PyLong_Add_X1(PyLongObject *left, PyLongObject *right);
 PyAPI_FUNC(PyObject*) _PyLong_Add(PyLongObject *left, PyLongObject *right);
 PyAPI_FUNC(PyObject*) _PyLong_Multiply(PyLongObject *left, PyLongObject *right);
 PyAPI_FUNC(PyObject*) _PyLong_Subtract(PyLongObject *left, PyLongObject *right);
+PyObject* _PyLong_And(PyLongObject *left, PyLongObject *right);
+PyObject* _PyLong_Or(PyLongObject *left, PyLongObject *right);
+PyObject* _PyLong_Xor(PyLongObject *left, PyLongObject *right);
+PyObject* _PyLong_FloorDiv(PyLongObject *left, PyLongObject *right);
+PyObject* _PyLong_LShiftObject(PyLongObject *left, PyLongObject *right);
+PyObject* _PyLong_RShiftObject(PyLongObject *left, PyLongObject *right);
 
 // Export for 'binascii' shared extension.
 PyAPI_DATA(unsigned char) _PyLong_DigitValue[256];
@@ -299,6 +307,8 @@ _PyLong_FlipSign(PyLongObject *op) {
 
 #define _PyLong_FALSE_TAG TAG_FROM_SIGN_AND_SIZE(0, 0)
 #define _PyLong_TRUE_TAG TAG_FROM_SIGN_AND_SIZE(1, 1)
+
+extern double _PyLong_AsDouble(PyLongObject *l);
 
 #ifdef __cplusplus
 }

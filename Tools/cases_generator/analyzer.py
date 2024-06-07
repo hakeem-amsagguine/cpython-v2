@@ -407,6 +407,7 @@ NON_ESCAPING_FUNCTIONS = (
     "STAT_INC",
     "maybe_lltrace_resume_frame",
     "_PyUnicode_JoinArray",
+    "Py_REFCNT",
     "_PyEval_FrameClearAndPop",
     "_PyFrame_StackPush",
     "PyCell_New",

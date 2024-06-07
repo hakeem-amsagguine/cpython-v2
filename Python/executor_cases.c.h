@@ -431,16 +431,20 @@
             break;
         }
 
-        case _GUARD_BOTH_INT: {
-            PyObject *right;
-            PyObject *left;
-            right = stack_pointer[-1];
-            left = stack_pointer[-2];
-            if (!PyLong_CheckExact(left)) {
+        case _GUARD_NOS_REFCNT1: {
+            PyObject *value2;
+            value2 = stack_pointer[-2];
+            if (Py_REFCNT(value2) != 1) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
-            if (!PyLong_CheckExact(right)) {
+            break;
+        }
+
+        case _GUARD_TOS_REFCNT1: {
+            PyObject *value1;
+            value1 = stack_pointer[-1];
+            if (Py_REFCNT(value1) != 1) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
@@ -467,64 +471,61 @@
             break;
         }
 
-        case _BINARY_OP_MULTIPLY_INT: {
-            PyObject *right;
-            PyObject *left;
-            PyObject *res;
-            right = stack_pointer[-1];
-            left = stack_pointer[-2];
-            STAT_INC(BINARY_OP, hit);
-            res = _PyLong_Multiply((PyLongObject *)left, (PyLongObject *)right);
-            _Py_DECREF_SPECIALIZED(right, (destructor)PyObject_Free);
-            _Py_DECREF_SPECIALIZED(left, (destructor)PyObject_Free);
-            if (res == NULL) JUMP_TO_ERROR();
-            stack_pointer[-2] = res;
-            stack_pointer += -1;
-            break;
-        }
-
-        case _BINARY_OP_ADD_INT: {
-            PyObject *right;
-            PyObject *left;
-            PyObject *res;
-            right = stack_pointer[-1];
-            left = stack_pointer[-2];
-            STAT_INC(BINARY_OP, hit);
-            res = _PyLong_Add((PyLongObject *)left, (PyLongObject *)right);
-            _Py_DECREF_SPECIALIZED(right, (destructor)PyObject_Free);
-            _Py_DECREF_SPECIALIZED(left, (destructor)PyObject_Free);
-            if (res == NULL) JUMP_TO_ERROR();
-            stack_pointer[-2] = res;
-            stack_pointer += -1;
-            break;
-        }
-
-        case _BINARY_OP_SUBTRACT_INT: {
-            PyObject *right;
-            PyObject *left;
-            PyObject *res;
-            right = stack_pointer[-1];
-            left = stack_pointer[-2];
-            STAT_INC(BINARY_OP, hit);
-            res = _PyLong_Subtract((PyLongObject *)left, (PyLongObject *)right);
-            _Py_DECREF_SPECIALIZED(right, (destructor)PyObject_Free);
-            _Py_DECREF_SPECIALIZED(left, (destructor)PyObject_Free);
-            if (res == NULL) JUMP_TO_ERROR();
-            stack_pointer[-2] = res;
-            stack_pointer += -1;
-            break;
-        }
-
-        case _GUARD_BOTH_FLOAT: {
-            PyObject *right;
-            PyObject *left;
-            right = stack_pointer[-1];
-            left = stack_pointer[-2];
-            if (!PyFloat_CheckExact(left)) {
+        case _GUARD_NOS_IMMORTAL: {
+            PyObject *value2;
+            value2 = stack_pointer[-2];
+            if (!_Py_IsImmortal(value2)) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
-            if (!PyFloat_CheckExact(right)) {
+            break;
+        }
+
+        case _GUARD_TOS_IMMORTAL: {
+            PyObject *value1;
+            value1 = stack_pointer[-1];
+            if (!_Py_IsImmortal(value1)) {
+                UOP_STAT_INC(uopcode, miss);
+                JUMP_TO_JUMP_TARGET();
+            }
+            break;
+        }
+
+        case _GUARD_VERSION_TYPES: {
+            PyObject *right;
+            PyObject *left;
+            right = stack_pointer[-1];
+            left = stack_pointer[-2];
+            uint16_t type_version = (uint16_t)CURRENT_OPERAND();
+            PyTypeObject *lt = Py_TYPE(left);
+            PyTypeObject *rt = Py_TYPE(right);
+            if (lt->tp_version_tag != ((type_version & 0xf0) >> 4)) {
+                UOP_STAT_INC(uopcode, miss);
+                JUMP_TO_JUMP_TARGET();
+            }
+            if (rt->tp_version_tag != (type_version & 0xf)) {
+                UOP_STAT_INC(uopcode, miss);
+                JUMP_TO_JUMP_TARGET();
+            }
+            break;
+        }
+
+        case _GUARD_TOS_VERSION: {
+            PyObject *value1;
+            value1 = stack_pointer[-1];
+            uint16_t type_version = (uint16_t)CURRENT_OPERAND();
+            if (Py_TYPE(value1)->tp_version_tag != type_version) {
+                UOP_STAT_INC(uopcode, miss);
+                JUMP_TO_JUMP_TARGET();
+            }
+            break;
+        }
+
+        case _GUARD_NOS_VERSION: {
+            PyObject *value2;
+            value2 = stack_pointer[-2];
+            uint16_t type_version = (uint16_t)CURRENT_OPERAND();
+            if (Py_TYPE(value2)->tp_version_tag != type_version) {
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
@@ -551,51 +552,103 @@
             break;
         }
 
-        case _BINARY_OP_MULTIPLY_FLOAT: {
+        case _BINARY_OP_TABLE_NN: {
             PyObject *right;
             PyObject *left;
             PyObject *res;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
+            uint16_t type_version = (uint16_t)CURRENT_OPERAND();
+            // The NN sufix indicates that it does not decref the arguments */
             STAT_INC(BINARY_OP, hit);
-            double dres =
-            ((PyFloatObject *)left)->ob_fval *
-            ((PyFloatObject *)right)->ob_fval;
-            DECREF_INPUTS_AND_REUSE_FLOAT(left, right, dres, res);
+            res = _Py_BinaryFunctionTable[type_version >> 8](left, right);
+            if (res == NULL) JUMP_TO_ERROR();
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;
         }
 
-        case _BINARY_OP_ADD_FLOAT: {
+        case _BINARY_OP_TABLE_ND: {
             PyObject *right;
             PyObject *left;
             PyObject *res;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
+            uint16_t type_version = (uint16_t)CURRENT_OPERAND();
+            // The ND sufix indicates that it decrefs only the right argument */
             STAT_INC(BINARY_OP, hit);
-            double dres =
-            ((PyFloatObject *)left)->ob_fval +
-            ((PyFloatObject *)right)->ob_fval;
-            DECREF_INPUTS_AND_REUSE_FLOAT(left, right, dres, res);
+            res = _Py_BinaryFunctionTable[type_version >> 8](left, right);
+            Py_DECREF(right);
+            if (res == NULL) JUMP_TO_ERROR();
             stack_pointer[-2] = res;
             stack_pointer += -1;
             break;
         }
 
-        case _BINARY_OP_SUBTRACT_FLOAT: {
+        case _BINARY_OP_TABLE_DN: {
             PyObject *right;
             PyObject *left;
             PyObject *res;
             right = stack_pointer[-1];
             left = stack_pointer[-2];
+            uint16_t type_version = (uint16_t)CURRENT_OPERAND();
+            // The DN sufix indicates that it decrefs only the left argument */
             STAT_INC(BINARY_OP, hit);
-            double dres =
-            ((PyFloatObject *)left)->ob_fval -
-            ((PyFloatObject *)right)->ob_fval;
-            DECREF_INPUTS_AND_REUSE_FLOAT(left, right, dres, res);
+            res = _Py_BinaryFunctionTable[type_version >> 8](left, right);
+            Py_DECREF(left);
+            if (res == NULL) JUMP_TO_ERROR();
             stack_pointer[-2] = res;
             stack_pointer += -1;
+            break;
+        }
+
+        case _BINARY_OP_TABLE_DD: {
+            PyObject *right;
+            PyObject *left;
+            PyObject *res;
+            right = stack_pointer[-1];
+            left = stack_pointer[-2];
+            uint16_t type_version = (uint16_t)CURRENT_OPERAND();
+            // The DD sufix indicates that it decrefs both arguments */
+            STAT_INC(BINARY_OP, hit);
+            res = _Py_BinaryFunctionTable[type_version >> 8](left, right);
+            Py_DECREF(left);
+            Py_DECREF(right);
+            if (res == NULL) JUMP_TO_ERROR();
+            stack_pointer[-2] = res;
+            stack_pointer += -1;
+            break;
+        }
+
+        case _GUARD_BOTH_INT: {
+            PyObject *right;
+            PyObject *left;
+            right = stack_pointer[-1];
+            left = stack_pointer[-2];
+            if (!PyLong_CheckExact(left)) {
+                UOP_STAT_INC(uopcode, miss);
+                JUMP_TO_JUMP_TARGET();
+            }
+            if (!PyLong_CheckExact(right)) {
+                UOP_STAT_INC(uopcode, miss);
+                JUMP_TO_JUMP_TARGET();
+            }
+            break;
+        }
+
+        case _GUARD_BOTH_FLOAT: {
+            PyObject *right;
+            PyObject *left;
+            right = stack_pointer[-1];
+            left = stack_pointer[-2];
+            if (!PyFloat_CheckExact(left)) {
+                UOP_STAT_INC(uopcode, miss);
+                JUMP_TO_JUMP_TARGET();
+            }
+            if (!PyFloat_CheckExact(right)) {
+                UOP_STAT_INC(uopcode, miss);
+                JUMP_TO_JUMP_TARGET();
+            }
             break;
         }
 
@@ -612,22 +665,6 @@
                 UOP_STAT_INC(uopcode, miss);
                 JUMP_TO_JUMP_TARGET();
             }
-            break;
-        }
-
-        case _BINARY_OP_ADD_UNICODE: {
-            PyObject *right;
-            PyObject *left;
-            PyObject *res;
-            right = stack_pointer[-1];
-            left = stack_pointer[-2];
-            STAT_INC(BINARY_OP, hit);
-            res = PyUnicode_Concat(left, right);
-            _Py_DECREF_SPECIALIZED(left, _PyUnicode_ExactDealloc);
-            _Py_DECREF_SPECIALIZED(right, _PyUnicode_ExactDealloc);
-            if (res == NULL) JUMP_TO_ERROR();
-            stack_pointer[-2] = res;
-            stack_pointer += -1;
             break;
         }
 

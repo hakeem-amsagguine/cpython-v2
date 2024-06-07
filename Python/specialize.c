@@ -6,6 +6,7 @@
 #include "pycore_descrobject.h"   // _PyMethodWrapper_Type
 #include "pycore_dict.h"          // DICT_KEYS_UNICODE
 #include "pycore_function.h"      // _PyFunction_GetVersionForCurrentState()
+#include "pycore_list.h"          // _PyList_Concat
 #include "pycore_long.h"          // _PyLong_IsNonNegativeCompact()
 #include "pycore_moduleobject.h"
 #include "pycore_object.h"
@@ -27,7 +28,7 @@ extern const char *_PyUOpName(int index);
 #ifdef Py_STATS
 GCStats _py_gc_stats[NUM_GENERATIONS] = { 0 };
 static PyStats _Py_stats_struct = { .gc_stats = _py_gc_stats };
-PyStats *_Py_stats = NULL;
+PyStats *_Py_stats = &_Py_stats_struct; // NULL;
 
 #define ADD_STAT_TO_DICT(res, field) \
     do { \
@@ -313,6 +314,11 @@ print_stats(FILE *out, PyStats *stats)
     print_optimization_stats(out, &stats->optimization_stats);
 #endif
     print_rare_event_stats(out, &stats->rare_event_stats);
+    for (int i = 0; i < (1<<15); i++) {
+        if (stats->binary_specialization_failure[i]) {
+            fprintf(out, "Binary specialization failure[%d]: %" PRIu64 "\n", i, stats->binary_specialization_failure[i]);
+        }
+    }
 }
 
 void
@@ -410,11 +416,20 @@ do { \
     } \
 } while (0)
 
+
+#define BINARY_SPECIALIZATION_FAIL(lv, rv, kind, oparg) \
+do { \
+    if (_Py_stats) { \
+        binary_specialization_fail(lv, rv, kind, oparg); \
+    } \
+} while (0)
+
 #endif  // Py_STATS
 
 
 #ifndef SPECIALIZATION_FAIL
 #  define SPECIALIZATION_FAIL(opcode, kind) ((void)0)
+#  define BINARY_SPECIALIZATION_FAIL(lv, rv, kind, oparg) ((void)0)
 #endif
 
 // Initialize warmup counters and insert superinstructions. This cannot fail.
@@ -1986,144 +2001,434 @@ _Py_Specialize_Call(PyObject *callable, _Py_CODEUNIT *instr, int nargs)
 }
 
 #ifdef Py_STATS
-static int
-binary_op_fail_kind(int oparg, PyObject *lhs, PyObject *rhs)
+static void
+binary_specialization_fail(int lv, int rv, int kind, int oparg)
 {
-    switch (oparg) {
-        case NB_ADD:
-        case NB_INPLACE_ADD:
-            if (!Py_IS_TYPE(lhs, Py_TYPE(rhs))) {
-                return SPEC_FAIL_BINARY_OP_ADD_DIFFERENT_TYPES;
-            }
-            return SPEC_FAIL_BINARY_OP_ADD_OTHER;
-        case NB_AND:
-        case NB_INPLACE_AND:
-            if (!Py_IS_TYPE(lhs, Py_TYPE(rhs))) {
-                return SPEC_FAIL_BINARY_OP_AND_DIFFERENT_TYPES;
-            }
-            if (PyLong_CheckExact(lhs)) {
-                return SPEC_FAIL_BINARY_OP_AND_INT;
-            }
-            return SPEC_FAIL_BINARY_OP_AND_OTHER;
-        case NB_FLOOR_DIVIDE:
-        case NB_INPLACE_FLOOR_DIVIDE:
-            return SPEC_FAIL_BINARY_OP_FLOOR_DIVIDE;
-        case NB_LSHIFT:
-        case NB_INPLACE_LSHIFT:
-            return SPEC_FAIL_BINARY_OP_LSHIFT;
-        case NB_MATRIX_MULTIPLY:
-        case NB_INPLACE_MATRIX_MULTIPLY:
-            return SPEC_FAIL_BINARY_OP_MATRIX_MULTIPLY;
-        case NB_MULTIPLY:
-        case NB_INPLACE_MULTIPLY:
-            if (!Py_IS_TYPE(lhs, Py_TYPE(rhs))) {
-                return SPEC_FAIL_BINARY_OP_MULTIPLY_DIFFERENT_TYPES;
-            }
-            return SPEC_FAIL_BINARY_OP_MULTIPLY_OTHER;
-        case NB_OR:
-        case NB_INPLACE_OR:
-            return SPEC_FAIL_BINARY_OP_OR;
-        case NB_POWER:
-        case NB_INPLACE_POWER:
-            return SPEC_FAIL_BINARY_OP_POWER;
-        case NB_REMAINDER:
-        case NB_INPLACE_REMAINDER:
-            return SPEC_FAIL_BINARY_OP_REMAINDER;
-        case NB_RSHIFT:
-        case NB_INPLACE_RSHIFT:
-            return SPEC_FAIL_BINARY_OP_RSHIFT;
-        case NB_SUBTRACT:
-        case NB_INPLACE_SUBTRACT:
-            if (!Py_IS_TYPE(lhs, Py_TYPE(rhs))) {
-                return SPEC_FAIL_BINARY_OP_SUBTRACT_DIFFERENT_TYPES;
-            }
-            return SPEC_FAIL_BINARY_OP_SUBTRACT_OTHER;
-        case NB_TRUE_DIVIDE:
-        case NB_INPLACE_TRUE_DIVIDE:
-            if (!Py_IS_TYPE(lhs, Py_TYPE(rhs))) {
-                return SPEC_FAIL_BINARY_OP_TRUE_DIVIDE_DIFFERENT_TYPES;
-            }
-            if (PyFloat_CheckExact(lhs)) {
-                return SPEC_FAIL_BINARY_OP_TRUE_DIVIDE_FLOAT;
-            }
-            return SPEC_FAIL_BINARY_OP_TRUE_DIVIDE_OTHER;
-        case NB_XOR:
-        case NB_INPLACE_XOR:
-            return SPEC_FAIL_BINARY_OP_XOR;
+    /* Gather stats per op, not family */
+    if (lv >= 16) {
+        lv = 0;
     }
-    Py_UNREACHABLE();
+    if (rv >= 16) {
+        rv = 0;
+    }
+    assert(kind < 4);
+    assert(oparg < 32);
+    int hash = (oparg << 10) | (kind << 8) | (lv << 4) | rv;
+    assert(hash < (1 << 15));
+    _Py_stats->binary_specialization_failure[hash]++;
 }
 #endif   // Py_STATS
+
+
+enum Kinds {
+    REFCOUNTS_11 = 0,
+    REFCOUNTS_1X = 1,
+    REFCOUNTS_X1 = 2,
+    REFCOUNTS_XX = 3,
+};
+
+typedef struct {
+    uint8_t oparg;
+    uint8_t left;
+    uint8_t right;
+    uint8_t index_1x;
+    uint8_t index_x1;
+    uint8_t index_xx;
+} binary_function_entry;
+
+
+static inline double
+float_add(PyObject *left, PyObject *right)
+{
+    assert(PyFloat_CheckExact(left));
+    assert(PyFloat_CheckExact(right));
+    return PyFloat_AS_DOUBLE(left) + PyFloat_AS_DOUBLE(right);
+}
+
+static inline double
+float_sub(PyObject *left, PyObject *right)
+{
+    assert(PyFloat_CheckExact(left));
+    assert(PyFloat_CheckExact(right));
+    return PyFloat_AS_DOUBLE(left) - PyFloat_AS_DOUBLE(right);
+}
+
+static inline double
+float_mult(PyObject *left, PyObject *right)
+{
+    assert(PyFloat_CheckExact(left));
+    assert(PyFloat_CheckExact(right));
+    return PyFloat_AS_DOUBLE(left) * PyFloat_AS_DOUBLE(right);
+}
+
+static PyObject *
+binary_add_float_float_xx(PyObject *left, PyObject *right)
+{
+    return PyFloat_FromDouble(float_add(left, right));
+}
+
+static PyObject *
+binary_add_float_float_1x(PyObject *left, PyObject *right)
+{
+    ((PyFloatObject *)left)->ob_fval = float_add(left, right);
+    return left;
+}
+
+static PyObject *
+binary_add_float_float_x1(PyObject *left, PyObject *right)
+{
+    ((PyFloatObject *)right)->ob_fval = float_add(left, right);
+    return right;
+}
+
+static PyObject *
+binary_mult_float_float_xx(PyObject *left, PyObject *right)
+{
+    return PyFloat_FromDouble(float_mult(left, right));
+}
+
+static PyObject *
+binary_mult_float_float_1x(PyObject *left, PyObject *right)
+{
+    ((PyFloatObject *)left)->ob_fval = float_mult(left, right);
+    return left;
+}
+
+static PyObject *
+binary_mult_float_float_x1(PyObject *left, PyObject *right)
+{
+    ((PyFloatObject *)right)->ob_fval = float_mult(left, right);
+    return right;
+}
+
+static PyObject *
+binary_sub_float_float_xx(PyObject *left, PyObject *right)
+{
+    return PyFloat_FromDouble(float_sub(left, right));
+}
+
+static PyObject *
+binary_sub_float_float_1x(PyObject *left, PyObject *right)
+{
+    ((PyFloatObject *)left)->ob_fval = float_sub(left, right);
+    return left;
+}
+
+static PyObject *
+binary_sub_float_float_x1(PyObject *left, PyObject *right)
+{
+    ((PyFloatObject *)right)->ob_fval = float_sub(left, right);
+    return right;
+}
+
+static PyObject *
+binary_add_float_int_xx(PyObject *left, PyObject *right)
+{
+    assert(PyFloat_CheckExact(left));
+    assert(PyLong_CheckExact(right));
+    double dleft = PyFloat_AS_DOUBLE(left);
+    double dright = _PyLong_AsDouble((PyLongObject *)right);
+    return PyFloat_FromDouble(dleft + dright);
+}
+
+static PyObject *
+binary_add_int_float_xx(PyObject *left, PyObject *right)
+{
+    assert(PyLong_CheckExact(left));
+    assert(PyFloat_CheckExact(right));
+    double dleft = _PyLong_AsDouble((PyLongObject *)left);
+    double dright = PyFloat_AS_DOUBLE(right);
+    return PyFloat_FromDouble(dleft + dright);
+}
+
+static PyObject *
+binary_sub_float_int_xx(PyObject *left, PyObject *right)
+{
+    assert(PyFloat_CheckExact(left));
+    assert(PyLong_CheckExact(right));
+    double dleft = PyFloat_AS_DOUBLE(left);
+    double dright = _PyLong_AsDouble((PyLongObject *)right);
+    return PyFloat_FromDouble(dleft - dright);
+}
+
+static PyObject *
+binary_sub_int_float_xx(PyObject *left, PyObject *right)
+{
+    assert(PyLong_CheckExact(left));
+    assert(PyFloat_CheckExact(right));
+    double dleft = _PyLong_AsDouble((PyLongObject *)left);
+    double dright = PyFloat_AS_DOUBLE(right);
+    return PyFloat_FromDouble(dleft - dright);
+}
+
+static PyObject *
+binary_mult_float_int_xx(PyObject *left, PyObject *right)
+{
+    assert(PyFloat_CheckExact(left));
+    assert(PyLong_CheckExact(right));
+    double dleft = PyFloat_AS_DOUBLE(left);
+    double dright = _PyLong_AsDouble((PyLongObject *)right);
+    return PyFloat_FromDouble(dleft * dright);
+}
+
+static PyObject *
+binary_mult_int_float_xx(PyObject *left, PyObject *right)
+{
+    assert(PyLong_CheckExact(left));
+    assert(PyFloat_CheckExact(right));
+    double dleft = _PyLong_AsDouble((PyLongObject *)left);
+    double dright = PyFloat_AS_DOUBLE(right);
+    return PyFloat_FromDouble(dleft * dright);
+}
+
+/* Must be sorted by operator */
+static const binary_function_entry binary_function_entry_table[] = {
+    { NB_ADD, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 1, 2, 3},
+    { NB_ADD, _Py_TYPE_VERSION_FLOAT, _Py_TYPE_VERSION_FLOAT, 4, 5, 6},
+    { NB_ADD, _Py_TYPE_VERSION_STR, _Py_TYPE_VERSION_STR, 0, 0, 16},
+    { NB_ADD, _Py_TYPE_VERSION_LIST, _Py_TYPE_VERSION_LIST, 0, 0, 17},
+    { NB_ADD, _Py_TYPE_VERSION_FLOAT, _Py_TYPE_VERSION_INT, 0, 0, 19},
+    { NB_ADD, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_FLOAT, 0, 0, 20},
+
+    { NB_AND, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 7},
+
+    { NB_FLOOR_DIVIDE, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 18},
+
+    { NB_LSHIFT, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 26 },
+
+    { NB_MULTIPLY, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 9},
+    { NB_MULTIPLY, _Py_TYPE_VERSION_FLOAT, _Py_TYPE_VERSION_FLOAT, 10, 11, 12},
+    { NB_MULTIPLY, _Py_TYPE_VERSION_FLOAT, _Py_TYPE_VERSION_INT, 0, 0, 23},
+    { NB_MULTIPLY, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_FLOAT, 0, 0, 24},
+
+    { NB_REMAINDER, _Py_TYPE_VERSION_STR, _Py_TYPE_VERSION_TUPLE, 0, 0, 28 },
+    { NB_REMAINDER, _Py_TYPE_VERSION_STR, _Py_TYPE_VERSION_DICT, 0, 0, 28 },
+    { NB_REMAINDER, _Py_TYPE_VERSION_STR, _Py_TYPE_VERSION_STR, 0, 0, 28 },
+    { NB_REMAINDER, _Py_TYPE_VERSION_STR, _Py_TYPE_VERSION_INT, 0, 0, 28 },
+
+    { NB_OR, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 25 },
+
+    { NB_RSHIFT, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 27 },
+
+    { NB_SUBTRACT, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 8},
+    { NB_SUBTRACT, _Py_TYPE_VERSION_FLOAT, _Py_TYPE_VERSION_FLOAT, 13, 14, 15},
+    { NB_SUBTRACT, _Py_TYPE_VERSION_FLOAT, _Py_TYPE_VERSION_INT, 0, 0, 21},
+    { NB_SUBTRACT, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_FLOAT, 0, 0, 22},
+
+    { NB_XOR, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 29 },
+
+
+    { NB_INPLACE_ADD, _Py_TYPE_VERSION_STR, _Py_TYPE_VERSION_STR, 0, 0, 16},
+    { NB_INPLACE_ADD, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 1, 2, 3},
+    { NB_INPLACE_ADD, _Py_TYPE_VERSION_FLOAT, _Py_TYPE_VERSION_FLOAT, 4, 5, 6},
+    { NB_INPLACE_ADD, _Py_TYPE_VERSION_FLOAT, _Py_TYPE_VERSION_INT, 0, 0, 19},
+    { NB_INPLACE_ADD, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_FLOAT, 0, 0, 20},
+
+    { NB_INPLACE_AND, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 7},
+
+    { NB_INPLACE_FLOOR_DIVIDE, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 18},
+
+    { NB_INPLACE_LSHIFT, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 26 },
+
+    { NB_INPLACE_MULTIPLY, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 9},
+    { NB_INPLACE_MULTIPLY, _Py_TYPE_VERSION_FLOAT, _Py_TYPE_VERSION_FLOAT, 10, 11, 12},
+    { NB_INPLACE_MULTIPLY, _Py_TYPE_VERSION_FLOAT, _Py_TYPE_VERSION_INT, 0, 0, 23},
+    { NB_INPLACE_MULTIPLY, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_FLOAT, 0, 0, 24},
+
+    { NB_INPLACE_REMAINDER, _Py_TYPE_VERSION_STR, _Py_TYPE_VERSION_STR, 0, 0, 28 },
+    { NB_INPLACE_REMAINDER, _Py_TYPE_VERSION_STR, _Py_TYPE_VERSION_INT, 0, 0, 28 },
+    { NB_INPLACE_REMAINDER, _Py_TYPE_VERSION_STR, _Py_TYPE_VERSION_DICT, 0, 0, 28 },
+    { NB_INPLACE_REMAINDER, _Py_TYPE_VERSION_STR, _Py_TYPE_VERSION_TUPLE, 0, 0, 28 },
+
+    { NB_INPLACE_OR, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 25 },
+
+    { NB_INPLACE_RSHIFT, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 27 },
+
+    { NB_INPLACE_SUBTRACT, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 8},
+    { NB_INPLACE_SUBTRACT, _Py_TYPE_VERSION_FLOAT, _Py_TYPE_VERSION_FLOAT, 13, 14, 15},
+    { NB_INPLACE_SUBTRACT, _Py_TYPE_VERSION_FLOAT, _Py_TYPE_VERSION_INT, 0, 0, 21},
+    { NB_INPLACE_SUBTRACT, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_FLOAT, 0, 0, 22},
+
+    { NB_INPLACE_XOR, _Py_TYPE_VERSION_INT, _Py_TYPE_VERSION_INT, 0, 0, 29 },
+
+    /* Sentinel */
+    { NB_OPARG_LAST + 1 }
+};
+
+const binaryfunc _Py_BinaryFunctionTable[] = {
+    [0] = NULL,
+    [1] = (binaryfunc)_PyLong_Add_1X,
+    [2] = (binaryfunc)_PyLong_Add_X1,
+    [3] = (binaryfunc)_PyLong_Add,
+    [4] = binary_add_float_float_1x,
+    [5] = binary_add_float_float_x1,
+    [6] = binary_add_float_float_xx,
+    [7] = (binaryfunc)_PyLong_And,
+    [8] = (binaryfunc)_PyLong_Subtract,
+    [9] = (binaryfunc)_PyLong_Multiply,
+    [10] = binary_mult_float_float_1x,
+    [11] = binary_mult_float_float_x1,
+    [12] = binary_mult_float_float_xx,
+    [13] = binary_sub_float_float_1x,
+    [14] = binary_sub_float_float_x1,
+    [15] = binary_sub_float_float_xx,
+    [16] = PyUnicode_Concat,
+    [17] = (binaryfunc)_PyList_Concat,
+    [18] = (binaryfunc)_PyLong_FloorDiv,
+    [19] = binary_add_float_int_xx,
+    [20] = binary_add_int_float_xx,
+    [21] = binary_sub_float_int_xx,
+    [22] = binary_sub_int_float_xx,
+    [23] = binary_mult_float_int_xx,
+    [24] = binary_mult_int_float_xx,
+    [25] = (binaryfunc)_PyLong_Or,
+    [26] = (binaryfunc)_PyLong_LShiftObject,
+    [27] = (binaryfunc)_PyLong_RShiftObject,
+    [28] = PyUnicode_Format,
+    [29] = (binaryfunc)_PyLong_Xor,
+};
+
+static int
+lookup_binary_function(int left_version, int right_version, int *refcounts, int oparg) {
+    assert(oparg < 256);
+    if (left_version >= _Py_TYPE_VERSIONS_PREALLOCATED) {
+        return 0;
+    }
+    if (right_version >= _Py_TYPE_VERSIONS_PREALLOCATED) {
+        return 0;
+    }
+    /* Skip a few entries for larger opargs */
+    int i = oparg;
+    assert(binary_function_entry_table[i].oparg < oparg || i == 0);
+    while (binary_function_entry_table[i].oparg < oparg) {
+        i++;
+    }
+    assert(binary_function_entry_table[i].oparg >= oparg);
+    for (; binary_function_entry_table[i].oparg == oparg; i++) {
+        const binary_function_entry *entry = &binary_function_entry_table[i];
+        if (entry->left == left_version && entry->right == right_version) {
+            switch (*refcounts) {
+                case REFCOUNTS_11:
+                    if (entry->index_1x != 0) {
+                        *refcounts = REFCOUNTS_1X;
+                        return entry->index_1x;
+                    }
+                    if (entry->index_x1 != 0) {
+                        *refcounts = REFCOUNTS_X1;
+                        return entry->index_x1;
+                    }
+                    break;
+                case REFCOUNTS_X1:
+                    if (entry->index_x1 != 0) {
+                        return entry->index_x1;
+                    }
+                    break;
+                case REFCOUNTS_1X:
+                    if (entry->index_1x != 0) {
+                        return entry->index_1x;
+                    }
+                    break;
+            }
+            *refcounts = REFCOUNTS_XX;
+            return entry->index_xx;
+        }
+    }
+    assert(i < (int)Py_ARRAY_LENGTH(binary_function_entry_table));
+    assert(binary_function_entry_table[i].oparg > oparg);
+    return 0;
+}
 
 void
 _Py_Specialize_BinaryOp(PyObject *lhs, PyObject *rhs, _Py_CODEUNIT *instr,
                         int oparg, PyObject **locals)
 {
+    instr->op.code = BINARY_OP;
     assert(ENABLE_SPECIALIZATION);
     assert(_PyOpcode_Caches[BINARY_OP] == INLINE_CACHE_ENTRIES_BINARY_OP);
     _PyBinaryOpCache *cache = (_PyBinaryOpCache *)(instr + 1);
-    switch (oparg) {
-        case NB_ADD:
-        case NB_INPLACE_ADD:
-            if (!Py_IS_TYPE(lhs, Py_TYPE(rhs))) {
-                break;
+    int refcounts;
+    if (Py_REFCNT(lhs) == 1) {
+        if (Py_REFCNT(rhs) == 1) {
+            refcounts = REFCOUNTS_11;
+        }
+        else {
+            refcounts = REFCOUNTS_1X;
+        }
+    }
+    else {
+        if (Py_REFCNT(rhs) == 1) {
+            refcounts = REFCOUNTS_X1;
+        }
+        else {
+            refcounts = REFCOUNTS_XX;
+        }
+    }
+    int left_version =  Py_TYPE(lhs)->tp_version_tag;
+    int right_version = Py_TYPE(rhs)->tp_version_tag;
+    int func_index = 0;
+    if (left_version == _Py_TYPE_VERSION_STR && oparg == NB_ADD) {
+        _Py_CODEUNIT next = instr[INLINE_CACHE_ENTRIES_BINARY_OP + 1];
+        bool to_store = (next.op.code == STORE_FAST);
+        if (to_store && locals[next.op.arg] == lhs) {
+            instr->op.code = BINARY_OP_INPLACE_ADD_UNICODE;
+            goto success;
+        }
+    }
+#ifdef Py_STATS
+    int original_refcounts = refcounts;
+#endif
+    func_index = lookup_binary_function(left_version, right_version, &refcounts, oparg);
+    assert(func_index >= 0 && func_index < 256);
+    if (func_index == 0) {
+        BINARY_SPECIALIZATION_FAIL(left_version, right_version, original_refcounts, oparg);
+        SPECIALIZATION_FAIL(BINARY_OP, oparg);
+        STAT_INC(BINARY_OP, failure);
+        cache->counter = adaptive_counter_backoff(cache->counter);
+        return;
+    }
+    switch (refcounts) {
+        case REFCOUNTS_11:
+            Py_UNREACHABLE();
+            break;
+        case REFCOUNTS_1X:
+            if (_Py_IsImmortal(rhs)) {
+                instr->op.code = BINARY_OP_1I;
             }
-            if (PyUnicode_CheckExact(lhs)) {
-                _Py_CODEUNIT next = instr[INLINE_CACHE_ENTRIES_BINARY_OP + 1];
-                bool to_store = (next.op.code == STORE_FAST);
-                if (to_store && locals[next.op.arg] == lhs) {
-                    instr->op.code = BINARY_OP_INPLACE_ADD_UNICODE;
-                    goto success;
+            else {
+                instr->op.code = BINARY_OP_1X;
+            }
+            break;
+        case REFCOUNTS_X1:
+            if (_Py_IsImmortal(lhs)) {
+                instr->op.code = BINARY_OP_I1;
+            }
+            else {
+                instr->op.code = BINARY_OP_X1;
+            }
+            break;
+        case REFCOUNTS_XX:
+            if (_Py_IsImmortal(lhs)) {
+                if (_Py_IsImmortal(rhs)) {
+                    instr->op.code = BINARY_OP_II;
                 }
-                instr->op.code = BINARY_OP_ADD_UNICODE;
-                goto success;
+                else {
+                    instr->op.code = BINARY_OP_IX;
+                }
             }
-            if (PyLong_CheckExact(lhs)) {
-                instr->op.code = BINARY_OP_ADD_INT;
-                goto success;
-            }
-            if (PyFloat_CheckExact(lhs)) {
-                instr->op.code = BINARY_OP_ADD_FLOAT;
-                goto success;
-            }
-            break;
-        case NB_MULTIPLY:
-        case NB_INPLACE_MULTIPLY:
-            if (!Py_IS_TYPE(lhs, Py_TYPE(rhs))) {
-                break;
-            }
-            if (PyLong_CheckExact(lhs)) {
-                instr->op.code = BINARY_OP_MULTIPLY_INT;
-                goto success;
-            }
-            if (PyFloat_CheckExact(lhs)) {
-                instr->op.code = BINARY_OP_MULTIPLY_FLOAT;
-                goto success;
-            }
-            break;
-        case NB_SUBTRACT:
-        case NB_INPLACE_SUBTRACT:
-            if (!Py_IS_TYPE(lhs, Py_TYPE(rhs))) {
-                break;
-            }
-            if (PyLong_CheckExact(lhs)) {
-                instr->op.code = BINARY_OP_SUBTRACT_INT;
-                goto success;
-            }
-            if (PyFloat_CheckExact(lhs)) {
-                instr->op.code = BINARY_OP_SUBTRACT_FLOAT;
-                goto success;
+            else {
+                if (_Py_IsImmortal(rhs)) {
+                    instr->op.code = BINARY_OP_XI;
+                }
+                else {
+                    instr->op.code = BINARY_OP_XX;
+                }
             }
             break;
     }
-    SPECIALIZATION_FAIL(BINARY_OP, binary_op_fail_kind(oparg, lhs, rhs));
-    STAT_INC(BINARY_OP, failure);
-    instr->op.code = BINARY_OP;
-    cache->counter = adaptive_counter_backoff(cache->counter);
-    return;
 success:
     STAT_INC(BINARY_OP, success);
     cache->counter = adaptive_counter_cooldown();
+    cache->type_versions = (func_index << 8) | (left_version << 4) | right_version;
 }
 
 

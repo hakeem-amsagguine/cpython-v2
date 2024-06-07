@@ -58,20 +58,24 @@ const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_TO_BOOL_STR] = HAS_EXIT_FLAG,
     [_REPLACE_WITH_TRUE] = 0,
     [_UNARY_INVERT] = HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
-    [_GUARD_BOTH_INT] = HAS_EXIT_FLAG,
+    [_GUARD_NOS_REFCNT1] = HAS_EXIT_FLAG,
+    [_GUARD_TOS_REFCNT1] = HAS_EXIT_FLAG,
     [_GUARD_NOS_INT] = HAS_EXIT_FLAG,
     [_GUARD_TOS_INT] = HAS_EXIT_FLAG,
-    [_BINARY_OP_MULTIPLY_INT] = HAS_ERROR_FLAG | HAS_PURE_FLAG,
-    [_BINARY_OP_ADD_INT] = HAS_ERROR_FLAG | HAS_PURE_FLAG,
-    [_BINARY_OP_SUBTRACT_INT] = HAS_ERROR_FLAG | HAS_PURE_FLAG,
-    [_GUARD_BOTH_FLOAT] = HAS_EXIT_FLAG,
+    [_GUARD_NOS_IMMORTAL] = HAS_EXIT_FLAG,
+    [_GUARD_TOS_IMMORTAL] = HAS_EXIT_FLAG,
+    [_GUARD_VERSION_TYPES] = HAS_EXIT_FLAG,
+    [_GUARD_TOS_VERSION] = HAS_EXIT_FLAG,
+    [_GUARD_NOS_VERSION] = HAS_EXIT_FLAG,
     [_GUARD_NOS_FLOAT] = HAS_EXIT_FLAG,
     [_GUARD_TOS_FLOAT] = HAS_EXIT_FLAG,
-    [_BINARY_OP_MULTIPLY_FLOAT] = HAS_PURE_FLAG,
-    [_BINARY_OP_ADD_FLOAT] = HAS_PURE_FLAG,
-    [_BINARY_OP_SUBTRACT_FLOAT] = HAS_PURE_FLAG,
+    [_BINARY_OP_TABLE_NN] = HAS_ERROR_FLAG,
+    [_BINARY_OP_TABLE_ND] = HAS_ERROR_FLAG,
+    [_BINARY_OP_TABLE_DN] = HAS_ERROR_FLAG,
+    [_BINARY_OP_TABLE_DD] = HAS_ERROR_FLAG,
+    [_GUARD_BOTH_INT] = HAS_EXIT_FLAG,
+    [_GUARD_BOTH_FLOAT] = HAS_EXIT_FLAG,
     [_GUARD_BOTH_UNICODE] = HAS_EXIT_FLAG,
-    [_BINARY_OP_ADD_UNICODE] = HAS_ERROR_FLAG | HAS_PURE_FLAG,
     [_BINARY_SUBSCR] = HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_BINARY_SLICE] = HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_STORE_SLICE] = HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
@@ -270,13 +274,10 @@ const uint8_t _PyUop_Replication[MAX_UOP_ID+1] = {
 
 const char *const _PyOpcode_uop_name[MAX_UOP_ID+1] = {
     [_BINARY_OP] = "_BINARY_OP",
-    [_BINARY_OP_ADD_FLOAT] = "_BINARY_OP_ADD_FLOAT",
-    [_BINARY_OP_ADD_INT] = "_BINARY_OP_ADD_INT",
-    [_BINARY_OP_ADD_UNICODE] = "_BINARY_OP_ADD_UNICODE",
-    [_BINARY_OP_MULTIPLY_FLOAT] = "_BINARY_OP_MULTIPLY_FLOAT",
-    [_BINARY_OP_MULTIPLY_INT] = "_BINARY_OP_MULTIPLY_INT",
-    [_BINARY_OP_SUBTRACT_FLOAT] = "_BINARY_OP_SUBTRACT_FLOAT",
-    [_BINARY_OP_SUBTRACT_INT] = "_BINARY_OP_SUBTRACT_INT",
+    [_BINARY_OP_TABLE_DD] = "_BINARY_OP_TABLE_DD",
+    [_BINARY_OP_TABLE_DN] = "_BINARY_OP_TABLE_DN",
+    [_BINARY_OP_TABLE_ND] = "_BINARY_OP_TABLE_ND",
+    [_BINARY_OP_TABLE_NN] = "_BINARY_OP_TABLE_NN",
     [_BINARY_SLICE] = "_BINARY_SLICE",
     [_BINARY_SUBSCR] = "_BINARY_SUBSCR",
     [_BINARY_SUBSCR_DICT] = "_BINARY_SUBSCR_DICT",
@@ -374,13 +375,20 @@ const char *const _PyOpcode_uop_name[MAX_UOP_ID+1] = {
     [_GUARD_IS_TRUE_POP] = "_GUARD_IS_TRUE_POP",
     [_GUARD_KEYS_VERSION] = "_GUARD_KEYS_VERSION",
     [_GUARD_NOS_FLOAT] = "_GUARD_NOS_FLOAT",
+    [_GUARD_NOS_IMMORTAL] = "_GUARD_NOS_IMMORTAL",
     [_GUARD_NOS_INT] = "_GUARD_NOS_INT",
+    [_GUARD_NOS_REFCNT1] = "_GUARD_NOS_REFCNT1",
+    [_GUARD_NOS_VERSION] = "_GUARD_NOS_VERSION",
     [_GUARD_NOT_EXHAUSTED_LIST] = "_GUARD_NOT_EXHAUSTED_LIST",
     [_GUARD_NOT_EXHAUSTED_RANGE] = "_GUARD_NOT_EXHAUSTED_RANGE",
     [_GUARD_NOT_EXHAUSTED_TUPLE] = "_GUARD_NOT_EXHAUSTED_TUPLE",
     [_GUARD_TOS_FLOAT] = "_GUARD_TOS_FLOAT",
+    [_GUARD_TOS_IMMORTAL] = "_GUARD_TOS_IMMORTAL",
     [_GUARD_TOS_INT] = "_GUARD_TOS_INT",
+    [_GUARD_TOS_REFCNT1] = "_GUARD_TOS_REFCNT1",
+    [_GUARD_TOS_VERSION] = "_GUARD_TOS_VERSION",
     [_GUARD_TYPE_VERSION] = "_GUARD_TYPE_VERSION",
+    [_GUARD_VERSION_TYPES] = "_GUARD_VERSION_TYPES",
     [_INIT_CALL_BOUND_METHOD_EXACT_ARGS] = "_INIT_CALL_BOUND_METHOD_EXACT_ARGS",
     [_INIT_CALL_PY_EXACT_ARGS] = "_INIT_CALL_PY_EXACT_ARGS",
     [_INIT_CALL_PY_EXACT_ARGS_0] = "_INIT_CALL_PY_EXACT_ARGS_0",
@@ -592,33 +600,41 @@ int _PyUop_num_popped(int opcode, int oparg)
             return 1;
         case _UNARY_INVERT:
             return 1;
-        case _GUARD_BOTH_INT:
+        case _GUARD_NOS_REFCNT1:
             return 2;
+        case _GUARD_TOS_REFCNT1:
+            return 1;
         case _GUARD_NOS_INT:
             return 2;
         case _GUARD_TOS_INT:
             return 1;
-        case _BINARY_OP_MULTIPLY_INT:
+        case _GUARD_NOS_IMMORTAL:
             return 2;
-        case _BINARY_OP_ADD_INT:
+        case _GUARD_TOS_IMMORTAL:
+            return 1;
+        case _GUARD_VERSION_TYPES:
             return 2;
-        case _BINARY_OP_SUBTRACT_INT:
-            return 2;
-        case _GUARD_BOTH_FLOAT:
+        case _GUARD_TOS_VERSION:
+            return 1;
+        case _GUARD_NOS_VERSION:
             return 2;
         case _GUARD_NOS_FLOAT:
             return 2;
         case _GUARD_TOS_FLOAT:
             return 1;
-        case _BINARY_OP_MULTIPLY_FLOAT:
+        case _BINARY_OP_TABLE_NN:
             return 2;
-        case _BINARY_OP_ADD_FLOAT:
+        case _BINARY_OP_TABLE_ND:
             return 2;
-        case _BINARY_OP_SUBTRACT_FLOAT:
+        case _BINARY_OP_TABLE_DN:
+            return 2;
+        case _BINARY_OP_TABLE_DD:
+            return 2;
+        case _GUARD_BOTH_INT:
+            return 2;
+        case _GUARD_BOTH_FLOAT:
             return 2;
         case _GUARD_BOTH_UNICODE:
-            return 2;
-        case _BINARY_OP_ADD_UNICODE:
             return 2;
         case _BINARY_SUBSCR:
             return 2;

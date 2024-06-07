@@ -416,19 +416,23 @@ dummy_func(
         }
 
         family(BINARY_OP, INLINE_CACHE_ENTRIES_BINARY_OP) = {
-            BINARY_OP_MULTIPLY_INT,
-            BINARY_OP_ADD_INT,
-            BINARY_OP_SUBTRACT_INT,
-            BINARY_OP_MULTIPLY_FLOAT,
-            BINARY_OP_ADD_FLOAT,
-            BINARY_OP_SUBTRACT_FLOAT,
-            BINARY_OP_ADD_UNICODE,
+            BINARY_OP_1X,
+            BINARY_OP_1I,
+            BINARY_OP_I1,
+            BINARY_OP_II,
+            BINARY_OP_IX,
+            BINARY_OP_X1,
+            BINARY_OP_XI,
+            BINARY_OP_XX,
             // BINARY_OP_INPLACE_ADD_UNICODE,  // See comments at that opcode.
         };
 
-        op(_GUARD_BOTH_INT, (left, right -- left, right)) {
-            EXIT_IF(!PyLong_CheckExact(left));
-            EXIT_IF(!PyLong_CheckExact(right));
+        op(_GUARD_NOS_REFCNT1, (value2, unused -- value2, unused)) {
+            EXIT_IF(Py_REFCNT(value2) != 1);
+        }
+
+        op(_GUARD_TOS_REFCNT1, (value1 -- value1)) {
+            EXIT_IF(Py_REFCNT(value1) != 1);
         }
 
         op(_GUARD_NOS_INT, (left, unused -- left, unused)) {
@@ -439,40 +443,27 @@ dummy_func(
             EXIT_IF(!PyLong_CheckExact(value));
         }
 
-        pure op(_BINARY_OP_MULTIPLY_INT, (left, right -- res)) {
-            STAT_INC(BINARY_OP, hit);
-            res = _PyLong_Multiply((PyLongObject *)left, (PyLongObject *)right);
-            _Py_DECREF_SPECIALIZED(right, (destructor)PyObject_Free);
-            _Py_DECREF_SPECIALIZED(left, (destructor)PyObject_Free);
-            ERROR_IF(res == NULL, error);
+        op(_GUARD_NOS_IMMORTAL, (value2, unused -- value2, unused)) {
+            EXIT_IF(!_Py_IsImmortal(value2));
         }
 
-        pure op(_BINARY_OP_ADD_INT, (left, right -- res)) {
-            STAT_INC(BINARY_OP, hit);
-            res = _PyLong_Add((PyLongObject *)left, (PyLongObject *)right);
-            _Py_DECREF_SPECIALIZED(right, (destructor)PyObject_Free);
-            _Py_DECREF_SPECIALIZED(left, (destructor)PyObject_Free);
-            ERROR_IF(res == NULL, error);
+        op(_GUARD_TOS_IMMORTAL, (value1 -- value1)) {
+            EXIT_IF(!_Py_IsImmortal(value1));
         }
 
-        pure op(_BINARY_OP_SUBTRACT_INT, (left, right -- res)) {
-            STAT_INC(BINARY_OP, hit);
-            res = _PyLong_Subtract((PyLongObject *)left, (PyLongObject *)right);
-            _Py_DECREF_SPECIALIZED(right, (destructor)PyObject_Free);
-            _Py_DECREF_SPECIALIZED(left, (destructor)PyObject_Free);
-            ERROR_IF(res == NULL, error);
+        op(_GUARD_VERSION_TYPES, (type_version/1, left, right -- left, right)) {
+            PyTypeObject *lt = Py_TYPE(left);
+            PyTypeObject *rt = Py_TYPE(right);
+            EXIT_IF(lt->tp_version_tag != ((type_version & 0xf0) >> 4));
+            EXIT_IF(rt->tp_version_tag != (type_version & 0xf));
         }
 
-        macro(BINARY_OP_MULTIPLY_INT) =
-            _GUARD_BOTH_INT + unused/1 + _BINARY_OP_MULTIPLY_INT;
-        macro(BINARY_OP_ADD_INT) =
-            _GUARD_BOTH_INT + unused/1 + _BINARY_OP_ADD_INT;
-        macro(BINARY_OP_SUBTRACT_INT) =
-            _GUARD_BOTH_INT + unused/1 + _BINARY_OP_SUBTRACT_INT;
+        op(_GUARD_TOS_VERSION, (type_version/1, value1 -- value1)) {
+            EXIT_IF(Py_TYPE(value1)->tp_version_tag != type_version);
+        }
 
-        op(_GUARD_BOTH_FLOAT, (left, right -- left, right)) {
-            EXIT_IF(!PyFloat_CheckExact(left));
-            EXIT_IF(!PyFloat_CheckExact(right));
+        op(_GUARD_NOS_VERSION, (type_version/1, value2, unused -- value2, unused)) {
+            EXIT_IF(Py_TYPE(value2)->tp_version_tag != type_version);
         }
 
         op(_GUARD_NOS_FLOAT, (left, unused -- left, unused)) {
@@ -483,52 +474,110 @@ dummy_func(
             EXIT_IF(!PyFloat_CheckExact(value));
         }
 
-        pure op(_BINARY_OP_MULTIPLY_FLOAT, (left, right -- res)) {
+        op(_BINARY_OP_TABLE_NN, (type_version/1, left, right -- res)) {
+            // The NN sufix indicates that it does not decref the arguments */
             STAT_INC(BINARY_OP, hit);
-            double dres =
-                ((PyFloatObject *)left)->ob_fval *
-                ((PyFloatObject *)right)->ob_fval;
-            DECREF_INPUTS_AND_REUSE_FLOAT(left, right, dres, res);
+            res = _Py_BinaryFunctionTable[type_version >> 8](left, right);
+            ERROR_IF(res == NULL, error);
         }
 
-        pure op(_BINARY_OP_ADD_FLOAT, (left, right -- res)) {
+        op(_BINARY_OP_TABLE_ND, (type_version/1, left, right -- res)) {
+            // The ND sufix indicates that it decrefs only the right argument */
             STAT_INC(BINARY_OP, hit);
-            double dres =
-                ((PyFloatObject *)left)->ob_fval +
-                ((PyFloatObject *)right)->ob_fval;
-            DECREF_INPUTS_AND_REUSE_FLOAT(left, right, dres, res);
+            res = _Py_BinaryFunctionTable[type_version >> 8](left, right);
+            Py_DECREF(right);
+            ERROR_IF(res == NULL, error);
         }
 
-        pure op(_BINARY_OP_SUBTRACT_FLOAT, (left, right -- res)) {
+        op(_BINARY_OP_TABLE_DN, (type_version/1, left, right -- res)) {
+            // The DN sufix indicates that it decrefs only the left argument */
             STAT_INC(BINARY_OP, hit);
-            double dres =
-                ((PyFloatObject *)left)->ob_fval -
-                ((PyFloatObject *)right)->ob_fval;
-            DECREF_INPUTS_AND_REUSE_FLOAT(left, right, dres, res);
+            res = _Py_BinaryFunctionTable[type_version >> 8](left, right);
+            Py_DECREF(left);
+            ERROR_IF(res == NULL, error);
         }
 
-        macro(BINARY_OP_MULTIPLY_FLOAT) =
-            _GUARD_BOTH_FLOAT + unused/1 + _BINARY_OP_MULTIPLY_FLOAT;
-        macro(BINARY_OP_ADD_FLOAT) =
-            _GUARD_BOTH_FLOAT + unused/1 + _BINARY_OP_ADD_FLOAT;
-        macro(BINARY_OP_SUBTRACT_FLOAT) =
-            _GUARD_BOTH_FLOAT + unused/1 + _BINARY_OP_SUBTRACT_FLOAT;
+        op(_BINARY_OP_TABLE_DD, (type_version/1, left, right -- res)) {
+            // The DD sufix indicates that it decrefs both arguments */
+            STAT_INC(BINARY_OP, hit);
+            res = _Py_BinaryFunctionTable[type_version >> 8](left, right);
+            Py_DECREF(left);
+            Py_DECREF(right);
+            ERROR_IF(res == NULL, error);
+        }
+
+        macro(BINARY_OP_1I) =
+            unused/1 +
+            _GUARD_NOS_REFCNT1 +
+            _GUARD_TOS_IMMORTAL +
+            _GUARD_VERSION_TYPES +
+            unused/-1 + /* Rewind the version */
+            _BINARY_OP_TABLE_NN;
+
+        macro(BINARY_OP_1X) =
+            unused/1 +
+            _GUARD_NOS_REFCNT1 +
+            _GUARD_VERSION_TYPES +
+            unused/-1 + /* Rewind the version */
+            _BINARY_OP_TABLE_ND;
+
+        macro(BINARY_OP_I1) =
+            unused/1 +
+            _GUARD_NOS_IMMORTAL +
+            _GUARD_TOS_REFCNT1 +
+            _GUARD_VERSION_TYPES +
+            unused/-1 + /* Rewind the version */
+            _BINARY_OP_TABLE_NN;
+
+        macro(BINARY_OP_II) =
+            unused/1 +
+            _GUARD_NOS_IMMORTAL +
+            _GUARD_TOS_IMMORTAL +
+            _GUARD_VERSION_TYPES +
+            unused/-1 + /* Rewind the version */
+            _BINARY_OP_TABLE_NN;
+
+        macro(BINARY_OP_IX) =
+            unused/1 +
+            _GUARD_NOS_IMMORTAL +
+            _GUARD_VERSION_TYPES +
+            unused/-1 + /* Rewind the version */
+            _BINARY_OP_TABLE_ND;
+
+        macro(BINARY_OP_X1) =
+            unused/1 +
+            _GUARD_TOS_REFCNT1 +
+            _GUARD_VERSION_TYPES +
+            unused/-1 + /* Rewind the version */
+            _BINARY_OP_TABLE_DN;
+
+        macro(BINARY_OP_XI) =
+            unused/1 +
+            _GUARD_TOS_IMMORTAL +
+            _GUARD_VERSION_TYPES +
+            unused/-1 + /* Rewind the version */
+            _BINARY_OP_TABLE_DN;
+
+        macro(BINARY_OP_XX) =
+            unused/1 +
+            _GUARD_VERSION_TYPES +
+            unused/-1 + /* Rewind the version */
+            _BINARY_OP_TABLE_DD;
+
+        op(_GUARD_BOTH_INT, (left, right -- left, right)) {
+            EXIT_IF(!PyLong_CheckExact(left));
+            EXIT_IF(!PyLong_CheckExact(right));
+        }
+
+        op(_GUARD_BOTH_FLOAT, (left, right -- left, right)) {
+            EXIT_IF(!PyFloat_CheckExact(left));
+            EXIT_IF(!PyFloat_CheckExact(right));
+        }
 
         op(_GUARD_BOTH_UNICODE, (left, right -- left, right)) {
             EXIT_IF(!PyUnicode_CheckExact(left));
             EXIT_IF(!PyUnicode_CheckExact(right));
         }
-
-        pure op(_BINARY_OP_ADD_UNICODE, (left, right -- res)) {
-            STAT_INC(BINARY_OP, hit);
-            res = PyUnicode_Concat(left, right);
-            _Py_DECREF_SPECIALIZED(left, _PyUnicode_ExactDealloc);
-            _Py_DECREF_SPECIALIZED(right, _PyUnicode_ExactDealloc);
-            ERROR_IF(res == NULL, error);
-        }
-
-        macro(BINARY_OP_ADD_UNICODE) =
-            _GUARD_BOTH_UNICODE + unused/1 + _BINARY_OP_ADD_UNICODE;
 
         // This is a subtle one. It's a super-instruction for
         // BINARY_OP_ADD_UNICODE followed by STORE_FAST
@@ -563,7 +612,8 @@ dummy_func(
         }
 
         macro(BINARY_OP_INPLACE_ADD_UNICODE) =
-            _GUARD_BOTH_UNICODE + unused/1 + _BINARY_OP_INPLACE_ADD_UNICODE;
+            _GUARD_BOTH_UNICODE + unused/2 + _BINARY_OP_INPLACE_ADD_UNICODE;
+
 
         family(BINARY_SUBSCR, INLINE_CACHE_ENTRIES_BINARY_SUBSCR) = {
             BINARY_SUBSCR_DICT,
@@ -4066,7 +4116,7 @@ dummy_func(
             ERROR_IF(res == NULL, error);
         }
 
-        macro(BINARY_OP) = _SPECIALIZE_BINARY_OP + _BINARY_OP;
+        macro(BINARY_OP) = _SPECIALIZE_BINARY_OP + unused/1 + _BINARY_OP;
 
         pure inst(SWAP, (bottom, unused[oparg-2], top --
                     top, unused[oparg-2], bottom)) {

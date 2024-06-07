@@ -3478,11 +3478,30 @@ _PyLong_Frexp(PyLongObject *a, Py_ssize_t *e)
    using the round-half-to-even rule in the case of a tie. */
 
 double
-PyLong_AsDouble(PyObject *v)
+_PyLong_AsDouble(PyLongObject *l)
 {
     Py_ssize_t exponent;
     double x;
 
+    if (_PyLong_IsCompact(l)) {
+        /* Fast path; single digit long (31 bits) will cast safely
+           to double.  This improves performance of FP/long operations
+           by 20%.
+        */
+        return (double)medium_value(l);
+    }
+    x = _PyLong_Frexp(l, &exponent);
+    if ((x == -1.0 && PyErr_Occurred()) || exponent > DBL_MAX_EXP) {
+        PyErr_SetString(PyExc_OverflowError,
+                        "int too large to convert to float");
+        return -1.0;
+    }
+    return ldexp(x, (int)exponent);
+}
+
+double
+PyLong_AsDouble(PyObject *v)
+{
     if (v == NULL) {
         PyErr_BadInternalCall();
         return -1.0;
@@ -3491,20 +3510,7 @@ PyLong_AsDouble(PyObject *v)
         PyErr_SetString(PyExc_TypeError, "an integer is required");
         return -1.0;
     }
-    if (_PyLong_IsCompact((PyLongObject *)v)) {
-        /* Fast path; single digit long (31 bits) will cast safely
-           to double.  This improves performance of FP/long operations
-           by 20%.
-        */
-        return (double)medium_value((PyLongObject *)v);
-    }
-    x = _PyLong_Frexp((PyLongObject *)v, &exponent);
-    if ((x == -1.0 && PyErr_Occurred()) || exponent > DBL_MAX_EXP) {
-        PyErr_SetString(PyExc_OverflowError,
-                        "int too large to convert to float");
-        return -1.0;
-    }
-    return ldexp(x, (int)exponent);
+    return _PyLong_AsDouble((PyLongObject *)v);
 }
 
 /* Methods */
@@ -3711,6 +3717,40 @@ x_sub(PyLongObject *a, PyLongObject *b)
         _PyLong_FlipSign(z);
     }
     return maybe_small_long(long_normalize(z));
+}
+
+PyObject *
+_PyLong_Add_1X(PyLongObject *a, PyLongObject *b)
+{
+    if (_PyLong_BothAreCompact(a, b)) {
+        stwodigits x = medium_value(a) + medium_value(b);
+        if (is_medium_int(x)) {
+            digit abs_x = x < 0 ? -x : x;
+            _PyLong_SetSignAndDigitCount(a, x<0?-1:1, 1);
+            a->long_value.ob_digit[0] = abs_x;
+            return (PyObject *)a;
+        }
+    }
+    PyObject *res = _PyLong_Add(a, b);
+    Py_DECREF(a);
+    return res;
+}
+
+PyObject *
+_PyLong_Add_X1(PyLongObject *a, PyLongObject *b)
+{
+    if (_PyLong_BothAreCompact(a, b)) {
+        stwodigits x = medium_value(a) + medium_value(b);
+        if (is_medium_int(x)) {
+            digit abs_x = x < 0 ? -x : x;
+            _PyLong_SetSignAndDigitCount(b, x<0?-1:1, 1);
+            b->long_value.ob_digit[0] = abs_x;
+            return (PyObject *)b;
+        }
+    }
+    PyObject *res = _PyLong_Add(a, b);
+    Py_DECREF(b);
+    return res;
 }
 
 PyObject *
@@ -4440,20 +4480,24 @@ l_mod(PyLongObject *v, PyLongObject *w, PyLongObject **pmod)
     return 0;
 }
 
+PyObject *
+_PyLong_FloorDiv(PyLongObject *a, PyLongObject *b)
+{
+    PyLongObject *div;
+    if (_PyLong_DigitCount(a) == 1 && _PyLong_DigitCount(b) == 1) {
+        return fast_floor_div(a, b);
+    }
+    if (l_divmod(a, b, &div, NULL) < 0) {
+        div = NULL;
+    }
+    return (PyObject *)div;
+}
+
 static PyObject *
 long_div(PyObject *a, PyObject *b)
 {
-    PyLongObject *div;
-
     CHECK_BINOP(a, b);
-
-    if (_PyLong_DigitCount((PyLongObject*)a) == 1 && _PyLong_DigitCount((PyLongObject*)b) == 1) {
-        return fast_floor_div((PyLongObject*)a, (PyLongObject*)b);
-    }
-
-    if (l_divmod((PyLongObject*)a, (PyLongObject*)b, &div, NULL) < 0)
-        div = NULL;
-    return (PyObject *)div;
+    return _PyLong_FloorDiv((PyLongObject *)a, (PyLongObject *)b);
 }
 
 /* PyLong/PyLong -> float, with correctly rounded result. */
@@ -5311,6 +5355,31 @@ long_rshift(PyObject *a, PyObject *b)
     return long_rshift1((PyLongObject *)a, wordshift, remshift);
 }
 
+/* Return a >> b. */
+PyObject *
+_PyLong_RShiftObject(PyLongObject *a, PyLongObject *b)
+{
+    if (_PyLong_IsNegative(b)) {
+        PyErr_SetString(PyExc_ValueError, "negative shift count");
+        return NULL;
+    }
+    if (_PyLong_BothAreCompact(a, b)) {
+        stwodigits shift = medium_value(b);
+        if (shift < (stwodigits)(sizeof(stwodigits) * 8)) {
+            stwodigits res = Py_ARITHMETIC_RIGHT_SHIFT(stwodigits, medium_value(a), shift);
+            return _PyLong_FromSTwoDigits(res);
+        }
+        else {
+            return _PyLong_GetZero();
+        }
+    }
+    Py_ssize_t wordshift;
+    digit remshift;
+    if (divmod_shift((PyObject *)b, &wordshift, &remshift) < 0)
+        return NULL;
+    return long_rshift1((PyLongObject *)a, wordshift, remshift);
+}
+
 /* Return a >> shiftby. */
 PyObject *
 _PyLong_Rshift(PyObject *a, size_t shiftby)
@@ -5384,6 +5453,31 @@ long_lshift(PyObject *a, PyObject *b)
         return PyLong_FromLong(0);
     }
     if (divmod_shift(b, &wordshift, &remshift) < 0)
+        return NULL;
+    return long_lshift1((PyLongObject *)a, wordshift, remshift);
+}
+
+
+/* Return a << b. */
+PyObject *
+_PyLong_LShiftObject(PyLongObject *a, PyLongObject *b)
+{
+    if (_PyLong_IsNegative(b)) {
+        PyErr_SetString(PyExc_ValueError, "negative shift count");
+        return NULL;
+    }
+    if (_PyLong_BothAreCompact(a, b)) {
+        stwodigits shift = medium_value(b);
+        /* A single digit number shifted left by up to
+         * the size of a single digit number will fit
+         * into two digits with no overflow */
+        if (shift <= (stwodigits)(sizeof(digit) * 8)) {
+            return _PyLong_FromSTwoDigits(medium_value(a) << shift);
+        }
+    }
+    Py_ssize_t wordshift;
+    digit remshift;
+    if (divmod_shift((PyObject *)b, &wordshift, &remshift) < 0)
         return NULL;
     return long_lshift1((PyLongObject *)a, wordshift, remshift);
 }
@@ -5544,12 +5638,10 @@ long_bitwise(PyLongObject *a,
     return (PyObject *)maybe_small_long(long_normalize(z));
 }
 
-static PyObject *
-long_and(PyObject *a, PyObject *b)
+PyObject *
+_PyLong_And(PyLongObject *x, PyLongObject *y)
 {
-    CHECK_BINOP(a, b);
-    PyLongObject *x = (PyLongObject*)a;
-    PyLongObject *y = (PyLongObject*)b;
+    assert(PyLong_Check(x) && PyLong_Check(y));
     if (_PyLong_IsCompact(x) && _PyLong_IsCompact(y)) {
         return _PyLong_FromSTwoDigits(medium_value(x) & medium_value(y));
     }
@@ -5557,11 +5649,18 @@ long_and(PyObject *a, PyObject *b)
 }
 
 static PyObject *
-long_xor(PyObject *a, PyObject *b)
+long_and(PyObject *a, PyObject *b)
 {
     CHECK_BINOP(a, b);
     PyLongObject *x = (PyLongObject*)a;
     PyLongObject *y = (PyLongObject*)b;
+    return _PyLong_And(x, y);
+}
+
+PyObject *
+_PyLong_Xor(PyLongObject *x, PyLongObject *y)
+{
+    assert(PyLong_Check(x) && PyLong_Check(y));
     if (_PyLong_IsCompact(x) && _PyLong_IsCompact(y)) {
         return _PyLong_FromSTwoDigits(medium_value(x) ^ medium_value(y));
     }
@@ -5569,15 +5668,27 @@ long_xor(PyObject *a, PyObject *b)
 }
 
 static PyObject *
-long_or(PyObject *a, PyObject *b)
+long_xor(PyObject *a, PyObject *b)
 {
     CHECK_BINOP(a, b);
-    PyLongObject *x = (PyLongObject*)a;
-    PyLongObject *y = (PyLongObject*)b;
+    return _PyLong_Xor((PyLongObject*)a, (PyLongObject*)b);
+}
+
+PyObject *
+_PyLong_Or(PyLongObject *x, PyLongObject *y)
+{
+    assert(PyLong_Check(x) && PyLong_Check(y));
     if (_PyLong_IsCompact(x) && _PyLong_IsCompact(y)) {
         return _PyLong_FromSTwoDigits(medium_value(x) | medium_value(y));
     }
     return long_bitwise(x, '|', y);
+}
+
+static PyObject *
+long_or(PyObject *a, PyObject *b)
+{
+    CHECK_BINOP(a, b);
+    return _PyLong_Or((PyLongObject*)a, (PyLongObject*)b);
 }
 
 static PyObject *
@@ -6568,7 +6679,7 @@ PyTypeObject PyLong_Type = {
     0,                                          /* tp_setattro */
     0,                                          /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
-        Py_TPFLAGS_LONG_SUBCLASS |
+        Py_TPFLAGS_LONG_SUBCLASS | Py_TPFLAGS_VALID_VERSION_TAG |
         _Py_TPFLAGS_MATCH_SELF,               /* tp_flags */
     long_doc,                                   /* tp_doc */
     0,                                          /* tp_traverse */
@@ -6590,6 +6701,7 @@ PyTypeObject PyLong_Type = {
     long_new,                                   /* tp_new */
     PyObject_Free,                              /* tp_free */
     .tp_vectorcall = long_vectorcall,
+    .tp_version_tag = _Py_TYPE_VERSION_INT,
 };
 
 static PyTypeObject Int_InfoType;

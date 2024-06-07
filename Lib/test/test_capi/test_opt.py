@@ -117,16 +117,25 @@ class TestOptimizerAPI(unittest.TestCase):
             self.assertEqual(hash(code), hash(replace_code))
 
 
-def get_first_executor(func):
+
+def get_nth_executor(func, n):
     code = func.__code__
     co_code = code.co_code
+    count = 0
     for i in range(0, len(co_code), 2):
         try:
-            return _opcode.get_executor(code, i)
+            ex = _opcode.get_executor(code, i)
+            if count == n:
+                return ex
+            else:
+                count += 1
         except ValueError:
             pass
     return None
 
+
+def get_first_executor(func):
+    return get_nth_executor(func, 0)
 
 def iter_opnames(ex):
     for item in ex:
@@ -234,7 +243,7 @@ class TestUops(unittest.TestCase):
         with temporary_optimizer(opt):
             testfunc(1000)
 
-        ex = get_first_executor(testfunc)
+        ex = get_nth_executor(testfunc, 1)
         self.assertIsNotNone(ex)
         uops = get_opnames(ex)
         self.assertIn("_JUMP_TO_TOP", uops)
@@ -408,7 +417,7 @@ class TestUops(unittest.TestCase):
         uops = get_opnames(ex)
         # Since there is no JUMP_FORWARD instruction,
         # look for indirect evidence: the += operator
-        self.assertIn("_BINARY_OP_ADD_INT", uops)
+        self.assertIn("_BINARY_OP_TABLE_NN", uops)
 
     def test_for_iter_range(self):
         def testfunc(n):
@@ -504,7 +513,7 @@ class TestUops(unittest.TestCase):
         self.assertIsNotNone(ex)
         uops = get_opnames(ex)
         self.assertIn("_PUSH_FRAME", uops)
-        self.assertIn("_BINARY_OP_ADD_INT", uops)
+        self.assertIn("_BINARY_OP_TABLE_NN", uops)
 
     def test_branch_taken(self):
         def testfunc(n):
@@ -539,14 +548,14 @@ class TestUops(unittest.TestCase):
             x = 0
             for i in range(m):
                 for j in MyIter(n):
-                    x += 1000*i + j
+                    x += 2*i + j
             return x
 
         opt = _testinternalcapi.new_uop_optimizer()
         with temporary_optimizer(opt):
             x = testfunc(10, 10)
 
-        self.assertEqual(x, sum(range(10)) * 10010)
+        self.assertEqual(x, sum(range(10)) * 30)
 
         ex = get_first_executor(testfunc)
         self.assertIsNotNone(ex)
@@ -612,7 +621,7 @@ class TestUopsOptimization(unittest.TestCase):
         res, ex = self._run_with_optimizer(testfunc, 32)
         self.assertIsNotNone(ex)
         self.assertEqual(res, 63)
-        binop_count = [opname for opname in iter_opnames(ex) if opname == "_BINARY_OP_ADD_INT"]
+        binop_count = [opname for opname in iter_opnames(ex) if opname == "_BINARY_OP_TABLE_NN"]
         guard_both_int_count = [opname for opname in iter_opnames(ex) if opname == "_GUARD_BOTH_INT"]
         self.assertGreaterEqual(len(binop_count), 3)
         self.assertLessEqual(len(guard_both_int_count), 1)
@@ -636,7 +645,7 @@ class TestUopsOptimization(unittest.TestCase):
         ex = get_first_executor(testfunc)
         self.assertIsNotNone(ex)
         self.assertEqual(res, 124)
-        binop_count = [opname for opname in iter_opnames(ex) if opname == "_BINARY_OP_ADD_INT"]
+        binop_count = [opname for opname in iter_opnames(ex) if opname == "_BINARY_OP_TABLE_NN"]
         guard_both_int_count = [opname for opname in iter_opnames(ex) if opname == "_GUARD_BOTH_INT"]
         self.assertGreaterEqual(len(binop_count), 3)
         self.assertLessEqual(len(guard_both_int_count), 1)
@@ -660,7 +669,7 @@ class TestUopsOptimization(unittest.TestCase):
         ex = get_first_executor(testfunc)
         self.assertIsNotNone(ex)
         self.assertEqual(res, 124)
-        binop_count = [opname for opname in iter_opnames(ex) if opname == "_BINARY_OP_ADD_INT"]
+        binop_count = [opname for opname in iter_opnames(ex) if opname == "_BINARY_OP_TABLE_NN"]
         guard_both_int_count = [opname for opname in iter_opnames(ex) if opname == "_GUARD_BOTH_INT"]
         self.assertGreaterEqual(len(binop_count), 3)
         self.assertLessEqual(len(guard_both_int_count), 1)
@@ -678,7 +687,7 @@ class TestUopsOptimization(unittest.TestCase):
 
         res, ex = self._run_with_optimizer(testfunc, 64)
         self.assertIsNotNone(ex)
-        binop_count = [opname for opname in iter_opnames(ex) if opname == "_BINARY_OP_ADD_INT"]
+        binop_count = [opname for opname in iter_opnames(ex) if opname == "_BINARY_OP_TABLE_NN"]
         self.assertGreaterEqual(len(binop_count), 3)
 
     def test_call_py_exact_args(self):
@@ -692,7 +701,7 @@ class TestUopsOptimization(unittest.TestCase):
         self.assertIsNotNone(ex)
         uops = get_opnames(ex)
         self.assertIn("_PUSH_FRAME", uops)
-        self.assertIn("_BINARY_OP_ADD_INT", uops)
+        self.assertIn("_BINARY_OP_TABLE_NN", uops)
         self.assertNotIn("_CHECK_PEP_523", uops)
 
     def test_int_type_propagate_through_range(self):
@@ -724,8 +733,8 @@ class TestUopsOptimization(unittest.TestCase):
         self.assertEqual(res, 4)
         self.assertIsNotNone(ex)
         uops = get_opnames(ex)
-        self.assertIn("_GUARD_BOTH_INT", uops)
-        guard_count = [opname for opname in iter_opnames(ex) if opname == "_GUARD_BOTH_INT"]
+        self.assertIn("_GUARD_VERSION_TYPES", uops)
+        guard_count = [opname for opname in iter_opnames(ex) if opname == "_GUARD_VERSION_TYPES"]
         self.assertEqual(len(guard_count), 1)
 
     def test_comprehension(self):
@@ -819,7 +828,7 @@ class TestUopsOptimization(unittest.TestCase):
         self.assertLessEqual(len(guard_both_float_count), 1)
         # TODO gh-115506: this assertion may change after propagating constants.
         # We'll also need to verify that propagation actually occurs.
-        self.assertIn("_BINARY_OP_ADD_FLOAT", uops)
+        self.assertIn("_BINARY_OP_TABLE_DD", uops)
 
     def test_float_subtract_constant_propagation(self):
         def testfunc(n):
@@ -839,7 +848,7 @@ class TestUopsOptimization(unittest.TestCase):
         self.assertLessEqual(len(guard_both_float_count), 1)
         # TODO gh-115506: this assertion may change after propagating constants.
         # We'll also need to verify that propagation actually occurs.
-        self.assertIn("_BINARY_OP_SUBTRACT_FLOAT", uops)
+        self.assertIn("_BINARY_OP_TABLE_DD", uops)
 
     def test_float_multiply_constant_propagation(self):
         def testfunc(n):
@@ -859,7 +868,7 @@ class TestUopsOptimization(unittest.TestCase):
         self.assertLessEqual(len(guard_both_float_count), 1)
         # TODO gh-115506: this assertion may change after propagating constants.
         # We'll also need to verify that propagation actually occurs.
-        self.assertIn("_BINARY_OP_MULTIPLY_FLOAT", uops)
+        self.assertIn("_BINARY_OP_TABLE_DD", uops)
 
     def test_add_unicode_propagation(self):
         def testfunc(n):
@@ -877,7 +886,7 @@ class TestUopsOptimization(unittest.TestCase):
         uops = get_opnames(ex)
         guard_both_unicode_count = [opname for opname in iter_opnames(ex) if opname == "_GUARD_BOTH_UNICODE"]
         self.assertLessEqual(len(guard_both_unicode_count), 1)
-        self.assertIn("_BINARY_OP_ADD_UNICODE", uops)
+        self.assertIn("_BINARY_OP_TABLE_NN", uops)
 
     def test_compare_op_type_propagation_float(self):
         def testfunc(n):
@@ -990,7 +999,7 @@ class TestUopsOptimization(unittest.TestCase):
         self.assertIsNotNone(ex)
         uops = get_opnames(ex)
         self.assertNotIn("_GUARD_BOTH_INT", uops)
-        self.assertIn("_BINARY_OP_ADD_INT", uops)
+        self.assertIn("_BINARY_OP_TABLE_NN", uops)
         # Try again, but between the runs, set the global to a float.
         # This should result in no executor the second time.
         ns = {}
@@ -999,7 +1008,7 @@ class TestUopsOptimization(unittest.TestCase):
         ns['_test_global'] = 0
         _, ex = self._run_with_optimizer(testfunc, TIER2_THRESHOLD)
         self.assertIsNone(ex)
-        ns['_test_global'] = 3.14
+        ns['_test_global'] = ""
         _, ex = self._run_with_optimizer(testfunc, TIER2_THRESHOLD)
         self.assertIsNone(ex)
 

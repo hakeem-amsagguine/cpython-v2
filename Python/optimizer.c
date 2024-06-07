@@ -581,7 +581,7 @@ translate_bytecode_to_trace(
     _Py_CODEUNIT *initial_instr = instr;
     int trace_length = 0;
     // Leave space for possible trailing _EXIT_TRACE
-    int max_length = buffer_size-2;
+    int max_length = buffer_size-3;
     struct {
         PyFunctionObject *func;
         PyCodeObject *code;
