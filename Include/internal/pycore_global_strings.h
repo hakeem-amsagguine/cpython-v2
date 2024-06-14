@@ -265,6 +265,7 @@ struct _Py_global_strings {
         STRUCT_FOR_ID(_restype_)
         STRUCT_FOR_ID(_showwarnmsg)
         STRUCT_FOR_ID(_shutdown)
+        STRUCT_FOR_ID(_size)
         STRUCT_FOR_ID(_slotnames)
         STRUCT_FOR_ID(_strptime)
         STRUCT_FOR_ID(_strptime_datetime)
