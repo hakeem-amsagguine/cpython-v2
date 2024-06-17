@@ -62,7 +62,10 @@ def _load_metadata_from_source():
                     continue
                 line = line[len(start) :]
                 name, val = line.split()
-                defines[int(val.strip())].append(name.strip())
+                # For flag defines, the data looks like
+                # #define HAS_PASSTHROUGH_FLAG (4096)
+                # The following line grabs the integer without the surrounding parentheses:
+                defines[int(val.strip().strip("()"))].append(name.strip())
         return defines
 
     import opcode
@@ -75,6 +78,9 @@ def _load_metadata_from_source():
             Path("Include") / "cpython" / "pystats.h", "EVAL_CALL"
         ),
         "_defines": get_defines(Path("Python") / "specialize.c"),
+        "_flag_defines": get_defines(
+            Path("Include") / "internal" / "pycore_opcode_metadata.h", "HAS"
+        ),
     }
 
 
@@ -119,6 +125,43 @@ def load_raw_data(input: Path) -> RawData:
 
 def save_raw_data(data: RawData, json_output: TextIO):
     json.dump(data, json_output)
+
+
+@functools.cache
+def _get_uop_flags_from_file(
+    flag_names: tuple[str] = None,
+    filepath: str | Path = Path("Include") / "internal" / "pycore_uop_metadata.h",
+) -> dict[str, list[str]]:
+    """Looks for lines that look like:
+        [_BINARY_OP_ADD_UNICODE] = HAS_ERROR_FLAG | HAS_PURE_FLAG,
+    or:
+        [_MATCH_SEQUENCE] = 0,
+    And extracts the uop name and corresponding flags into a dictionary
+    that looks like:
+        {
+            '_BINARY_OP_ADD_UNICODE': ['HAS_ERROR_FLAG', 'HAS_PURE_FLAG'],
+            '_MATCH_SEQUENCE'       : []
+        }
+    Takes in the list of allowed flag names as `flag_names` and validates that
+    all names are from that allowed list.
+    """
+    flags = {}
+    with open(SOURCE_DIR / filepath) as spec_src:
+        for line in spec_src:
+            if re.match(r"\s*\[_", line):
+                if name := re.search(r"\[(?P<uop_name>[_A-Z0-9]+)\]", line):
+                    uop = name.group("uop_name")
+                    possible_flags = [
+                        f.strip()
+                        for f in line.strip().split("=")[1].strip(", ").split("|")
+                    ]
+                    if all(
+                        f.removeprefix("HAS_") in flag_names for f in possible_flags
+                    ):
+                        flags[uop] = [f.strip() for f in possible_flags]
+                    elif possible_flags[0] == "0":
+                        flags[uop] = []
+    return flags
 
 
 @dataclass(frozen=True)
@@ -728,7 +771,7 @@ def execution_count_section() -> Section:
                 join_mode=JoinMode.CHANGE_ONE_COLUMN,
             )
         ],
-        doc="""
+        doc="""[uop_flags[op] for op in opcodes]
         The "miss ratio" column shows the percentage of times the instruction
         executed that it deoptimized. When this happens, the base unspecialized
         instruction is not counted.
@@ -736,7 +779,68 @@ def execution_count_section() -> Section:
     )
 
 
-def pair_count_section(prefix: str, title=None) -> Section:
+def opcode_input_overlap(
+    uop_flags: dict[str, list[str]], opcode_i: str, opcode_j: str
+) -> str:
+
+    def flag_compatible(*flags: str):
+        return not any(
+            f in uop_flags[opcode_i] and f in uop_flags[opcode_j] for f in flags
+        )
+
+    def target_compatible(*opcodes: str):
+        targets = opcodes.count("_DEOPT")
+        exit_indexes = opcodes.count("_EXIT_TRACE")
+        combined_flags = list(itertools.chain.from_iterable(uop_flags[op] for op in opcodes))
+        jump_targets = combined_flags.count("HAS_DEOPT_FLAG") + combined_flags.count(
+            "HAS_EXIT_FLAG"
+        )
+        error_targets = combined_flags.count("HAS_ERROR_FLAG") + combined_flags.count(
+            "HAS_ERROR_NO_POP_FLAG"
+        )
+
+        return (
+            # UOP_FORMAT_TARGET:
+            (
+                targets <= 1
+                and exit_indexes == 0
+                and jump_targets == 0
+                and error_targets == 0
+            )
+            or
+            # UOP_FORMAT_EXIT:
+            (
+                targets == 0
+                and exit_indexes <= 1
+                and jump_targets == 0
+                and error_targets <= 1
+            )
+            or
+            # UOP_FORMAT_JUMP:
+            (
+                targets == 0
+                and exit_indexes == 0
+                and jump_targets <= 1
+                and error_targets <= 1
+            )
+        )
+
+    results = {
+        "Oparg": flag_compatible(
+            "HAS_ARG_FLAG",
+        ),
+        "Operand": flag_compatible(
+            "HAS_OPERAND_FLAG",
+        ),
+        "Target": target_compatible(opcode_i, opcode_j),
+    }
+
+    if list(results.values()).count(False) == 0:
+        return "No Conflict"
+    return f"Conflict: {','.join(k for k, v in results.items() if not v)}"
+
+
+def pair_count_section(prefix: str, title=None, compat_data=False) -> Section:
     def calc_pair_count_table(stats: Stats) -> Rows:
         opcode_stats = stats.get_opcode_stats(prefix)
         pair_counts = opcode_stats.get_pair_counts()
@@ -748,22 +852,30 @@ def pair_count_section(prefix: str, title=None) -> Section:
             sorted(pair_counts.items(), key=itemgetter(1), reverse=True), 100
         ):
             cumulative += count
-            rows.append(
-                (
-                    f"{opcode_i} {opcode_j}",
-                    Count(count),
-                    Ratio(count, total),
-                    Ratio(cumulative, total),
+            next_row = [
+                f"{opcode_i} {opcode_j}",
+                Count(count),
+                Ratio(count, total),
+                Ratio(cumulative, total),
+            ]
+            if compat_data:
+                uop_flags = _get_uop_flags_from_file(
+                    tuple(v[0] for v in stats._data["_flag_defines"].values())
                 )
-            )
+                next_row.append(opcode_input_overlap(uop_flags, opcode_i, opcode_j))
+            rows.append(next_row)
         return rows
+
+    table_headers = ["Pair", "Count:", "Self:", "Cumulative:"]
+    if compat_data:
+        table_headers.append("Compatibility")
 
     return Section(
         "Pair counts",
         f"Pair counts for top 100 {title if title else prefix} pairs",
         [
             Table(
-                ("Pair", "Count:", "Self:", "Cumulative:"),
+                table_headers,
                 calc_pair_count_table,
             )
         ],
@@ -1232,7 +1344,7 @@ def optimization_section() -> Section:
                 )
             ],
         )
-        yield pair_count_section(prefix="uop", title="Non-JIT uop")
+        yield pair_count_section(prefix="uop", title="Non-JIT uop", compat_data=True)
         yield Section(
             "Unsupported opcodes",
             "",
