@@ -81,6 +81,22 @@ class AutoFileTests:
             blksize = getattr(fst, 'st_blksize', blksize)
         self.assertEqual(self.f._blksize, blksize)
 
+    def testDefaultBufferSize(self):
+        # a larger block size can have preference over the default buffer size,
+        # so we have to verify the block size and skip the test.
+        blksize = getattr(self.f, '_blksize', 0)
+
+        if blksize <= io.DEFAULT_BUFFER_SIZE:
+            # ensure the default buffer size is used.
+            self.f.write(bytes([0] * 1e6))
+            self.f.seek(0)
+            data = self.peek()
+            self.assertEquals(len(data), io.DEFAULT_BUFFER_SIZE)
+            data = self.read1()
+            self.assertEquals(len(data), io.DEFAULT_BUFFER_SIZE)
+        else:
+            self.skipTest("device block size greater than io.DEFAULT_BUFFER_SIZE")
+
     # verify readinto
     def testReadintoByteArray(self):
         self.f.write(bytes([1, 2, 0, 255]))
