@@ -1576,7 +1576,7 @@ class FileIO(RawIOBase):
                 # don't exist.
                 pass
             self._blksize = getattr(fdfstat, 'st_blksize', 0)
-            if self._blksize <= 1:
+            if self._blksize <= DEFAULT_BUFFER_SIZE:
                 self._blksize = DEFAULT_BUFFER_SIZE
 
             if _setmode:
