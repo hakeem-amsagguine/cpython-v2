@@ -248,7 +248,8 @@ def open(file, mode="r", buffering=-1, encoding=None, errors=None,
             except (OSError, AttributeError):
                 pass
             else:
-                buffering = max(bs, DEFAULT_BUFFER_SIZE)
+                if bs > DEFAULT_BUFFER_SIZE:
+                    buffering = bs
         if buffering < 0:
             raise ValueError("invalid buffering size")
         if buffering == 0:
