@@ -4,6 +4,7 @@
 #include "pycore_call.h"
 #include "pycore_ceval.h"
 #include "pycore_cell.h"
+#include "pycore_code.h"
 #include "pycore_dict.h"
 #include "pycore_emscripten_signal.h"
 #include "pycore_intrinsics.h"
@@ -106,6 +107,11 @@ _JIT_ENTRY(_PyInterpreterFrame *frame, PyObject **stack_pointer, PyThreadState *
 
     OPT_STAT_INC(uops_executed);
     UOP_STAT_INC(uopcode, execution_count);
+
+#ifdef Py_STATS
+    UOP_PAIR_INC(uopcode, current_executor->last_uop);
+    current_executor->last_uop = uopcode;
+#endif
 
     // The actual instruction definitions (only one will be used):
     switch (uopcode) {
