@@ -725,7 +725,8 @@ PyDoc_STRVAR(builtin_aiter__doc__,
     {"aiter", (PyCFunction)builtin_aiter, METH_O, builtin_aiter__doc__},
 
 PyDoc_STRVAR(builtin_anext__doc__,
-"anext($module, aiterator, default=<unrepresentable>, /)\n"
+"anext($module, aiterator, /)\n"
+"($module, aiterator, default, /)\n"
 "--\n"
 "\n"
 "Return the next item from the async iterator.\n"
@@ -1228,4 +1229,4 @@ builtin_issubclass(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
 exit:
     return return_value;
 }
-/*[clinic end generated code: output=435d3f286a863c49 input=a9049054013a1b77]*/
+/*[clinic end generated code: output=babbc6e2188ed1f3 input=a9049054013a1b77]*/
