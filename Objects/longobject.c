@@ -643,7 +643,7 @@ PyLong_AsUnsignedLong(PyObject *vv)
 #endif
     }
     if (_PyLong_IsNegative(v)) {
-        PyErr_SetString(PyExc_OverflowError,
+        PyErr_SetString(PyExc_ValueError,
                         "can't convert negative value to unsigned int");
         return (unsigned long) -1;
     }
@@ -688,7 +688,7 @@ PyLong_AsSize_t(PyObject *vv)
         return _PyLong_CompactValue(v);
     }
     if (_PyLong_IsNegative(v)) {
-        PyErr_SetString(PyExc_OverflowError,
+        PyErr_SetString(PyExc_ValueError,
                    "can't convert negative value to size_t");
         return (size_t) -1;
     }
@@ -959,7 +959,7 @@ _PyLong_AsByteArray(PyLongObject* v,
     if (_PyLong_IsNegative(v)) {
         if (!is_signed) {
             if (with_exceptions) {
-                PyErr_SetString(PyExc_OverflowError,
+                PyErr_SetString(PyExc_ValueError,
                                 "can't convert negative int to unsigned");
             }
             return -1;
@@ -1682,13 +1682,7 @@ PyLong_AsLongLongAndOverflow(PyObject *vv, int *overflow)
 int
 _PyLong_UnsignedShort_Converter(PyObject *obj, void *ptr)
 {
-    unsigned long uval;
-
-    if (PyLong_Check(obj) && _PyLong_IsNegative((PyLongObject *)obj)) {
-        PyErr_SetString(PyExc_ValueError, "value must be positive");
-        return 0;
-    }
-    uval = PyLong_AsUnsignedLong(obj);
+    unsigned long uval = PyLong_AsUnsignedLong(obj);
     if (uval == (unsigned long)-1 && PyErr_Occurred())
         return 0;
     if (uval > USHRT_MAX) {
@@ -1704,13 +1698,7 @@ _PyLong_UnsignedShort_Converter(PyObject *obj, void *ptr)
 int
 _PyLong_UnsignedInt_Converter(PyObject *obj, void *ptr)
 {
-    unsigned long uval;
-
-    if (PyLong_Check(obj) && _PyLong_IsNegative((PyLongObject *)obj)) {
-        PyErr_SetString(PyExc_ValueError, "value must be positive");
-        return 0;
-    }
-    uval = PyLong_AsUnsignedLong(obj);
+    unsigned long uval = PyLong_AsUnsignedLong(obj);
     if (uval == (unsigned long)-1 && PyErr_Occurred())
         return 0;
     if (uval > UINT_MAX) {
@@ -1726,13 +1714,7 @@ _PyLong_UnsignedInt_Converter(PyObject *obj, void *ptr)
 int
 _PyLong_UnsignedLong_Converter(PyObject *obj, void *ptr)
 {
-    unsigned long uval;
-
-    if (PyLong_Check(obj) && _PyLong_IsNegative((PyLongObject *)obj)) {
-        PyErr_SetString(PyExc_ValueError, "value must be positive");
-        return 0;
-    }
-    uval = PyLong_AsUnsignedLong(obj);
+    unsigned long uval = PyLong_AsUnsignedLong(obj);
     if (uval == (unsigned long)-1 && PyErr_Occurred())
         return 0;
 
@@ -1743,13 +1725,7 @@ _PyLong_UnsignedLong_Converter(PyObject *obj, void *ptr)
 int
 _PyLong_UnsignedLongLong_Converter(PyObject *obj, void *ptr)
 {
-    unsigned long long uval;
-
-    if (PyLong_Check(obj) && _PyLong_IsNegative((PyLongObject *)obj)) {
-        PyErr_SetString(PyExc_ValueError, "value must be positive");
-        return 0;
-    }
-    uval = PyLong_AsUnsignedLongLong(obj);
+    unsigned long long uval = PyLong_AsUnsignedLongLong(obj);
     if (uval == (unsigned long long)-1 && PyErr_Occurred())
         return 0;
 
@@ -1760,13 +1736,7 @@ _PyLong_UnsignedLongLong_Converter(PyObject *obj, void *ptr)
 int
 _PyLong_Size_t_Converter(PyObject *obj, void *ptr)
 {
-    size_t uval;
-
-    if (PyLong_Check(obj) && _PyLong_IsNegative((PyLongObject *)obj)) {
-        PyErr_SetString(PyExc_ValueError, "value must be positive");
-        return 0;
-    }
-    uval = PyLong_AsSize_t(obj);
+    size_t uval = PyLong_AsSize_t(obj);
     if (uval == (size_t)-1 && PyErr_Occurred())
         return 0;
 
