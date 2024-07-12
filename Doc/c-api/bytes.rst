@@ -189,6 +189,16 @@ called with a non-bytes parameter.
    to *newpart* (i.e. decrements its reference count).
 
 
+.. c:function:: PyObject* PyBytes_Join(PyObject *sep, PyObject *iterable)
+
+    Similar to ``sep.join(iterable)`` in Python.
+
+    *sep* must be Python :class:`bytes` object.
+    *iterable* must be an iterable object.
+
+   .. versionadded: 3.14
+
+
 .. c:function:: int _PyBytes_Resize(PyObject **bytes, Py_ssize_t newsize)
 
    Resize a bytes object. *newsize* will be the new length of the bytes object.
