@@ -191,10 +191,13 @@ called with a non-bytes parameter.
 
 .. c:function:: PyObject* PyBytes_Join(PyObject *sep, PyObject *iterable)
 
-    Similar to ``sep.join(iterable)`` in Python.
+   Similar to ``sep.join(iterable)`` in Python.
 
-    *sep* must be Python :class:`bytes` object.
-    *iterable* must be an iterable object.
+   *sep* must be Python :class:`bytes` object.
+   *iterable* must be an iterable object.
+
+   On success, return a new :class:`bytes` object.
+   On error, set an exception and return ``NULL``.
 
    .. versionadded: 3.14
 
