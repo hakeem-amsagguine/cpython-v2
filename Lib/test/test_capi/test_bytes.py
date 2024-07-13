@@ -254,6 +254,7 @@ class CAPITest(unittest.TestCase):
         self.assertEqual(bytes_join(b'', []), b'')
         self.assertEqual(bytes_join(b'sep', []), b'')
 
+        self.assertEqual(bytes_join(NULL, [b'a', b'b', b'c']), b'abc')
         self.assertEqual(bytes_join(b'', [b'a', b'b', b'c']), b'abc')
         self.assertEqual(bytes_join(b'-', [b'a', b'b', b'c']), b'a-b-c')
         self.assertEqual(bytes_join(b' - ', [b'a', b'b', b'c']), b'a - b - c')
@@ -277,7 +278,6 @@ class CAPITest(unittest.TestCase):
         with self.assertRaises(TypeError):
             bytes_join(b'', [b'bytes', 123])
 
-        # CRASHES bytes_join(NULL, iterable)
         # CRASHES bytes_join(sep, NULL)
 
 

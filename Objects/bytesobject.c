@@ -1869,13 +1869,13 @@ bytes_join(PyBytesObject *self, PyObject *iterable_of_bytes)
 PyObject *
 PyBytes_Join(PyObject *sep, PyObject *x)
 {
-    assert(sep != NULL);
-    assert(x != NULL);
-    if (!PyBytes_Check(sep)) {
+    if (sep != NULL && !PyBytes_Check(sep)) {
         PyErr_Format(PyExc_TypeError,
                      "sep: expected bytes, got %T", sep);
         return NULL;
     }
+    assert(x != NULL);
+
     return bytes_join((PyBytesObject*)sep, x);
 }
 

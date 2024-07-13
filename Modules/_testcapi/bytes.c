@@ -45,6 +45,7 @@ bytes_join(PyObject *Py_UNUSED(module), PyObject *args)
     if (!PyArg_ParseTuple(args, "OO", &sep, &seq)) {
         return NULL;
     }
+    NULLABLE(sep);
     return PyBytes_Join(sep, seq);
 }
 
