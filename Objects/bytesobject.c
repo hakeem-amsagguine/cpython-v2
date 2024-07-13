@@ -1873,7 +1873,7 @@ PyBytes_Join(PyObject *sep, PyObject *x)
     assert(x != NULL);
     if (!PyBytes_Check(sep)) {
         PyErr_Format(PyExc_TypeError,
-                     "expected bytes for sep argument, got %T", sep);
+                     "sep: expected bytes, got %T", sep);
         return NULL;
     }
     return bytes_join((PyBytesObject*)sep, x);
