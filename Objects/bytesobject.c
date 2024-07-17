@@ -1867,16 +1867,19 @@ bytes_join(PyBytesObject *self, PyObject *iterable_of_bytes)
 }
 
 PyObject *
-PyBytes_Join(PyObject *sep, PyObject *x)
+PyBytes_Join(PyObject *sep, PyObject *iterable)
 {
     if (sep != NULL && !PyBytes_Check(sep)) {
         PyErr_Format(PyExc_TypeError,
                      "sep: expected bytes, got %T", sep);
         return NULL;
     }
-    assert(x != NULL);
+    if (iterable == NULL) {
+        PyErr_BadInternalCall();
+        return NULL;
+    }
 
-    return bytes_join((PyBytesObject*)sep, x);
+    return stringlib_bytes_join(sep, iterable);
 }
 
 /*[clinic input]

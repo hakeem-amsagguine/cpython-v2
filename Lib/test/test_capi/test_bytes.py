@@ -277,8 +277,10 @@ class CAPITest(unittest.TestCase):
             bytes_join(b'', [b'bytes', 'unicode'])
         with self.assertRaises(TypeError):
             bytes_join(b'', [b'bytes', 123])
-
-        # CRASHES bytes_join(sep, NULL)
+        with self.assertRaises(TypeError):
+            bytes_join(b'', 123)
+        with self.assertRaises(SystemError):
+            bytes_join(b'', NULL)
 
 
 if __name__ == "__main__":

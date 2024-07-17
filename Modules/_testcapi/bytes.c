@@ -41,12 +41,13 @@ bytes_resize(PyObject *Py_UNUSED(module), PyObject *args)
 static PyObject *
 bytes_join(PyObject *Py_UNUSED(module), PyObject *args)
 {
-    PyObject *sep, *seq;
-    if (!PyArg_ParseTuple(args, "OO", &sep, &seq)) {
+    PyObject *sep, *iterable;
+    if (!PyArg_ParseTuple(args, "OO", &sep, &iterable)) {
         return NULL;
     }
     NULLABLE(sep);
-    return PyBytes_Join(sep, seq);
+    NULLABLE(iterable);
+    return PyBytes_Join(sep, iterable);
 }
 
 
