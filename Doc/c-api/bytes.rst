@@ -194,7 +194,7 @@ called with a non-bytes parameter.
    Similar to ``sep.join(iterable)`` in Python.
 
    *sep* must be Python :class:`bytes` object, or ``NULL`` which is treated as
-   an empty string.
+   an empty bytes string.
 
    *iterable* must be an iterable object yielding objects that implement the
    :ref:`buffer protocol <bufferobjects>`.

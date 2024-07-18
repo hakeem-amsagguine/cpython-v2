@@ -268,6 +268,8 @@ class CAPITest(unittest.TestCase):
         with self.assertRaises(TypeError):
             bytes_join(bytearray('sep'), [])
         with self.assertRaises(TypeError):
+            bytes_join('', [])  # empty Unicode string
+        with self.assertRaises(TypeError):
             bytes_join('unicode', [])
         with self.assertRaises(TypeError):
             bytes_join(123, [])
