@@ -1630,14 +1630,20 @@ Copying, renaming and deleting
    Remove this file or symbolic link.  If the path points to a directory,
    use :func:`Path.rmdir` instead.
 
-   If *missing_ok* is false (the default), :exc:`FileNotFoundError` is
-   raised if the path does not exist.
+   If *missing_ok* is false (the default), this method propagates any
+   :exc:`OSError` from the operating system, including :exc:`FileNotFoundError`.
 
-   If *missing_ok* is true, :exc:`FileNotFoundError` exceptions will be
-   ignored (same behavior as the POSIX ``rm -f`` command).
+   If *missing_ok* is true, this shows similar behavior to the POSIX ``rm -f``
+   command and any :exc:`FileNotFoundError` or :exc:`NotADirectoryError`
+   exceptions will be ignored. This means that the file does not exist after
+   execution, but cannot guarantee that the file did exist before. Any other
+   :exc:`OSError` which is encountered will continue to be propogated.
 
    .. versionchanged:: 3.8
       The *missing_ok* parameter was added.
+
+   .. versionchanged:: 3.??
+      The *missing_ok* parameter will also ignore :exc:`NotADirectoryError`
 
 
 .. method:: Path.rmdir()
