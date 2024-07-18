@@ -1874,10 +1874,6 @@ PyBytes_Join(PyObject *sep, PyObject *iterable)
                      "sep: expected bytes, got %T", sep);
         return NULL;
     }
-    if (iterable == NULL) {
-        PyErr_BadInternalCall();
-        return NULL;
-    }
 
     return stringlib_bytes_join(sep, iterable);
 }
