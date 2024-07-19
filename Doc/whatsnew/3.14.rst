@@ -107,6 +107,12 @@ Added support for converting any objects that have the
 :meth:`!as_integer_ratio` method to a :class:`~fractions.Fraction`.
 (Contributed by Serhiy Storchaka in :gh:`82017`.)
 
+asyncio
+-------
+
+Add :meth:`asyncio.Queue.iter` and :meth:`asyncio.Queue.iter_nowait`.
+(Contributed by Wannes Boeykens in :gh:`119154`.)
+
 os
 --
 
@@ -134,6 +140,12 @@ pdb
   As a result, all the instance specific data like :pdbcmd:`display` and
   :pdbcmd:`commands` are preserved across hard-coded breakpoints.
   (Contributed by Tian Gao in :gh:`121450`.)
+
+queue
+-----
+
+Add :meth:`queue.Queue.iter` and :meth:`queue.Queue.iter_nowait`.
+(Contributed by Wannes Boeykens in :gh:`119154`.)
 
 symtable
 --------
