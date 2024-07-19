@@ -38,6 +38,10 @@ from .trace import trace
 from .unix_eventqueue import EventQueue
 from .utils import wlen
 
+try:
+    import posix
+except ImportError:
+    posix = None
 
 TYPE_CHECKING = False
 
@@ -117,6 +121,7 @@ except AttributeError:
 
         def register(self, fd, flag):
             self.fd = fd
+
         # note: The 'timeout' argument is received as *milliseconds*
         def poll(self, timeout: float | None = None) -> list[int]:
             if timeout is None:
@@ -208,7 +213,6 @@ class UnixConsole(Console):
             self.input_buffer = b""
             self.input_buffer_pos = 0
         return ret
-
 
     def change_encoding(self, encoding: str) -> None:
         """
@@ -545,11 +549,7 @@ class UnixConsole(Console):
 
     @property
     def input_hook(self):
-        try:
-            import posix
-        except ImportError:
-            return None
-        if posix._is_inputhook_installed():
+        if posix is not None and posix._is_inputhook_installed():
             return posix._inputhook
 
     def __enable_bracketed_paste(self) -> None:

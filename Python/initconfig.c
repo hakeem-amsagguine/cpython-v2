@@ -1886,21 +1886,17 @@ config_init_run_presite(PyConfig *config)
 }
 #endif
 
-/* Set `config->import_time` based on `value`. */
+/* Set `config->import_time` based on `value` from `-Ximporttime(=.*)?`. */
 static PyStatus
 config_set_import_time(PyConfig *config, const wchar_t *value)
 {
-    /* -Ximporttime(=.*)? */
-    if (value == NULL) {
-    }
-
     /* We recognize 2 as a special value: if the importtime flag is
      * set to 2, we also print import cache hits. Otherwise, we fall
      * back to standard -X importtime behavior. */
-    else if (wcscmp(value, L"2") == 0) {
+    if (wcscmp(value, L"2") == 0) {
         config->import_time = 2;
     }
-    else {
+    else if (value != NULL) {
         config->import_time = 1;
     }
 
