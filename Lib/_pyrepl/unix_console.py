@@ -121,7 +121,6 @@ except AttributeError:
 
         def register(self, fd, flag):
             self.fd = fd
-
         # note: The 'timeout' argument is received as *milliseconds*
         def poll(self, timeout: float | None = None) -> list[int]:
             if timeout is None:
@@ -213,6 +212,7 @@ class UnixConsole(Console):
             self.input_buffer = b""
             self.input_buffer_pos = 0
         return ret
+
 
     def change_encoding(self, encoding: str) -> None:
         """
@@ -549,6 +549,8 @@ class UnixConsole(Console):
 
     @property
     def input_hook(self):
+        # avoid inline imports here so the repl doesn't get flooded with import
+        # logging from -Ximporttime=2
         if posix is not None and posix._is_inputhook_installed():
             return posix._inputhook
 
