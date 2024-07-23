@@ -1127,3 +1127,26 @@ class TestMain(TestCase):
             process.kill()
             exit_code = process.wait()
         return "\n".join(output), exit_code
+
+    def test_readline_history_file(self):
+        # skip, if readline module is not available
+        readline = import_module('readline')
+        if readline.backend != "editline":
+            self.skipTest("GNU readline is not affected by this issue")
+
+        hfile = tempfile.NamedTemporaryFile()
+        self.addCleanup(unlink, hfile.name)
+        env = os.environ.copy()
+        env["PYTHON_HISTORY"] = hfile.name
+
+        env["PYTHON_BASIC_REPL"] = "1"
+        output, exit_code = self.run_repl("spam \nexit()\n", env=env)
+        self.assertEqual(exit_code, 0)
+        self.assertIn("spam ", output)
+        self.assertNotEqual(pathlib.Path(hfile.name).stat().st_size, 0)
+        self.assertIn("spam\\040", pathlib.Path(hfile.name).read_text())
+
+        env.pop("PYTHON_BASIC_REPL", None)
+        output, exit_code = self.run_repl("exit\n", env=env)
+        self.assertEqual(exit_code, 0)
+        self.assertNotIn("\\040", pathlib.Path(hfile.name).read_text())
