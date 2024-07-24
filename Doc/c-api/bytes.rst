@@ -195,6 +195,7 @@ called with a non-bytes parameter.
 
    *sep* must be Python :class:`bytes` object, or ``NULL`` which is treated as
    an empty bytes string.
+   (Note that the *sep* default is different from :c:func:`PyUnicode_Join`.)
 
    *iterable* must be an iterable object yielding objects that implement the
    :ref:`buffer protocol <bufferobjects>`.

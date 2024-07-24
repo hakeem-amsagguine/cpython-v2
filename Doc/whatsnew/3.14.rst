@@ -357,7 +357,7 @@ New Features
 
   (Contributed by Victor Stinner in :gh:`119182`.)
 
-* Add :c:func:`PyBytes_Join(seq, iterable) <PyBytes_Join>` function,
+* Add :c:func:`PyBytes_Join(sep, iterable) <PyBytes_Join>` function,
   similar to ``sep.join(iterable)`` in Python.
   (Contributed by Victor Stinner in :gh:`121645`.)
 

@@ -266,7 +266,9 @@ class CAPITest(unittest.TestCase):
 
         # invalid 'sep' argument type
         with self.assertRaises(TypeError):
-            bytes_join(bytearray('sep'), [])
+            bytes_join(bytearray(b'sep'), [])
+        with self.assertRaises(TypeError):
+            bytes_join(memoryview(b'sep'), [])
         with self.assertRaises(TypeError):
             bytes_join('', [])  # empty Unicode string
         with self.assertRaises(TypeError):
