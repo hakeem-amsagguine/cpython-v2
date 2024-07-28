@@ -1692,6 +1692,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         argument (which is an arbitrary expression or statement to be
         executed in the current environment).
         """
+        oldtrace = sys.gettrace()
         sys.settrace(None)
         globals = self.curframe.f_globals
         locals = self.curframe_locals
@@ -1703,7 +1704,8 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         except Exception:
             self._error_exc()
         self.message("LEAVING RECURSIVE DEBUGGER")
-        sys.settrace(self.trace_dispatch)
+        if oldtrace:
+            sys.settrace(oldtrace)
         self.lastcmd = p.lastcmd
 
     complete_debug = _complete_expression
