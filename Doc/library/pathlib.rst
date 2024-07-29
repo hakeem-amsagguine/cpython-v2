@@ -1554,7 +1554,7 @@ Copying, renaming and deleting
    extended attributes are copied where supported. This argument has no effect
    on Windows, where metadata is always preserved when copying.
 
-   .. versionadded:: 3.14
+   .. versionadded:: next
 
 
 .. method:: Path.copytree(target, *, follow_symlinks=True, \
@@ -1589,7 +1589,7 @@ Copying, renaming and deleting
    nothing, in which case the copying operation continues. If *on_error* isn't
    given, exceptions are propagated to the caller.
 
-   .. versionadded:: 3.14
+   .. versionadded:: next
 
 
 .. method:: Path.rename(target)
