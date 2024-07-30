@@ -3341,6 +3341,19 @@ test_critical_sections(PyObject *module, PyObject *Py_UNUSED(args))
     Py_RETURN_NONE;
 }
 
+static PyObject *
+type_freeze(PyObject *module, PyObject *args)
+{
+    PyTypeObject *type;
+    if (!PyArg_ParseTuple(args, "O!", &PyType_Type, &type)) {
+        return NULL;
+    }
+    if (PyType_Freeze(type) < 0) {
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef TestMethods[] = {
     {"set_errno",               set_errno,                       METH_VARARGS},
     {"test_config",             test_config,                     METH_NOARGS},
@@ -3483,6 +3496,7 @@ static PyMethodDef TestMethods[] = {
     {"test_weakref_capi", test_weakref_capi, METH_NOARGS},
     {"function_set_warning", function_set_warning, METH_NOARGS},
     {"test_critical_sections", test_critical_sections, METH_NOARGS},
+    {"type_freeze", type_freeze, METH_VARARGS},
     {NULL, NULL} /* sentinel */
 };
 

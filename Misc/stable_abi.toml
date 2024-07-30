@@ -2508,3 +2508,5 @@
 
 [function.Py_TYPE]
     added = '3.14'
+[function.PyType_Freeze]
+    added = '3.14'
