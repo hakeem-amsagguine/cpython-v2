@@ -476,6 +476,7 @@ _code_type = type(_write_atomic.__code__)
 #     Python 3.14a1 3601 (Fix miscompilation of private names in generic classes)
 #     Python 3.14a1 3602 (Add LOAD_SPECIAL. Remove BEFORE_WITH and BEFORE_ASYNC_WITH)
 #     Python 3.14a1 3603 (Remove BUILD_CONST_KEY_MAP)
+#     Python 3.14a1 3604 (Add NOT_TAKEN)
 
 #     Python 3.15 will start with 3650
 
@@ -492,7 +493,7 @@ _code_type = type(_write_atomic.__code__)
 # Whenever MAGIC_NUMBER is changed, the ranges in the magic_values array
 # in PC/launcher.c must also be updated.
 
-MAGIC_NUMBER = (3603).to_bytes(2, 'little') + b'\r\n'
+MAGIC_NUMBER = (3604).to_bytes(2, 'little') + b'\r\n'
 
 _RAW_MAGIC_NUMBER = int.from_bytes(MAGIC_NUMBER, 'little')  # For import.c
 

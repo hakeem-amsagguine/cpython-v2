@@ -7,6 +7,10 @@
             break;
         }
 
+        case _NOT_TAKEN: {
+            break;
+        }
+
         case _RESUME_CHECK: {
             break;
         }

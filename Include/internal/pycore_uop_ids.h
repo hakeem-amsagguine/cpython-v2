@@ -225,6 +225,7 @@ extern "C" {
 #define _MAYBE_EXPAND_METHOD 427
 #define _MONITOR_CALL 428
 #define _NOP NOP
+#define _NOT_TAKEN NOT_TAKEN
 #define _POP_EXCEPT POP_EXCEPT
 #define _POP_JUMP_IF_FALSE 429
 #define _POP_JUMP_IF_TRUE 430
