@@ -1400,43 +1400,6 @@ _Py_call_instrumentation_instruction(PyThreadState *tstate, _PyInterpreterFrame*
     return next_opcode;
 }
 
-static PyObject *make_branch_handler(int tool_id, PyObject *handler, bool taken);
-
-static PyObject *exchange_callables(int tool_id, int event_id, PyObject *obj)
-{
-    PyInterpreterState *is = _PyInterpreterState_GET();
-    return _Py_atomic_exchange_ptr(&is->monitoring_callables[tool_id][event_id],
-                                                 Py_XNewRef(obj));
-}
-
-PyObject *
-_PyMonitoring_RegisterCallback(int tool_id, int event_id, PyObject *obj)
-{
-    assert(0 <= tool_id && tool_id < PY_MONITORING_TOOL_IDS);
-    assert(0 <= event_id && event_id < _PY_MONITORING_EVENTS);
-    if (event_id != PY_MONITORING_EVENT_BRANCH) {
-        return exchange_callables(tool_id, event_id, Py_XNewRef(obj));
-    }
-    PyObject *taken, *not_taken;
-    if (obj == NULL) {
-        taken = NULL;
-        not_taken = NULL;
-    }
-    else {
-        taken = make_branch_handler(tool_id, obj, true);
-        if (taken == NULL) {
-            return NULL;
-        }
-        not_taken = make_branch_handler(tool_id, obj, false);
-        if (not_taken == NULL) {
-            Py_DECREF(taken);
-            return NULL;
-        }
-    }
-    Py_XDECREF(exchange_callables(tool_id, PY_MONITORING_EVENT_BRANCH_TAKEN, taken));
-    return exchange_callables(tool_id, PY_MONITORING_EVENT_BRANCH_NOT_TAKEN, not_taken);
-}
-
 static void
 initialize_tools(PyCodeObject *code)
 {
@@ -2798,12 +2761,18 @@ typedef struct _PyLegacyBranchEventHandler {
     int tool_id;
 } _PyLegacyBranchEventHandler;
 
+static void
+dealloc_branch_handler(_PyLegacyBranchEventHandler *self)
+{
+    Py_CLEAR(self->handler);
+    PyObject_Free((PyObject *)self);
+}
 
 static PyTypeObject _PyLegacyBranchEventHandler_Type = {
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
     "sys.monitoring.branch_event_handler",
     sizeof(_PyLegacyBranchEventHandler),
-    .tp_dealloc = (destructor)PyObject_Free,
+    .tp_dealloc = (destructor)dealloc_branch_handler,
     .tp_vectorcall_offset = offsetof(_PyLegacyBranchEventHandler, vectorcall),
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
         Py_TPFLAGS_HAVE_VECTORCALL | Py_TPFLAGS_DISALLOW_INSTANTIATION,
@@ -2862,4 +2831,48 @@ static PyObject *make_branch_handler(int tool_id, PyObject *handler, bool taken)
     callback->taken = taken;
     callback->tool_id = tool_id;
     return (PyObject *)callback;
+}
+
+static PyObject *exchange_callables(int tool_id, int event_id, PyObject *obj)
+{
+    PyInterpreterState *is = _PyInterpreterState_GET();
+    return _Py_atomic_exchange_ptr(&is->monitoring_callables[tool_id][event_id],
+                                                 Py_XNewRef(obj));
+}
+
+PyObject *
+_PyMonitoring_RegisterCallback(int tool_id, int event_id, PyObject *obj)
+{
+    assert(0 <= tool_id && tool_id < PY_MONITORING_TOOL_IDS);
+    assert(0 <= event_id && event_id < _PY_MONITORING_EVENTS);
+    PyObject *res;
+    if (event_id == PY_MONITORING_EVENT_BRANCH) {
+        PyObject *taken, *not_taken;
+        if (obj == NULL) {
+            taken = NULL;
+            not_taken = NULL;
+        }
+        else {
+            taken = make_branch_handler(tool_id, obj, true);
+            if (taken == NULL) {
+                return NULL;
+            }
+            not_taken = make_branch_handler(tool_id, obj, false);
+            if (not_taken == NULL) {
+                Py_DECREF(taken);
+                return NULL;
+            }
+        }
+        Py_XDECREF(exchange_callables(tool_id, PY_MONITORING_EVENT_BRANCH_TAKEN, taken));
+        res = exchange_callables(tool_id, PY_MONITORING_EVENT_BRANCH_NOT_TAKEN, not_taken);
+    }
+    else {
+        res = exchange_callables(tool_id, event_id, Py_XNewRef(obj));
+    }
+    if (res != NULL && Py_TYPE(res) == &_PyLegacyBranchEventHandler_Type) {
+        _PyLegacyBranchEventHandler *wrapper = (_PyLegacyBranchEventHandler *)res;
+        res = Py_NewRef(wrapper->handler);
+        Py_DECREF(wrapper);
+    }
+    return res;
 }
