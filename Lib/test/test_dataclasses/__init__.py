@@ -3630,7 +3630,7 @@ class TestSlots(unittest.TestCase):
         @dataclass(slots=True, weakref_slot=True)
         class E1(WithSlots, Generic[T]):
             pass
-        self.assertEqual(E1.__slots__, {'__weakref__': None}))
+        self.assertEqual(E1.__slots__, {'__weakref__': None})
         self.assertTrue(E1.__weakref__)
         E1()
         @dataclass(slots=True, weakref_slot=True)
