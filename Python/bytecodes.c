@@ -142,8 +142,7 @@ dummy_func(
         pure inst(NOP, (--)) {
         }
 
-        inst(NOT_TAKEN, (--)) {
-        }
+        macro(NOT_TAKEN) = NOP;
 
         family(RESUME, 0) = {
             RESUME_CHECK,

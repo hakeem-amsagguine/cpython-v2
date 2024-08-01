@@ -12,10 +12,6 @@
             break;
         }
 
-        case _NOT_TAKEN: {
-            break;
-        }
-
         case _RESUME_CHECK: {
             #if defined(__EMSCRIPTEN__)
             if (_Py_emscripten_signal_clock == 0) {

@@ -20,7 +20,6 @@ extern int _PyUop_num_popped(int opcode, int oparg);
 #ifdef NEED_OPCODE_METADATA
 const uint16_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_NOP] = HAS_PURE_FLAG,
-    [_NOT_TAKEN] = 0,
     [_RESUME_CHECK] = HAS_DEOPT_FLAG,
     [_LOAD_FAST_CHECK] = HAS_ARG_FLAG | HAS_LOCAL_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_LOAD_FAST_0] = HAS_LOCAL_FLAG | HAS_PURE_FLAG,
@@ -468,7 +467,6 @@ const char *const _PyOpcode_uop_name[MAX_UOP_ID+1] = {
     [_MATCH_SEQUENCE] = "_MATCH_SEQUENCE",
     [_MAYBE_EXPAND_METHOD] = "_MAYBE_EXPAND_METHOD",
     [_NOP] = "_NOP",
-    [_NOT_TAKEN] = "_NOT_TAKEN",
     [_POP_EXCEPT] = "_POP_EXCEPT",
     [_POP_TOP] = "_POP_TOP",
     [_POP_TOP_LOAD_CONST_INLINE_BORROW] = "_POP_TOP_LOAD_CONST_INLINE_BORROW",
@@ -533,8 +531,6 @@ int _PyUop_num_popped(int opcode, int oparg)
 {
     switch(opcode) {
         case _NOP:
-            return 0;
-        case _NOT_TAKEN:
             return 0;
         case _RESUME_CHECK:
             return 0;
