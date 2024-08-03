@@ -233,11 +233,10 @@ class TestCornerCases(unittest.TestCase):
             x, y, z = CustomSeq()
             """
         )
-        try:
+        with self.assertRaises(ValueError) as cm:
             exec(code)
-        except ValueError as exc:
-            self.assertEqual(exc.args, ('too many values to unpack (expected 3)',))
-            self.assertIsInstance(exc.__context__, RuntimeError)
+        self.assertEqual(str(cm.exception), "too many values to unpack (expected 3)")
+        self.assertIsInstance(cm.exception.__context__, RuntimeError)
 
     def test_baseexception_propagation_when_len_fails(self):
         """if `__len__()` raises a `BaseException`, propagate that as-is"""
