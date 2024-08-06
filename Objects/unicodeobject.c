@@ -2851,6 +2851,14 @@ unicode_fromformat_arg(_PyUnicodeWriter *writer,
             default: fmt = formats[sizemod]; break;
         }
         int issigned = (*f == 'd' || *f == 'i');
+        // Format strings for sprintf are selected from constant arrays of
+        // constant strings, and the variable used to index into the arrays
+        // is only assigned known constant values. Ignore warnings related
+        // to the format string not being a string literal.
+        #if defined(__GNUC__) || defined(__clang__)
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wformat-nonliteral"
+        #endif
         switch (sizemod) {
             case F_LONG:
                 len = issigned ?
@@ -2881,6 +2889,9 @@ unicode_fromformat_arg(_PyUnicodeWriter *writer,
                     sprintf(buffer, fmt, va_arg(*vargs, unsigned int));
                 break;
         }
+        #if defined(__GNUC__) || defined(__clang__)
+        #pragma GCC diagnostic pop
+        #endif
         assert(len >= 0);
 
         int sign = (buffer[0] == '-');
