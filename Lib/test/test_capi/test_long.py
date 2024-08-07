@@ -631,6 +631,93 @@ class LongTests(unittest.TestCase):
 
         # CRASHES getsign(NULL)
 
+    def test_long_layout(self):
+        # Test PyLong_LAYOUT
+        int_info = sys.int_info
+        layout = _testcapi.get_pylong_layout()
+        expected = {
+            'array_endian': -1,
+            'bits_per_digit': int_info.bits_per_digit,
+            'digit_size': int_info.sizeof_digit,
+            'word_endian': -1 if sys.byteorder == 'little' else 1,
+        }
+        self.assertEqual(layout, expected)
+
+    def test_long_export(self):
+        # Test PyLong_Export()
+        layout = _testcapi.get_pylong_layout()
+        base = 2 ** layout['bits_per_digit']
+
+        pylong_asdigitarray = _testcapi.pylong_asdigitarray
+        self.assertEqual(pylong_asdigitarray(0), (0, [0], layout))
+        self.assertEqual(pylong_asdigitarray(123), (0, [123], layout))
+        self.assertEqual(pylong_asdigitarray(-123), (1, [123], layout))
+        self.assertEqual(pylong_asdigitarray(base**2 * 3 + base * 2 + 1),
+                         (0, [1, 2, 3], layout))
+
+        with self.assertRaises(TypeError):
+            pylong_asdigitarray(1.0)
+        with self.assertRaises(TypeError):
+            pylong_asdigitarray(0+1j)
+        with self.assertRaises(TypeError):
+            pylong_asdigitarray("abc")
+
+    def test_longwriter_create(self):
+        # Test PyLong_Import()
+        layout = _testcapi.get_pylong_layout()
+        base = 2 ** layout['bits_per_digit']
+
+        pylongwriter_create = _testcapi.pylongwriter_create
+        self.assertEqual(pylongwriter_create(0, [], layout), 0)
+        self.assertEqual(pylongwriter_create(0, [0], layout), 0)
+        self.assertEqual(pylongwriter_create(0, [123], layout), 123)
+        self.assertEqual(pylongwriter_create(1, [123], layout), -123)
+        self.assertEqual(pylongwriter_create(1, [1, 2], layout),
+                         -(base * 2 + 1))
+        self.assertEqual(pylongwriter_create(0, [1, 2, 3], layout),
+                         base**2 * 3 + base * 2 + 1)
+        max_digit = base - 1
+        self.assertEqual(pylongwriter_create(0, [max_digit, max_digit, max_digit], layout),
+                         base**2 * max_digit + base * max_digit + max_digit)
+
+        # normalize
+        self.assertEqual(pylongwriter_create(0, [123, 0, 0], layout), 123)
+
+        # test singletons + normalize
+        for num in (-2, 0, 1, 5, 42, 100):
+            self.assertIs(pylongwriter_create(bool(num < 0), [abs(num), 0], layout),
+                          num)
+
+        # round trip: Python int -> export -> Python int
+        pylong_asdigitarray = _testcapi.pylong_asdigitarray
+        numbers = [*range(0, 10), 12345, 0xdeadbeef, 2**100, 2**100-1]
+        numbers.extend(-num for num in list(numbers))
+        for num in numbers:
+            with self.subTest(num=num):
+                negative, digits, layout = pylong_asdigitarray(num)
+                self.assertEqual(pylongwriter_create(negative, digits, layout), num,
+                                 (negative, digits, layout))
+
+        # invalid layout
+        with self.assertRaises(ValueError):
+            layout = _testcapi.get_pylong_layout()
+            layout['bits_per_digit'] += 1
+            pylongwriter_create(0, [123], layout)
+        with self.assertRaises(ValueError):
+            layout = _testcapi.get_pylong_layout()
+            layout['digit_size'] *= 2
+            pylongwriter_create(0, [123], layout)
+        def change_endian(endian):
+            return (-endian if endian else 1)
+        with self.assertRaises(ValueError):
+            layout = _testcapi.get_pylong_layout()
+            layout['word_endian'] = change_endian(layout['word_endian'])
+            pylongwriter_create(0, [123], layout)
+        with self.assertRaises(ValueError):
+            layout = _testcapi.get_pylong_layout()
+            layout['array_endian'] = change_endian(layout['array_endian'])
+            pylongwriter_create(0, [123], layout)
+
 
 if __name__ == "__main__":
     unittest.main()

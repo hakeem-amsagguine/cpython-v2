@@ -6727,3 +6727,93 @@ Py_ssize_t
 PyUnstable_Long_CompactValue(const PyLongObject* op) {
     return _PyLong_CompactValue((PyLongObject*)op);
 }
+
+const PyLongLayout PyLong_LAYOUT = {
+    .bits_per_digit = PyLong_SHIFT,
+    .word_endian = PY_LITTLE_ENDIAN ? -1 : 1,
+    .array_endian = -1,  // least significant first
+    .digit_size = sizeof(digit),
+};
+
+
+const PyLongLayout* PyLong_GetNativeLayout(void)
+{
+    return &PyLong_LAYOUT;
+}
+
+
+int
+PyLong_AsDigitArray(PyObject *obj, PyLong_DigitArray *array)
+{
+    if (!PyLong_Check(obj)) {
+        PyErr_Format(PyExc_TypeError, "expect int, got %T", obj);
+        return -1;
+    }
+    PyLongObject *self = (PyLongObject*)obj;
+
+    array->obj = Py_NewRef(obj);
+    array->negative = _PyLong_IsNegative(self);
+    array->ndigits = _PyLong_DigitCount(self);
+    if (array->ndigits == 0) {
+        array->ndigits = 1;
+    }
+    array->digits = self->long_value.ob_digit;
+    array->layout = &PyLong_LAYOUT;
+    return 0;
+}
+
+
+void
+PyLong_FreeDigitArray(PyLong_DigitArray *array)
+{
+    Py_CLEAR(array->obj);
+    array->negative = 0;
+    array->ndigits = 0;
+    array->digits = NULL;
+}
+
+
+/* --- PyLongWriter API --------------------------------------------------- */
+
+PyLongWriter* PyLongWriter_Create(int negative, Py_ssize_t ndigits, Py_digit **digits,
+                                  const PyLongLayout *layout)
+{
+    if (ndigits < 0) {
+        PyErr_SetString(PyExc_ValueError, "ndigits must be positive");
+        return NULL;
+    }
+    assert(digits != NULL);
+    // First, compare pointers (fast-path) since it's faster
+    if (layout != &PyLong_LAYOUT
+        && (memcmp(layout, &PyLong_LAYOUT, sizeof(*layout)) != 0))
+    {
+        PyErr_SetString(PyExc_ValueError, "only the native layout is supported");
+        return NULL;
+    }
+
+    PyLongObject *obj = _PyLong_New(ndigits);
+    if (obj == NULL) {
+        return NULL;
+    }
+    if (ndigits == 0) {
+        assert(obj->long_value.ob_digit[0] == 0);
+    }
+    if (negative) {
+        _PyLong_FlipSign(obj);
+    }
+
+    *digits = obj->long_value.ob_digit;
+    return (PyLongWriter*)obj;
+}
+
+
+PyObject* PyLongWriter_Finish(PyLongWriter *writer)
+{
+    PyLongObject *obj = (PyLongObject *)writer;
+    assert(Py_REFCNT(obj) == 1);
+
+    // Normalize and get singleton if possible
+    obj = maybe_small_long(long_normalize(obj));
+
+    return (PyObject*)obj;
+}
