@@ -34,6 +34,8 @@ class bytes "PyBytesObject *" "&PyBytes_Type"
 /* Forward declaration */
 Py_LOCAL_INLINE(Py_ssize_t) _PyBytesWriter_GetSize(_PyBytesWriter *writer,
                                                    char *str);
+static void* _PyBytesWriter_Resize(_PyBytesWriter *writer,
+                                   void *str, Py_ssize_t size);
 
 
 #define CHARACTERS _Py_SINGLETON(bytes_characters)
@@ -2818,8 +2820,9 @@ _PyBytes_FromList(PyObject *x)
 
         if (i >= size) {
             str = _PyBytesWriter_Resize(&writer, str, size+1);
-            if (str == NULL)
-                return NULL;
+            if (str == NULL) {
+                goto error;
+            }
             size = writer.allocated;
         }
         *str++ = (char) value;
@@ -2913,8 +2916,9 @@ _PyBytes_FromIterator(PyObject *it, PyObject *x)
         /* Append the byte */
         if (i >= size) {
             str = _PyBytesWriter_Resize(&writer, str, size+1);
-            if (str == NULL)
-                return NULL;
+            if (str == NULL) {
+                goto error;
+            }
             size = writer.allocated;
         }
         *str++ = (char) value;
@@ -3379,11 +3383,44 @@ _PyBytesWriter_Init(_PyBytesWriter *writer)
 #endif
 }
 
+
+PyBytesWriter* PyBytesWriter_Create(Py_ssize_t size, char **pstr)
+{
+    _PyBytesWriter *writer = PyMem_Malloc(sizeof(_PyBytesWriter));
+    if (writer == NULL) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+    _PyBytesWriter_Init(writer);
+
+    char *str = _PyBytesWriter_Alloc(writer, size);
+    if (str == NULL) {
+        PyBytesWriter_Discard((PyBytesWriter*)writer);
+        return NULL;
+    }
+
+    // Always enable overallocation
+    writer->overallocate = 1;
+
+    *pstr = str;
+    return (PyBytesWriter*)writer;
+}
+
+
 void
 _PyBytesWriter_Dealloc(_PyBytesWriter *writer)
 {
     Py_CLEAR(writer->buffer);
 }
+
+
+void
+PyBytesWriter_Discard(PyBytesWriter *writer)
+{
+    _PyBytesWriter_Dealloc((_PyBytesWriter*)writer);
+    PyMem_Free(writer);
+}
+
 
 Py_LOCAL_INLINE(char*)
 _PyBytesWriter_AsString(_PyBytesWriter *writer)
@@ -3449,26 +3486,37 @@ _PyBytesWriter_CheckConsistency(_PyBytesWriter *writer, char *str)
 }
 #endif
 
-void*
+
+/* Resize the buffer to make it larger.
+   The new buffer may be larger than size bytes because of overallocation.
+   Return the updated current pointer inside the buffer.
+   Raise an exception and return NULL on error.
+
+   Note: size must be greater than the number of allocated bytes in the writer.
+
+   This function doesn't use the writer minimum size (min_size attribute).
+
+   See also _PyBytesWriter_Prepare().
+*/
+static void*
 _PyBytesWriter_Resize(_PyBytesWriter *writer, void *str, Py_ssize_t size)
 {
-    Py_ssize_t allocated, pos;
-
     assert(_PyBytesWriter_CheckConsistency(writer, str));
     assert(writer->allocated < size);
 
-    allocated = size;
+    Py_ssize_t allocated = size;
     if (writer->overallocate
         && allocated <= (PY_SSIZE_T_MAX - allocated / OVERALLOCATE_FACTOR)) {
         /* overallocate to limit the number of realloc() */
         allocated += allocated / OVERALLOCATE_FACTOR;
     }
 
-    pos = _PyBytesWriter_GetSize(writer, str);
+    Py_ssize_t pos = _PyBytesWriter_GetSize(writer, str);
     if (!writer->use_small_buffer) {
         if (writer->use_bytearray) {
-            if (PyByteArray_Resize(writer->buffer, allocated))
-                goto error;
+            if (PyByteArray_Resize(writer->buffer, allocated)) {
+                return NULL;
+            }
             /* writer->allocated can be smaller than writer->buffer->ob_alloc,
                but we cannot use ob_alloc because bytes may need to be moved
                to use the whole buffer. bytearray uses an internal optimization
@@ -3476,8 +3524,9 @@ _PyBytesWriter_Resize(_PyBytesWriter *writer, void *str, Py_ssize_t size)
                beginning (ex: del bytearray[:1]). */
         }
         else {
-            if (_PyBytes_Resize(&writer->buffer, allocated))
-                goto error;
+            if (_PyBytes_Resize(&writer->buffer, allocated)) {
+                return NULL;
+            }
         }
     }
     else {
@@ -3488,8 +3537,9 @@ _PyBytesWriter_Resize(_PyBytesWriter *writer, void *str, Py_ssize_t size)
             writer->buffer = PyByteArray_FromStringAndSize(NULL, allocated);
         else
             writer->buffer = PyBytes_FromStringAndSize(NULL, allocated);
-        if (writer->buffer == NULL)
-            goto error;
+        if (writer->buffer == NULL) {
+            return NULL;
+        }
 
         if (pos != 0) {
             char *dest;
@@ -3513,17 +3563,11 @@ _PyBytesWriter_Resize(_PyBytesWriter *writer, void *str, Py_ssize_t size)
     str = _PyBytesWriter_AsString(writer) + pos;
     assert(_PyBytesWriter_CheckConsistency(writer, str));
     return str;
-
-error:
-    _PyBytesWriter_Dealloc(writer);
-    return NULL;
 }
 
 void*
 _PyBytesWriter_Prepare(_PyBytesWriter *writer, void *str, Py_ssize_t size)
 {
-    Py_ssize_t new_min_size;
-
     assert(_PyBytesWriter_CheckConsistency(writer, str));
     assert(size >= 0);
 
@@ -3534,17 +3578,38 @@ _PyBytesWriter_Prepare(_PyBytesWriter *writer, void *str, Py_ssize_t size)
 
     if (writer->min_size > PY_SSIZE_T_MAX - size) {
         PyErr_NoMemory();
-        _PyBytesWriter_Dealloc(writer);
         return NULL;
     }
-    new_min_size = writer->min_size + size;
+    Py_ssize_t new_min_size = writer->min_size + size;
 
-    if (new_min_size > writer->allocated)
+    if (new_min_size > writer->allocated) {
         str = _PyBytesWriter_Resize(writer, str, new_min_size);
+        if (str == NULL) {
+            return NULL;
+        }
+    }
 
     writer->min_size = new_min_size;
     return str;
 }
+
+
+int
+PyBytesWriter_Prepare(PyBytesWriter *writer, char **str, Py_ssize_t size)
+{
+    if (size < 0) {
+        PyErr_SetString(PyExc_ValueError, "size must be positive");
+        return -1;
+    }
+
+    char *str2 = _PyBytesWriter_Prepare((_PyBytesWriter*)writer, *str, size);
+    if (str2 == NULL) {
+        return -1;
+    }
+    *str = str2;
+    return 0;
+}
+
 
 /* Allocate the buffer to write size bytes.
    Return the pointer to the beginning of buffer data.
@@ -3623,6 +3688,16 @@ _PyBytesWriter_Finish(_PyBytesWriter *writer, void *str)
     return result;
 }
 
+
+PyObject *
+PyBytesWriter_Finish(PyBytesWriter *writer, char *str)
+{
+    PyObject *res = _PyBytesWriter_Finish((_PyBytesWriter*)writer, str);
+    PyMem_Free(writer);
+    return res;
+}
+
+
 void*
 _PyBytesWriter_WriteBytes(_PyBytesWriter *writer, void *ptr,
                           const void *bytes, Py_ssize_t size)
@@ -3637,6 +3712,21 @@ _PyBytesWriter_WriteBytes(_PyBytesWriter *writer, void *ptr,
     str += size;
 
     return str;
+}
+
+
+int
+PyBytesWriter_WriteBytes(PyBytesWriter *writer, char **str,
+                         const void *bytes, Py_ssize_t size)
+{
+    char *str2 = _PyBytesWriter_WriteBytes((_PyBytesWriter *)writer, *str,
+                                           bytes, size);
+    if (str2 == NULL) {
+        return -1;
+    }
+
+    *str = str2;
+    return 0;
 }
 
 

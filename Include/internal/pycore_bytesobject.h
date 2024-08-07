@@ -82,9 +82,9 @@ typedef struct {
        This flag must be zero if use_bytearray is non-zero. */
     int overallocate;
 
-    /* Stack buffer */
+    /* Small buffer: smaller than pymalloc 512 bytes threshold */
     int use_small_buffer;
-    char small_buffer[512];
+    char small_buffer[256];
 } _PyBytesWriter;
 
 /* Initialize a bytes writer
@@ -117,21 +117,6 @@ PyAPI_FUNC(void*) _PyBytesWriter_Alloc(_PyBytesWriter *writer,
    Return the updated current pointer inside the buffer.
    Raise an exception and return NULL on error. */
 PyAPI_FUNC(void*) _PyBytesWriter_Prepare(_PyBytesWriter *writer,
-    void *str,
-    Py_ssize_t size);
-
-/* Resize the buffer to make it larger.
-   The new buffer may be larger than size bytes because of overallocation.
-   Return the updated current pointer inside the buffer.
-   Raise an exception and return NULL on error.
-
-   Note: size must be greater than the number of allocated bytes in the writer.
-
-   This function doesn't use the writer minimum size (min_size attribute).
-
-   See also _PyBytesWriter_Prepare().
-   */
-PyAPI_FUNC(void*) _PyBytesWriter_Resize(_PyBytesWriter *writer,
     void *str,
     Py_ssize_t size);
 
