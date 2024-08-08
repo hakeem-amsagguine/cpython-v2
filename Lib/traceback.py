@@ -1114,7 +1114,6 @@ class TracebackException:
                 pass
             except Exception as exc:
                 exc_value.__context__ = exc
-                pass
 
         if lookup_lines:
             self._load_lines()
