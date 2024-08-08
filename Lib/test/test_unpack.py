@@ -257,7 +257,7 @@ class TestCornerCases(unittest.TestCase):
         )
         with self.assertRaises(ValueError) as cm:
             exec(code)
-        
+
         try:
             traceback.format_exception(cm.exception)
         except KeyboardInterrupt:
