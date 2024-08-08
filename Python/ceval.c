@@ -2121,39 +2121,19 @@ _PyEval_UnpackIterableStackRef(PyThreadState *tstate, _PyStackRef v_stackref,
             return 1;
         }
         Py_DECREF(w);
+        _PyErr_Format(tstate, PyExc_ValueError,
+                      "too many values to unpack (expected %d)",
+                      argcnt);
+        PyObject *exc = _PyErr_GetRaisedException(tstate);
+        PyObject_SetAttr(exc,
+                         PyUnicode_FromString("_is_incomplete_unpack_errmsg"),
+                         Py_True);
+        PyObject_SetAttr(exc, PyUnicode_FromString("_unpacked_value"), v);
+        PyObject_SetAttr(exc,
+                         PyUnicode_FromString("_expected_arg_count"),
+                         PyLong_FromLong(argcnt));
 
-        ll = PyObject_Size(v);
-        if (_PyErr_Occurred(tstate)) {
-            /* The error can be a `TypeError` (for object that implements
-               `__getitem__` but doesn't implement `__len__`).
-               For any other kind of `Exception`, we raise `ValueError` while
-               setting the raised exception as context.
-               For a `BaseException`, we don't modify it at all, and let it
-               propagate.
-            */
-            if (_PyErr_ExceptionMatches(tstate, PyExc_TypeError)) {
-                _PyErr_Format(tstate, PyExc_ValueError,
-                              "too many values to unpack (expected %d)",
-                              argcnt);
-            }
-            else if (_PyErr_ExceptionMatches(tstate, PyExc_Exception)) {
-                PyObject *exc = _PyErr_GetRaisedException(tstate);
-                _PyErr_Format(tstate, PyExc_ValueError,
-                              "too many values to unpack (expected %d)",
-                              argcnt);
-                _PyErr_ChainExceptions1(exc);
-            }
-        }
-        else if (ll <= argcnt) {
-            _PyErr_Format(tstate, PyExc_ValueError,
-                          "too many values to unpack (expected %d)",
-                          argcnt);
-        }
-        else {
-            _PyErr_Format(tstate, PyExc_ValueError,
-                          "too many values to unpack (expected %d, got %zd)",
-                          argcnt, ll);
-        }
+        _PyErr_SetRaisedException(tstate, exc);
         goto Error;
     }
 

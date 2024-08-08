@@ -1,5 +1,6 @@
 import doctest
 import textwrap
+import traceback
 import unittest
 
 
@@ -235,6 +236,9 @@ class TestCornerCases(unittest.TestCase):
         )
         with self.assertRaises(ValueError) as cm:
             exec(code)
+
+        # Force processing by traceback module
+        traceback.format_exception(cm.exception)
         self.assertEqual(str(cm.exception), "too many values to unpack (expected 3)")
         self.assertIsInstance(cm.exception.__context__, RuntimeError)
 

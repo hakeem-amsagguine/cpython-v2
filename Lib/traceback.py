@@ -1095,6 +1095,24 @@ class TracebackException:
                         self._str += f" Or did you forget to import '{wrong_name}'?"
                     else:
                         self._str += f". Did you forget to import '{wrong_name}'?"
+        elif exc_value and self._is_unpack_error(exc_value):
+            lhs_length = exc_value._expected_arg_count
+            try:
+                rhs_length = len(exc_value._unpacked_value)
+                if rhs_length and rhs_length > lhs_length:
+                    self._str = (
+                        f"too many values to unpack (expected {lhs_length},"
+                        f" got {rhs_length})"
+                    )
+            except TypeError:
+                pass
+            except Exception as exc:
+                exc_value.__context__ = exc
+                pass
+            except BaseException:
+                # this suppresses KeyboardInterrupts and such, not ideal.
+                pass
+
         if lookup_lines:
             self._load_lines()
         self.__suppress_context__ = \
@@ -1196,6 +1214,10 @@ class TracebackException:
         """Private API. force all lines in the stack to be loaded."""
         for frame in self.stack:
             frame.line
+
+    def _is_unpack_error(self, exc_value):
+        """Test for if the error is a Python unpacking error"""
+        return hasattr(exc_value, "_is_incomplete_unpack_errmsg")
 
     def __eq__(self, other):
         if isinstance(other, TracebackException):
