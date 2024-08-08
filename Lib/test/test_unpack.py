@@ -255,8 +255,11 @@ class TestCornerCases(unittest.TestCase):
             x, y, z = C()
             """
         )
-        try:
+        with self.assertRaises(ValueError) as cm:
             exec(code)
+        
+        try:
+            traceback.format_exception(cm.exception)
         except KeyboardInterrupt:
             pass
         except Exception as exc:

@@ -1109,9 +1109,6 @@ class TracebackException:
             except Exception as exc:
                 exc_value.__context__ = exc
                 pass
-            except BaseException:
-                # this suppresses KeyboardInterrupts and such, not ideal.
-                pass
 
         if lookup_lines:
             self._load_lines()
