@@ -1097,6 +1097,12 @@ class TracebackException:
                         self._str += f". Did you forget to import '{wrong_name}'?"
         elif exc_value and self._is_unpack_error(exc_value):
             lhs_length = exc_value._expected_arg_count
+            # The error can be a `TypeError` (for object that implements
+            # `__getitem__` but doesn't implement `__len__`).
+            # For any other kind of `Exception`, we raise `ValueError` while
+            # setting the raised exception as context.
+            # For a `BaseException`, we don't modify it at all, and let it
+            # propagate.
             try:
                 rhs_length = len(exc_value._unpacked_value)
                 if rhs_length and rhs_length > lhs_length:
