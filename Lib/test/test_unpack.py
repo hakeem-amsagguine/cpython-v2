@@ -244,7 +244,6 @@ class TestCornerCases(unittest.TestCase):
             "ValueError: too many values to unpack (expected 3)\n",
             traceback_text,
         )
-        
 
     def test_baseexception_propagation_when_len_fails(self):
         """if `__len__()` raises a `BaseException`, propagate that as-is"""
