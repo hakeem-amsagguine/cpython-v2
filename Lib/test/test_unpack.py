@@ -237,10 +237,14 @@ class TestCornerCases(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             exec(code)
 
-        # Force processing by traceback module
-        traceback.format_exception(cm.exception)
-        self.assertEqual(str(cm.exception), "too many values to unpack (expected 3)")
-        self.assertIsInstance(cm.exception.__context__, RuntimeError)
+        traceback_text = ''.join(traceback.format_exception(cm.exception))
+        self.assertIn(
+            "RuntimeError\n\n"
+            "During handling of the above exception, another exception occurred:\n\n"
+            "ValueError: too many values to unpack (expected 3)\n",
+            traceback_text,
+        )
+        
 
     def test_baseexception_propagation_when_len_fails(self):
         """if `__len__()` raises a `BaseException`, propagate that as-is"""
@@ -258,14 +262,8 @@ class TestCornerCases(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             exec(code)
 
-        try:
+        with self.assertRaises(KeyboardInterrupt):
             traceback.format_exception(cm.exception)
-        except KeyboardInterrupt:
-            pass
-        except Exception as exc:
-            self.fail(f"Expected KeyboardInterrupt, found {type(exc).__name__}: {exc}")
-        else:
-            self.fail("KeyboardInterrupt not raised")
 
 if __name__ == "__main__":
     unittest.main()

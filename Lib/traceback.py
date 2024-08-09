@@ -1096,7 +1096,7 @@ class TracebackException:
                     else:
                         self._str += f". Did you forget to import '{wrong_name}'?"
         elif exc_value and self._is_unpack_error(exc_value):
-            lhs_length = exc_value._expected_arg_count
+            lhs_length = exc_value._unpack_expected_argcnt
             try:
                 rhs_length = len(exc_value._unpacked_value)
                 if rhs_length and rhs_length > lhs_length:
@@ -1219,7 +1219,7 @@ class TracebackException:
 
     def _is_unpack_error(self, exc_value):
         """Test for if the error is a Python unpacking error"""
-        return hasattr(exc_value, "_is_incomplete_unpack_errmsg")
+        return hasattr(exc_value, "_unpack_expected_argcnt")
 
     def __eq__(self, other):
         if isinstance(other, TracebackException):
