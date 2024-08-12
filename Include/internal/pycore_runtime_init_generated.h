@@ -537,8 +537,6 @@ extern "C" {
 }
 
 #define _Py_str_literals_INIT { \
-    INIT_STR(_unpack_expected_argcnt, "_unpack_expected_argcnt"), \
-    INIT_STR(_unpacked_value, "_unpacked_value"), \
     INIT_STR(anon_dictcomp, "<dictcomp>"), \
     INIT_STR(anon_genexpr, "<genexpr>"), \
     INIT_STR(anon_lambda, "<lambda>"), \
@@ -776,6 +774,8 @@ extern "C" {
     INIT_ID(_swappedbytes_), \
     INIT_ID(_type_), \
     INIT_ID(_uninitialized_submodules), \
+    INIT_ID(_unpack_expected_argcnt), \
+    INIT_ID(_unpacked_value), \
     INIT_ID(_warn_unawaited_coroutine), \
     INIT_ID(_xoptions), \
     INIT_ID(abs_tol), \
