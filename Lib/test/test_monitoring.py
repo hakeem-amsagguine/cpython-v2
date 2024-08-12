@@ -1425,12 +1425,13 @@ def line_from_offset(code, offset):
             return line - code.co_firstlineno
     return -1
 
+
 class JumpRecorder:
 
     event_type = E.JUMP
     name = "jump"
 
-    def __init__(self, events):
+    def __init__(self, events, offsets=False):
         self.events = events
 
     def __call__(self, code, from_, to):
@@ -1444,11 +1445,44 @@ class BranchRecorder(JumpRecorder):
     event_type = E.BRANCH
     name = "branch"
 
+class BranchTakenRecorder(JumpRecorder):
+
+    event_type = E.BRANCH_TAKEN
+    name = "branch taken"
+
+class BranchNotTakenRecorder(JumpRecorder):
+
+    event_type = E.BRANCH_NOT_TAKEN
+    name = "branch not taken"
+
+
+class JumpOffsetRecorder:
+
+    event_type = E.JUMP
+    name = "jump"
+
+    def __init__(self, events, offsets=False):
+        self.events = events
+
+    def __call__(self, code, from_, to):
+        self.events.append((self.name, code.co_name, from_, to))
+
+class BranchTakenOffsetRecorder(JumpOffsetRecorder):
+
+    event_type = E.BRANCH_TAKEN
+    name = "branch taken"
+
+class BranchNotTakenOffsetRecorder(JumpOffsetRecorder):
+
+    event_type = E.BRANCH_NOT_TAKEN
+    name = "branch not taken"
 
 
 JUMP_AND_BRANCH_RECORDERS = JumpRecorder, BranchRecorder
 JUMP_BRANCH_AND_LINE_RECORDERS = JumpRecorder, BranchRecorder, LineRecorder
 FLOW_AND_LINE_RECORDERS = JumpRecorder, BranchRecorder, LineRecorder, ExceptionRecorder, ReturnRecorder
+BRANCHES_RECORDERS = BranchTakenRecorder, BranchNotTakenRecorder
+BRANCH_OFFSET_RECORDERS = BranchTakenOffsetRecorder, BranchNotTakenOffsetRecorder
 
 class TestBranchAndJumpEvents(CheckEvents):
     maxDiff = None
@@ -1492,6 +1526,20 @@ class TestBranchAndJumpEvents(CheckEvents):
             ('branch', 'func', 2, 7),
             ('line', 'func', 7),
             ('line', 'get_events', 11)])
+
+        self.check_events(func, recorders = BRANCHES_RECORDERS, expected = [
+            ('branch not taken', 'func', 2, 2),
+            ('branch taken', 'func', 3, 6),
+            ('branch not taken', 'func', 2, 2),
+            ('branch not taken', 'func', 3, 4),
+            ('branch taken', 'func', 2, 7)])
+
+        self.check_events(func, recorders = BRANCH_OFFSET_RECORDERS, expected = [
+            ('branch not taken', 'func', 28, 34),
+            ('branch taken', 'func', 46, 60),
+            ('branch not taken', 'func', 28, 34),
+            ('branch not taken', 'func', 46, 52),
+            ('branch taken', 'func', 28, 72)])
 
     def test_except_star(self):
 
