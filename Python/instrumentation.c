@@ -2886,7 +2886,8 @@ typedef struct {
     int bi_offset;
 } branchesiterator;
 
-PyObject *int_triple(int a, int b, int c) {
+static PyObject *
+int_triple(int a, int b, int c) {
     PyObject *obja = PyLong_FromLong(a);
     PyObject *objb = NULL;
     PyObject *objc = NULL;
