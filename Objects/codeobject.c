@@ -1277,6 +1277,7 @@ typedef struct {
 } lineiterator;
 
 
+
 static void
 lineiter_dealloc(lineiterator *li)
 {
@@ -2162,6 +2163,12 @@ code_linesiterator(PyCodeObject *code, PyObject *Py_UNUSED(args))
     return (PyObject *)new_linesiterator(code);
 }
 
+static PyObject *
+code_branchesiterator(PyCodeObject *code, PyObject *Py_UNUSED(args))
+{
+    return _PyInstrumentation_BranchesIterator(code);
+}
+
 /*[clinic input]
 @text_signature "($self, /, **changes)"
 code.replace
@@ -2302,6 +2309,7 @@ code__varname_from_oparg_impl(PyCodeObject *self, int oparg)
 static struct PyMethodDef code_methods[] = {
     {"__sizeof__", (PyCFunction)code_sizeof, METH_NOARGS},
     {"co_lines", (PyCFunction)code_linesiterator, METH_NOARGS},
+    {"co_branches", (PyCFunction)code_branchesiterator, METH_NOARGS},
     {"co_positions", (PyCFunction)code_positionsiterator, METH_NOARGS},
     CODE_REPLACE_METHODDEF
     CODE__VARNAME_FROM_OPARG_METHODDEF
