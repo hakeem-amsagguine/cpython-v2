@@ -1082,6 +1082,10 @@ call_instrumentation_vector(
     /* Offset visible to user should be the offset in bytes, as that is the
      * convention for APIs involving code offsets. */
     int bytes_offset = offset * (int)sizeof(_Py_CODEUNIT);
+    if (event == PY_MONITORING_EVENT_BRANCH_NOT_TAKEN) {
+        assert(EVENT_FOR_OPCODE[_Py_GetBaseOpcode(code, offset-2)] == PY_MONITORING_EVENT_BRANCH_TAKEN);
+        bytes_offset -= 4;
+    }
     PyObject *offset_obj = PyLong_FromLong(bytes_offset);
     if (offset_obj == NULL) {
         return -1;
@@ -2804,10 +2808,7 @@ branch_handler(
         if (self->taken) {
             offset += 2;
         }
-        else {
-            offset -= 2;
-        }
-        if (offset < 0 || offset >= Py_SIZE(code)) {
+        if (offset >= Py_SIZE(code)) {
             return res;
         }
         int other_event = self->taken ?
