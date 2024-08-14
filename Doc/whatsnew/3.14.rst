@@ -110,6 +110,13 @@ ast
 
   (Contributed by Bénédikt Tran in :gh:`121141`.)
 
+ctypes
+------
+
+* Added :func:`ctypes.util.dllist` for listing the shared libraries
+  loaded by the current process.
+  (Contributed by Brian Ward in :gh:`119349`.)
+
 dis
 ---
 
