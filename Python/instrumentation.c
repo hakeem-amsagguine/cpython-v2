@@ -2912,7 +2912,7 @@ branchesiter_next(branchesiterator *bi)
 {
     int offset = bi->bi_offset;
     while (offset < Py_SIZE(bi->bi_code)) {
-        _Py_CODEUNIT inst = _PyCode_CODE(bi->bi_code)[offset];
+        _Py_CODEUNIT inst = _Py_GetBaseCodeUnit(bi->bi_code, offset);
         int next_offset = offset + _PyInstruction_GetLength(bi->bi_code, offset);
         int event = EVENT_FOR_OPCODE[inst.op.code];
         if (event == PY_MONITORING_EVENT_BRANCH_TAKEN) {
