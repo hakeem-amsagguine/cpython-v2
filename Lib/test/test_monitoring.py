@@ -1516,6 +1516,11 @@ class TestBranchAndJumpEvents(CheckEvents):
                     x = 6
             7
 
+        def whilefunc(n=0):
+            while n < 3:
+                n += 1 # line 2
+            3
+
         self.check_events(func, recorders = JUMP_AND_BRANCH_RECORDERS, expected = [
             ('branch', 'func', 2, 2),
             ('branch', 'func', 3, 6),
@@ -1551,6 +1556,12 @@ class TestBranchAndJumpEvents(CheckEvents):
             ('branch not taken', 'func', 2, 2),
             ('branch not taken', 'func', 3, 4),
             ('branch taken', 'func', 2, 7)])
+
+        self.check_events(whilefunc, recorders = BRANCHES_RECORDERS, expected = [
+            ('branch not taken', 'whilefunc', 1, 2),
+            ('branch not taken', 'whilefunc', 1, 2),
+            ('branch not taken', 'whilefunc', 1, 2),
+            ('branch taken', 'whilefunc', 1, 3)])
 
         self.check_events(func, recorders = BRANCH_TAKEN_OFFSET_RECORDERS, expected = [
             ('branch not taken', 'func', 28, 34),
