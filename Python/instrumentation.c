@@ -318,32 +318,8 @@ _PyInstruction_GetLength(PyCodeObject *code, int offset)
 {
     ASSERT_WORLD_STOPPED_OR_LOCKED(code);
 
-    int opcode = _PyCode_CODE(code)[offset].op.code;
-    assert(opcode != 0);
-    assert(opcode != RESERVED);
-    if (opcode == INSTRUMENTED_LINE) {
-        opcode = code->_co_monitoring->lines[offset].original_opcode;
-    }
-    if (opcode == INSTRUMENTED_INSTRUCTION) {
-        opcode = code->_co_monitoring->per_instruction_opcodes[offset];
-    }
-    int deinstrumented = DE_INSTRUMENT[opcode];
-    if (deinstrumented) {
-        opcode = deinstrumented;
-    }
-    else {
-        opcode = _PyOpcode_Deopt[opcode];
-    }
-    assert(opcode != 0);
-    if (opcode == ENTER_EXECUTOR) {
-        int exec_index = _PyCode_CODE(code)[offset].op.arg;
-        _PyExecutorObject *exec = code->co_executors->executors[exec_index];
-        opcode = _PyOpcode_Deopt[exec->vm_data.opcode];
-    }
-    assert(!is_instrumented(opcode));
-    assert(opcode != ENTER_EXECUTOR);
-    assert(opcode == _PyOpcode_Deopt[opcode]);
-    return 1 + _PyOpcode_Caches[opcode];
+    _Py_CODEUNIT inst = _Py_GetBaseCodeUnit(code, offset);
+    return 1 + _PyOpcode_Caches[inst.op.code];
 }
 
 #ifdef INSTRUMENT_DEBUG
@@ -591,16 +567,15 @@ _Py_GetBaseCodeUnit(PyCodeObject *code, int i)
     int opcode = inst.op.code;
     if (opcode < MIN_INSTRUMENTED_OPCODE) {
         inst.op.code = _PyOpcode_Deopt[opcode];
-        assert(inst.op.code <= RESUME);
+        assert(inst.op.code < MIN_SPECIALIZED_OPCODE);
         return inst;
     }
     if (opcode == ENTER_EXECUTOR) {
         _PyExecutorObject *exec = code->co_executors->executors[inst.op.arg];
         opcode = _PyOpcode_Deopt[exec->vm_data.opcode];
         inst.op.code = opcode;
-        assert(opcode <= RESUME);
         inst.op.arg = exec->vm_data.oparg;
-        assert(inst.op.code <= RESUME);
+        assert(inst.op.code < MIN_SPECIALIZED_OPCODE);
         return inst;
     }
     if (opcode == INSTRUMENTED_LINE) {
