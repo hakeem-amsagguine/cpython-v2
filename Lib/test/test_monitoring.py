@@ -1853,6 +1853,10 @@ class TestSetGetEvents(MonitoringTestBase, unittest.TestCase):
         code = f1.__code__
         sys.monitoring.set_local_events(TEST_TOOL, code, E.PY_START)
         self.assertEqual(sys.monitoring.get_local_events(TEST_TOOL, code), E.PY_START)
+        sys.monitoring.set_local_events(TEST_TOOL, code, 0)
+        sys.monitoring.set_local_events(TEST_TOOL, code, E.BRANCH)
+        self.assertEqual(sys.monitoring.get_local_events(TEST_TOOL, code), E.BRANCH_NOT_TAKEN | E.BRANCH_TAKEN)
+        sys.monitoring.set_local_events(TEST_TOOL, code, 0)
         sys.monitoring.set_local_events(TEST_TOOL2, code, E.PY_START)
         self.assertEqual(sys.monitoring.get_local_events(TEST_TOOL2, code), E.PY_START)
         sys.monitoring.set_local_events(TEST_TOOL, code, 0)
