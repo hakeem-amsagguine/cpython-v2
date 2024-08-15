@@ -1478,11 +1478,29 @@ class BranchNotTakenOffsetRecorder(JumpOffsetRecorder):
     name = "branch not taken"
 
 
+class JumpOffsetRecorder:
+
+    event_type = E.JUMP
+    name = "jump"
+
+    def __init__(self, events, offsets=False):
+        self.events = events
+
+    def __call__(self, code, from_, to):
+        self.events.append((self.name, code.co_name, from_, to))
+
+class BranchOffsetRecorder(JumpOffsetRecorder):
+
+    event_type = E.BRANCH
+    name = "branch"
+
+
 JUMP_AND_BRANCH_RECORDERS = JumpRecorder, BranchRecorder
 JUMP_BRANCH_AND_LINE_RECORDERS = JumpRecorder, BranchRecorder, LineRecorder
 FLOW_AND_LINE_RECORDERS = JumpRecorder, BranchRecorder, LineRecorder, ExceptionRecorder, ReturnRecorder
+BRANCH_OFFSET_RECORDERS = BranchOffsetRecorder,
 BRANCHES_RECORDERS = BranchTakenRecorder, BranchNotTakenRecorder
-BRANCH_OFFSET_RECORDERS = BranchTakenOffsetRecorder, BranchNotTakenOffsetRecorder
+BRANCH_TAKEN_OFFSET_RECORDERS = BranchTakenOffsetRecorder, BranchNotTakenOffsetRecorder
 
 class TestBranchAndJumpEvents(CheckEvents):
     maxDiff = None
@@ -1534,7 +1552,7 @@ class TestBranchAndJumpEvents(CheckEvents):
             ('branch not taken', 'func', 3, 4),
             ('branch taken', 'func', 2, 7)])
 
-        self.check_events(func, recorders = BRANCH_OFFSET_RECORDERS, expected = [
+        self.check_events(func, recorders = BRANCH_TAKEN_OFFSET_RECORDERS, expected = [
             ('branch not taken', 'func', 28, 34),
             ('branch taken', 'func', 46, 60),
             ('branch not taken', 'func', 28, 34),
@@ -1585,6 +1603,24 @@ class TestBranchAndJumpEvents(CheckEvents):
             ('branch', 'func', '[offset=124]', '[offset=130]'),
             ('return', 'func', None),
             ('line', 'get_events', 11)])
+
+    def test_while_offset_consistency(self):
+
+        def foo(n=0):
+            while n<4:
+                pass
+                n += 1
+            return None
+
+        in_loop = ('branch', 'foo', 10, 16)
+        exit_loop = ('branch', 'foo', 10, 32)
+        self.check_events(foo, recorders = BRANCH_OFFSET_RECORDERS, expected = [
+            in_loop,
+            in_loop,
+            in_loop,
+            in_loop,
+            exit_loop])
+
 
 class TestLoadSuperAttr(CheckEvents):
     RECORDERS = CallRecorder, LineRecorder, CRaiseRecorder, CReturnRecorder
@@ -1910,6 +1946,21 @@ class TestRegressions(MonitoringTestBase, unittest.TestCase):
         sys.monitoring.set_events(0, 0)
         self.assertEqual(call_data[0], (f, 1))
         self.assertEqual(call_data[1], (f, sys.monitoring.MISSING))
+
+    def test_instruction_explicit_callback(self):
+        # gh-122247
+        # Calling the instruction event callback explicitly should not
+        # crash CPython
+        def callback(code, instruction_offset):
+            pass
+
+        sys.monitoring.use_tool_id(0, "test")
+        self.addCleanup(sys.monitoring.free_tool_id, 0)
+        sys.monitoring.register_callback(0, sys.monitoring.events.INSTRUCTION, callback)
+        sys.monitoring.set_events(0, sys.monitoring.events.INSTRUCTION)
+        callback(None, 0)  # call the *same* handler while it is registered
+        sys.monitoring.restart_events()
+        sys.monitoring.set_events(0, 0)
 
 
 class TestOptimizer(MonitoringTestBase, unittest.TestCase):

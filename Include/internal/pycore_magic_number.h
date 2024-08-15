@@ -255,7 +255,11 @@ Known values:
     Python 3.14a1 3601 (Fix miscompilation of private names in generic classes)
     Python 3.14a1 3602 (Add LOAD_SPECIAL. Remove BEFORE_WITH and BEFORE_ASYNC_WITH)
     Python 3.14a1 3603 (Remove BUILD_CONST_KEY_MAP)
-    Python 3.14a1 3604 (Add NOT_TAKEN)
+    Python 3.14a1 3604 (Do not duplicate test at end of while statements)
+    Python 3.14a1 3605 (Move ENTER_EXECUTOR to opcode 255)
+
+
+    Python 3.14a1 3609 (Add NOT_TAKEN)
 
     Python 3.15 will start with 3650
 
@@ -268,7 +272,7 @@ PC/launcher.c must also be updated.
 
 */
 
-#define PYC_MAGIC_NUMBER 3604
+#define PYC_MAGIC_NUMBER 3609
 /* This is equivalent to converting PYC_MAGIC_NUMBER to 2 bytes
    (little-endian) and then appending b'\r\n'. */
 #define PYC_MAGIC_NUMBER_TOKEN \
