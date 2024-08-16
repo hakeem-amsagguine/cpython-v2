@@ -2605,7 +2605,7 @@ _PyMonitoring_FireBranchEvent(PyMonitoringState *state, PyObject *codelike, int3
 }
 
 int
-_PyMonitoring_FireBranchTakenEvent(PyMonitoringState *state, PyObject *codelike, int32_t offset,
+_PyMonitoring_FireBranchRightEvent(PyMonitoringState *state, PyObject *codelike, int32_t offset,
                               PyObject *target_offset)
 {
     assert(state->active);
@@ -2615,7 +2615,7 @@ _PyMonitoring_FireBranchTakenEvent(PyMonitoringState *state, PyObject *codelike,
 }
 
 int
-_PyMonitoring_FireBranchNotTakenEvent(PyMonitoringState *state, PyObject *codelike, int32_t offset,
+_PyMonitoring_FireBranchLeftEvent(PyMonitoringState *state, PyObject *codelike, int32_t offset,
                               PyObject *target_offset)
 {
     assert(state->active);

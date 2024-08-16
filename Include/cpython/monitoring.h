@@ -81,11 +81,11 @@ _PyMonitoring_FireBranchEvent(PyMonitoringState *state, PyObject *codelike, int3
                               PyObject *target_offset);
 
 PyAPI_FUNC(int)
-_PyMonitoring_FireBranchTakenEvent(PyMonitoringState *state, PyObject *codelike, int32_t offset,
+_PyMonitoring_FireBranchRightEvent(PyMonitoringState *state, PyObject *codelike, int32_t offset,
                               PyObject *target_offset);
 
 PyAPI_FUNC(int)
-_PyMonitoring_FireBranchNotTakenEvent(PyMonitoringState *state, PyObject *codelike, int32_t offset,
+_PyMonitoring_FireBranchLeftEvent(PyMonitoringState *state, PyObject *codelike, int32_t offset,
                               PyObject *target_offset);
 
 PyAPI_FUNC(int)
@@ -184,21 +184,21 @@ PyMonitoring_FireJumpEvent(PyMonitoringState *state, PyObject *codelike, int32_t
 }
 
 static inline int
-PyMonitoring_FireBranchTakenEvent(PyMonitoringState *state, PyObject *codelike, int32_t offset,
+PyMonitoring_FireBranchRightEvent(PyMonitoringState *state, PyObject *codelike, int32_t offset,
                              PyObject *target_offset)
 {
     _PYMONITORING_IF_ACTIVE(
         state,
-        _PyMonitoring_FireBranchTakenEvent(state, codelike, offset, target_offset));
+        _PyMonitoring_FireBranchRightEvent(state, codelike, offset, target_offset));
 }
 
 static inline int
-PyMonitoring_FireBranchNotTakenEvent(PyMonitoringState *state, PyObject *codelike, int32_t offset,
+PyMonitoring_FireBranchLeftEvent(PyMonitoringState *state, PyObject *codelike, int32_t offset,
                              PyObject *target_offset)
 {
     _PYMONITORING_IF_ACTIVE(
         state,
-        _PyMonitoring_FireBranchNotTakenEvent(state, codelike, offset, target_offset));
+        _PyMonitoring_FireBranchLeftEvent(state, codelike, offset, target_offset));
 }
 
 static inline int
