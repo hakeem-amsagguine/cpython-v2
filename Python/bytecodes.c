@@ -2795,7 +2795,7 @@ dummy_func(
                 PyStackRef_CLOSE(iter_stackref);
                 /* Skip END_FOR and POP_TOP */
                 _Py_CODEUNIT *target = next_instr + oparg + 2;
-                INSTRUMENTED_JUMP(this_instr, target, PY_MONITORING_EVENT_BRANCH_TAKEN);
+                INSTRUMENTED_JUMP(this_instr, target, PY_MONITORING_EVENT_BRANCH_RIGHT);
             }
         }
 
@@ -4401,7 +4401,7 @@ dummy_func(
         }
 
         inst(INSTRUMENTED_NOT_TAKEN, ( -- )) {
-            INSTRUMENTED_JUMP(this_instr, next_instr, PY_MONITORING_EVENT_BRANCH_NOT_TAKEN);
+            INSTRUMENTED_JUMP(this_instr, next_instr, PY_MONITORING_EVENT_BRANCH_LEFT);
         }
 
         macro(INSTRUMENTED_JUMP_BACKWARD) =
@@ -4417,7 +4417,7 @@ dummy_func(
             this_instr[1].cache = (this_instr[1].cache << 1) | jump;
             #endif
             if (jump) {
-                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_TAKEN);
+                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_RIGHT);
             }
         }
 
@@ -4429,7 +4429,7 @@ dummy_func(
             this_instr[1].cache = (this_instr[1].cache << 1) | jump;
             #endif
             if (jump) {
-                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_TAKEN);
+                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_RIGHT);
             }
         }
 
@@ -4440,7 +4440,7 @@ dummy_func(
             this_instr[1].cache = (this_instr[1].cache << 1) | jump;
             #endif
             if (jump) {
-                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_TAKEN);
+                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_RIGHT);
             }
             else {
                 PyStackRef_CLOSE(value_stackref);
@@ -4455,7 +4455,7 @@ dummy_func(
             #endif
             if (jump) {
                 PyStackRef_CLOSE(value_stackref);
-                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_TAKEN);
+                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_RIGHT);
             }
         }
 

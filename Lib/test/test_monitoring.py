@@ -1447,13 +1447,13 @@ class BranchRecorder(JumpRecorder):
 
 class BranchTakenRecorder(JumpRecorder):
 
-    event_type = E.BRANCH_TAKEN
-    name = "branch taken"
+    event_type = E.BRANCH_RIGHT
+    name = "branch right"
 
 class BranchNotTakenRecorder(JumpRecorder):
 
-    event_type = E.BRANCH_NOT_TAKEN
-    name = "branch not taken"
+    event_type = E.BRANCH_LEFT
+    name = "branch left"
 
 
 class JumpOffsetRecorder:
@@ -1469,13 +1469,13 @@ class JumpOffsetRecorder:
 
 class BranchTakenOffsetRecorder(JumpOffsetRecorder):
 
-    event_type = E.BRANCH_TAKEN
-    name = "branch taken"
+    event_type = E.BRANCH_RIGHT
+    name = "branch right"
 
 class BranchNotTakenOffsetRecorder(JumpOffsetRecorder):
 
-    event_type = E.BRANCH_NOT_TAKEN
-    name = "branch not taken"
+    event_type = E.BRANCH_LEFT
+    name = "branch left"
 
 
 class JumpOffsetRecorder:
@@ -1500,7 +1500,7 @@ JUMP_BRANCH_AND_LINE_RECORDERS = JumpRecorder, BranchRecorder, LineRecorder
 FLOW_AND_LINE_RECORDERS = JumpRecorder, BranchRecorder, LineRecorder, ExceptionRecorder, ReturnRecorder
 BRANCH_OFFSET_RECORDERS = BranchOffsetRecorder,
 BRANCHES_RECORDERS = BranchTakenRecorder, BranchNotTakenRecorder
-BRANCH_TAKEN_OFFSET_RECORDERS = BranchTakenOffsetRecorder, BranchNotTakenOffsetRecorder
+BRANCH_RIGHT_OFFSET_RECORDERS = BranchTakenOffsetRecorder, BranchNotTakenOffsetRecorder
 
 class TestBranchAndJumpEvents(CheckEvents):
     maxDiff = None
@@ -1551,24 +1551,24 @@ class TestBranchAndJumpEvents(CheckEvents):
             ('line', 'get_events', 11)])
 
         self.check_events(func, recorders = BRANCHES_RECORDERS, expected = [
-            ('branch not taken', 'func', 2, 2),
-            ('branch taken', 'func', 3, 6),
-            ('branch not taken', 'func', 2, 2),
-            ('branch not taken', 'func', 3, 4),
-            ('branch taken', 'func', 2, 7)])
+            ('branch left', 'func', 2, 2),
+            ('branch right', 'func', 3, 6),
+            ('branch left', 'func', 2, 2),
+            ('branch left', 'func', 3, 4),
+            ('branch right', 'func', 2, 7)])
 
         self.check_events(whilefunc, recorders = BRANCHES_RECORDERS, expected = [
-            ('branch not taken', 'whilefunc', 1, 2),
-            ('branch not taken', 'whilefunc', 1, 2),
-            ('branch not taken', 'whilefunc', 1, 2),
-            ('branch taken', 'whilefunc', 1, 3)])
+            ('branch left', 'whilefunc', 1, 2),
+            ('branch left', 'whilefunc', 1, 2),
+            ('branch left', 'whilefunc', 1, 2),
+            ('branch right', 'whilefunc', 1, 3)])
 
-        self.check_events(func, recorders = BRANCH_TAKEN_OFFSET_RECORDERS, expected = [
-            ('branch not taken', 'func', 28, 34),
-            ('branch taken', 'func', 46, 60),
-            ('branch not taken', 'func', 28, 34),
-            ('branch not taken', 'func', 46, 52),
-            ('branch taken', 'func', 28, 72)])
+        self.check_events(func, recorders = BRANCH_RIGHT_OFFSET_RECORDERS, expected = [
+            ('branch left', 'func', 28, 34),
+            ('branch right', 'func', 46, 60),
+            ('branch left', 'func', 28, 34),
+            ('branch left', 'func', 46, 52),
+            ('branch right', 'func', 28, 72)])
 
     def test_except_star(self):
 
@@ -1866,7 +1866,7 @@ class TestSetGetEvents(MonitoringTestBase, unittest.TestCase):
         self.assertEqual(sys.monitoring.get_local_events(TEST_TOOL, code), E.PY_START)
         sys.monitoring.set_local_events(TEST_TOOL, code, 0)
         sys.monitoring.set_local_events(TEST_TOOL, code, E.BRANCH)
-        self.assertEqual(sys.monitoring.get_local_events(TEST_TOOL, code), E.BRANCH_NOT_TAKEN | E.BRANCH_TAKEN)
+        self.assertEqual(sys.monitoring.get_local_events(TEST_TOOL, code), E.BRANCH_LEFT | E.BRANCH_RIGHT)
         sys.monitoring.set_local_events(TEST_TOOL, code, 0)
         sys.monitoring.set_local_events(TEST_TOOL2, code, E.PY_START)
         self.assertEqual(sys.monitoring.get_local_events(TEST_TOOL2, code), E.PY_START)
@@ -2069,8 +2069,8 @@ class TestCApiEventGeneration(MonitoringTestBase, unittest.TestCase):
             ( 1, E.PY_RETURN, capi.fire_event_py_return, 20),
             ( 2, E.CALL, capi.fire_event_call, callable, 40),
             ( 1, E.JUMP, capi.fire_event_jump, 60),
-            ( 1, E.BRANCH_TAKEN, capi.fire_event_branch_taken, 70),
-            ( 1, E.BRANCH_NOT_TAKEN, capi.fire_event_branch_not_taken, 80),
+            ( 1, E.BRANCH_RIGHT, capi.fire_event_branch_taken, 70),
+            ( 1, E.BRANCH_LEFT, capi.fire_event_branch_not_taken, 80),
             ( 1, E.PY_THROW, capi.fire_event_py_throw, ValueError(1)),
             ( 1, E.RAISE, capi.fire_event_raise, ValueError(2)),
             ( 1, E.EXCEPTION_HANDLED, capi.fire_event_exception_handled, ValueError(5)),

@@ -3994,7 +3994,7 @@
                 PyStackRef_CLOSE(iter_stackref);
                 /* Skip END_FOR and POP_TOP */
                 _Py_CODEUNIT *target = next_instr + oparg + 2;
-                INSTRUMENTED_JUMP(this_instr, target, PY_MONITORING_EVENT_BRANCH_TAKEN);
+                INSTRUMENTED_JUMP(this_instr, target, PY_MONITORING_EVENT_BRANCH_RIGHT);
             }
             DISPATCH();
         }
@@ -4099,7 +4099,7 @@
             (void)this_instr;
             next_instr += 1;
             INSTRUCTION_STATS(INSTRUMENTED_NOT_TAKEN);
-            INSTRUMENTED_JUMP(this_instr, next_instr, PY_MONITORING_EVENT_BRANCH_NOT_TAKEN);
+            INSTRUMENTED_JUMP(this_instr, next_instr, PY_MONITORING_EVENT_BRANCH_LEFT);
             DISPATCH();
         }
 
@@ -4116,7 +4116,7 @@
             this_instr[1].cache = (this_instr[1].cache << 1) | jump;
             #endif
             if (jump) {
-                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_TAKEN);
+                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_RIGHT);
             }
             DISPATCH();
         }
@@ -4133,7 +4133,7 @@
             this_instr[1].cache = (this_instr[1].cache << 1) | jump;
             #endif
             if (jump) {
-                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_TAKEN);
+                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_RIGHT);
             }
             else {
                 PyStackRef_CLOSE(value_stackref);
@@ -4154,7 +4154,7 @@
             #endif
             if (jump) {
                 PyStackRef_CLOSE(value_stackref);
-                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_TAKEN);
+                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_RIGHT);
             }
             DISPATCH();
         }
@@ -4172,7 +4172,7 @@
             this_instr[1].cache = (this_instr[1].cache << 1) | jump;
             #endif
             if (jump) {
-                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_TAKEN);
+                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_RIGHT);
             }
             DISPATCH();
         }
