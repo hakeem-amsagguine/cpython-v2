@@ -82,6 +82,13 @@ typedef struct {
     PyObject *name;
 } PyAttributeErrorObject;
 
+typedef struct {
+    PyException_HEAD
+    PyObject *iterable;
+    // TODO: argcnt is probably not the right name for this variable
+    PyObject *argcnt;
+} PyUnpackErrorObject;
+
 /* Compatibility typedefs */
 typedef PyOSErrorObject PyEnvironmentErrorObject;
 #ifdef MS_WINDOWS

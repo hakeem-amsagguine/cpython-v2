@@ -774,8 +774,6 @@ extern "C" {
     INIT_ID(_swappedbytes_), \
     INIT_ID(_type_), \
     INIT_ID(_uninitialized_submodules), \
-    INIT_ID(_unpack_expected_argcnt), \
-    INIT_ID(_unpacked_value), \
     INIT_ID(_warn_unawaited_coroutine), \
     INIT_ID(_xoptions), \
     INIT_ID(abs_tol), \

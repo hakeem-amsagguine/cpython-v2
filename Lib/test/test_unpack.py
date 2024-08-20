@@ -75,14 +75,14 @@ Unpacking tuple of wrong size
     >>> a, b = t
     Traceback (most recent call last):
       ...
-    ValueError: too many values to unpack (expected 2, got 3)
+    UnpackError: too many values to unpack (expected 2, got 3)
 
 Unpacking tuple of wrong size
 
     >>> a, b = l
     Traceback (most recent call last):
       ...
-    ValueError: too many values to unpack (expected 2, got 3)
+    UnpackError: too many values to unpack (expected 2, got 3)
 
 Unpacking sequence too short
 
@@ -96,7 +96,7 @@ Unpacking sequence too long
     >>> a, b = Seq()
     Traceback (most recent call last):
       ...
-    ValueError: too many values to unpack (expected 2)
+    UnpackError: too many values to unpack (expected 2)
 
 Unpacking a sequence where the test for too long raises a different kind of
 error
@@ -149,7 +149,7 @@ Unpacking to an empty iterable should raise ValueError
     >>> () = [42]
     Traceback (most recent call last):
       ...
-    ValueError: too many values to unpack (expected 0, got 1)
+    UnpackError: too many values to unpack (expected 0, got 1)
 
 Unpacking to an empty iterable should raise ValueError, but it won't consume the
 iterable if it doesn't have a pre-determined length
@@ -158,7 +158,7 @@ iterable if it doesn't have a pre-determined length
     >>> x, y, z = it
     Traceback (most recent call last):
       ...
-    ValueError: too many values to unpack (expected 3)
+    UnpackError: too many values to unpack (expected 3)
     >>> next(it)
     4
 
@@ -168,7 +168,7 @@ Unpacking unbalanced dict
     >>> a, b, c = d
     Traceback (most recent call last):
       ...
-    ValueError: too many values to unpack (expected 3, got 4)
+    UnpackError: too many values to unpack (expected 3, got 4)
 
 Ensure that `__len__()` is respected when showing the error message
 
@@ -181,7 +181,7 @@ Ensure that `__len__()` is respected when showing the error message
     >>> x, y, z = LengthTooLong()
     Traceback (most recent call last):
       ...
-    ValueError: too many values to unpack (expected 3, got 5)
+    UnpackError: too many values to unpack (expected 3, got 5)
 
 If `__len__()` is too low, fallback to not showing the got count
 
@@ -194,7 +194,7 @@ If `__len__()` is too low, fallback to not showing the got count
     >>> x, y, z = BadLength()
     Traceback (most recent call last):
       ...
-    ValueError: too many values to unpack (expected 3)
+    UnpackError: too many values to unpack (expected 3)
 """
 
 __test__ = {'doctests' : doctests}
@@ -234,14 +234,14 @@ class TestCornerCases(unittest.TestCase):
             x, y, z = CustomSeq()
             """
         )
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(UnpackError) as cm:
             exec(code)
 
         traceback_text = ''.join(traceback.format_exception(cm.exception))
         self.assertIn(
             "RuntimeError\n\n"
             "During handling of the above exception, another exception occurred:\n\n"
-            "ValueError: too many values to unpack (expected 3)\n",
+            "UnpackError: too many values to unpack (expected 3)\n",
             traceback_text,
         )
 
@@ -258,7 +258,7 @@ class TestCornerCases(unittest.TestCase):
             x, y, z = C()
             """
         )
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(UnpackError) as cm:
             exec(code)
 
         with self.assertRaises(KeyboardInterrupt):

@@ -2667,6 +2667,66 @@ SimpleExtendsException(PyExc_Exception, ValueError,
 SimpleExtendsException(PyExc_ValueError, UnicodeError,
                        "Unicode related error.");
 
+/*
+ *    UnpackError extends ValueError
+ */
+
+static int
+UnpackError_init(PyUnpackErrorObject *self, PyObject *args, PyObject *kwds)
+{
+    if (BaseException_init((PyBaseExceptionObject *)self, args, NULL) == -1) {
+        return -1;
+    }
+
+    if (!PyArg_ParseTuple(args, "OO", &self->iterable, &self->argcnt)) {
+        return -1;
+    }
+
+    Py_INCREF(self->iterable);
+    Py_INCREF(self->argcnt);
+    return 0;
+}
+
+static int
+UnpackError_clear(PyUnpackErrorObject *self)
+{
+    Py_CLEAR(self->iterable);
+    Py_CLEAR(self->argcnt);
+    return BaseException_clear((PyBaseExceptionObject *)self);
+}
+
+static void
+UnpackError_dealloc(PyUnpackErrorObject *self)
+{
+    _PyObject_GC_UNTRACK(self);
+    UnpackError_clear(self);
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static int
+UnpackError_traverse(PyUnpackErrorObject *self, visitproc visit, void *arg)
+{
+    Py_VISIT(self->iterable);
+    Py_VISIT(self->argcnt);
+    return BaseException_traverse((PyBaseExceptionObject *)self, visit, arg);
+}
+
+static PyMemberDef UnpackError_members[] = {
+    {"iterable", _Py_T_OBJECT, offsetof(PyUnpackErrorObject, iterable), 0, PyDoc_STR("iterable that failed to unpack")},
+    {"argcnt", _Py_T_OBJECT, offsetof(PyUnpackErrorObject, argcnt), 0, PyDoc_STR("expected iterable length during unpacking")},
+    {NULL}  /* Sentinel */
+};
+
+static PyMethodDef UnpackError_methods[] = {
+    {NULL}  /* Sentinel */
+};
+
+ComplexExtendsException(PyExc_ValueError, UnpackError,
+                        UnpackError, 0,
+                        UnpackError_methods, UnpackError_members,
+                        /* TODO: custom __str__? */
+                        0, BaseException_str, "Unpacking failed.");
+
 static PyObject *
 get_string(PyObject *attr, const char *name)
 {
@@ -3688,6 +3748,7 @@ static struct static_exception static_exceptions[] = {
     ITEM(RecursionError),  // base: RuntimeError(Exception)
     ITEM(UnboundLocalError), // base: NameError(Exception)
     ITEM(UnicodeError),  // base: ValueError(Exception)
+    ITEM(UnpackError),  // base: ValueError(Exception)
 
     // Level 5: ConnectionError(OSError) subclasses
     ITEM(BrokenPipeError),

@@ -2121,22 +2121,13 @@ _PyEval_UnpackIterableStackRef(PyThreadState *tstate, _PyStackRef v_stackref,
             return 1;
         }
         Py_DECREF(w);
-        _PyErr_Format(tstate, PyExc_ValueError,
-                      "too many values to unpack (expected %d)",
-                      argcnt);
-        PyObject *exc = _PyErr_GetRaisedException(tstate);
-        if (PyObject_SetAttr(exc, &_Py_ID(_unpacked_value), v)) {
-            _PyErr_ChainExceptions1(exc);
-            goto Error;
+        // TODO: we don't own v but we do own argcnt, that isn't properly handled yet
+        PyObject *args = Py_BuildValue("OO", v, PyLong_FromLong(argcnt));
+        // TODO: what if args is NULL here
+        if (args) {
+            PyErr_SetObject(PyExc_UnpackError, args);
+            Py_DECREF(args);
         }
-        if (PyObject_SetAttr(exc,
-                             &_Py_ID(_unpack_expected_argcnt),
-                             PyLong_FromLong(argcnt))) {
-            _PyErr_ChainExceptions1(exc);
-            goto Error;
-        }
-
-        _PyErr_SetRaisedException(tstate, exc);
         goto Error;
     }
 

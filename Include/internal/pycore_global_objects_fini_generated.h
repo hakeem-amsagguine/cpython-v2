@@ -776,8 +776,6 @@ _PyStaticObjects_CheckRefcnt(PyInterpreterState *interp) {
     _PyStaticObject_CheckRefcnt((PyObject *)&_Py_ID(_swappedbytes_));
     _PyStaticObject_CheckRefcnt((PyObject *)&_Py_ID(_type_));
     _PyStaticObject_CheckRefcnt((PyObject *)&_Py_ID(_uninitialized_submodules));
-    _PyStaticObject_CheckRefcnt((PyObject *)&_Py_ID(_unpack_expected_argcnt));
-    _PyStaticObject_CheckRefcnt((PyObject *)&_Py_ID(_unpacked_value));
     _PyStaticObject_CheckRefcnt((PyObject *)&_Py_ID(_warn_unawaited_coroutine));
     _PyStaticObject_CheckRefcnt((PyObject *)&_Py_ID(_xoptions));
     _PyStaticObject_CheckRefcnt((PyObject *)&_Py_ID(abs_tol));

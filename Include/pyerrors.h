@@ -117,6 +117,7 @@ PyAPI_DATA(PyObject *) PyExc_UnicodeError;
 PyAPI_DATA(PyObject *) PyExc_UnicodeEncodeError;
 PyAPI_DATA(PyObject *) PyExc_UnicodeDecodeError;
 PyAPI_DATA(PyObject *) PyExc_UnicodeTranslateError;
+PyAPI_DATA(PyObject *) PyExc_UnpackError;
 PyAPI_DATA(PyObject *) PyExc_ValueError;
 PyAPI_DATA(PyObject *) PyExc_ZeroDivisionError;
 
