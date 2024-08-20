@@ -223,7 +223,7 @@ class TestCornerCases(unittest.TestCase):
     def test_exception_context_when_len_fails(self):
         """When `__len__()` raises an Exception, preserve exception context"""
         code = textwrap.dedent(
-            f"""
+            """
             class CustomSeq:
                 def __len__(self):
                     raise RuntimeError

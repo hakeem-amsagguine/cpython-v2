@@ -77,12 +77,14 @@ Improved Error Messages
   message prints the received number of values in more cases than before.
   (Contributed by Tushar Sadhwani in :gh:`122239`.)
 
-    >>> x, y, z = 1, 2, 3, 4
-    Traceback (most recent call last):
-      File "<stdin>", line 1, in <module>
-        x, y, z = 1, 2, 3, 4
-        ^^^^^^^
-    ValueError: too many values to unpack (expected 3, got 4)
+  .. code-block:: pycon
+
+     >>> x, y, z = 1, 2, 3, 4
+     Traceback (most recent call last):
+       File "<stdin>", line 1, in <module>
+         x, y, z = 1, 2, 3, 4
+         ^^^^^^^
+     ValueError: too many values to unpack (expected 3, got 4)
 
 
 Other Language Changes

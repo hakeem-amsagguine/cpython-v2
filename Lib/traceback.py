@@ -1104,8 +1104,8 @@ class TracebackException:
                         f"too many values to unpack (expected {lhs_length},"
                         f" got {rhs_length})"
                     )
-            # The error can be a `TypeError` (for object that implements
-            # `__getitem__` but doesn't implement `__len__`).
+            # The error can be a `TypeError` (for objects that implement
+            # `__getitem__` but do not implement `__len__`).
             # For any other kind of `Exception`, we raise `ValueError` while
             # setting the raised exception as context.
             # For a `BaseException`, we don't modify it at all, and let it
