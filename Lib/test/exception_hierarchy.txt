@@ -50,10 +50,11 @@ BaseException
       ├── SystemError
       ├── TypeError
       ├── ValueError
-      │    └── UnicodeError
-      │         ├── UnicodeDecodeError
-      │         ├── UnicodeEncodeError
-      │         └── UnicodeTranslateError
+      │    ├── UnicodeError
+      │    │    ├── UnicodeDecodeError
+      │    │    ├── UnicodeEncodeError
+      │    │    └── UnicodeTranslateError
+      │    └── UnpackError
       └── Warning
            ├── BytesWarning
            ├── DeprecationWarning
