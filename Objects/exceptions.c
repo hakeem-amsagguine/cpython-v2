@@ -2688,6 +2688,16 @@ UnpackError_init(PyUnpackErrorObject *self, PyObject *args, PyObject *kwds)
     return 0;
 }
 
+static PyObject *
+UnpackError_str(PyObject *self)
+{
+    PyUnpackErrorObject *uself = (PyUnpackErrorObject *)self;
+    if (!uself->msg) {
+        return BaseException_str((PyBaseExceptionObject *)self);
+    };
+    return Py_NewRef(uself->msg);
+}
+
 static int
 UnpackError_clear(PyUnpackErrorObject *self)
 {
@@ -2724,8 +2734,7 @@ static PyMemberDef UnpackError_members[] = {
 ComplexExtendsException(PyExc_ValueError, UnpackError,
                         UnpackError, 0,
                         0, UnpackError_members,
-                        /* TODO: custom _str function that uses `msg` */
-                        0, BaseException_str, "Signal an unpack failure.");
+                        0, UnpackError_str, "Signal an unpack failure.");
 
 static PyObject *
 get_string(PyObject *attr, const char *name)
