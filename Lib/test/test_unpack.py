@@ -89,7 +89,7 @@ Unpacking sequence too short
     >>> a, b, c, d = Seq()
     Traceback (most recent call last):
       ...
-    ValueError: not enough values to unpack (expected 4, got 3)
+    UnpackError: not enough values to unpack (expected 4, got 3)
 
 Unpacking sequence too long
 
@@ -144,14 +144,14 @@ Unpacking non-iterables should raise TypeError
       ...
     TypeError: cannot unpack non-iterable int object
 
-Unpacking to an empty iterable should raise ValueError
+Unpacking to an empty iterable should raise UnpackError
 
     >>> () = [42]
     Traceback (most recent call last):
       ...
     UnpackError: too many values to unpack (expected 0, got 1)
 
-Unpacking to an empty iterable should raise ValueError, but it won't consume the
+Unpacking to an empty iterable should raise UnpackError, but it won't consume the
 iterable if it doesn't have a pre-determined length
 
     >>> it = iter(range(100))

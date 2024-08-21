@@ -84,6 +84,7 @@ typedef struct {
 
 typedef struct {
     PyException_HEAD
+    PyObject *msg;
     PyObject *iterable;
     PyObject *expected_count;
 } PyUnpackErrorObject;

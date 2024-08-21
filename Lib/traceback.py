@@ -1096,25 +1096,28 @@ class TracebackException:
                     else:
                         self._str += f". Did you forget to import '{wrong_name}'?"
         elif exc_value and isinstance(exc_value, UnpackError):
-            lhs_length = exc_value.expected_count
-            self._str = f"too many values to unpack (expected {lhs_length})"
-            try:
-                rhs_length = len(exc_value.iterable)
-                if rhs_length and rhs_length > lhs_length:
-                    self._str = (
-                        f"too many values to unpack (expected {lhs_length},"
-                        f" got {rhs_length})"
-                    )
-            # The error can be a `TypeError` (for objects that implement
-            # `__getitem__` but do not implement `__len__`).
-            # For any other kind of `Exception`, we raise `ValueError` while
-            # setting the raised exception as context.
-            # For a `BaseException`, we don't modify it at all, and let it
-            # propagate.
-            except TypeError:
-                pass
-            except Exception as exc:
-                exc_value.__context__ = exc
+            if exc_value.msg is not None:
+                self._str = exc_value.msg
+            else:
+                lhs_length = exc_value.expected_count
+                self._str = f"too many values to unpack (expected {lhs_length})"
+                try:
+                    rhs_length = len(exc_value.iterable)
+                    if rhs_length and rhs_length > lhs_length:
+                        self._str = (
+                            f"too many values to unpack (expected {lhs_length},"
+                            f" got {rhs_length})"
+                        )
+                # The error can be a `TypeError` (for objects that implement
+                # `__getitem__` but do not implement `__len__`).
+                # For any other kind of `Exception`, we raise `ValueError` while
+                # setting the raised exception as context.
+                # For a `BaseException`, we don't modify it at all, and let it
+                # propagate.
+                except TypeError:
+                    pass
+                except Exception as exc:
+                    exc_value.__context__ = exc
 
         if lookup_lines:
             self._load_lines()
