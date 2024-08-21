@@ -2508,3 +2508,5 @@
 
 [function.Py_TYPE]
     added = '3.14'
+[data.PyExc_UnpackError]
+    added = '3.14'
