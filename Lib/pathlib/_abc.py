@@ -14,6 +14,7 @@ resemble pathlib's PurePath and Path respectively.
 import functools
 import operator
 import posixpath
+from errno import EXDEV
 from glob import _GlobberBase, _no_recurse_symlinks
 from stat import S_ISDIR, S_ISLNK, S_ISREG, S_ISSOCK, S_ISBLK, S_ISCHR, S_ISFIFO
 from pathlib._os import copyfileobj
@@ -896,6 +897,26 @@ class PathBase(PurePathBase):
         Returns the new Path instance pointing to the target path.
         """
         raise UnsupportedOperation(self._unsupported_msg('replace()'))
+
+    def move(self, target):
+        """
+        Recursively move this file or directory tree to the given destination.
+        """
+        if self._samefile_safe(target):
+            raise OSError(f"{self!r} and {target!r} are the same file")
+        try:
+            return self.replace(target)
+        except UnsupportedOperation:
+            pass
+        except TypeError:
+            if not isinstance(target, PathBase):
+                raise
+        except OSError as err:
+            if err.errno != EXDEV:
+                raise
+        target = self.copy(target, follow_symlinks=False, preserve_metadata=True)
+        self.delete()
+        return target
 
     def chmod(self, mode, *, follow_symlinks=True):
         """
