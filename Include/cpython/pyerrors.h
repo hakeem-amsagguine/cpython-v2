@@ -85,8 +85,7 @@ typedef struct {
 typedef struct {
     PyException_HEAD
     PyObject *iterable;
-    // TODO: argcnt is probably not the right name for this variable
-    PyObject *argcnt;
+    PyObject *expected_count;
 } PyUnpackErrorObject;
 
 /* Compatibility typedefs */

@@ -2678,12 +2678,12 @@ UnpackError_init(PyUnpackErrorObject *self, PyObject *args, PyObject *kwds)
         return -1;
     }
 
-    if (!PyArg_ParseTuple(args, "OO", &self->iterable, &self->argcnt)) {
+    if (!PyArg_ParseTuple(args, "OO", &self->iterable, &self->expected_count)) {
         return -1;
     }
 
     Py_INCREF(self->iterable);
-    Py_INCREF(self->argcnt);
+    Py_INCREF(self->expected_count);
     return 0;
 }
 
@@ -2691,7 +2691,7 @@ static int
 UnpackError_clear(PyUnpackErrorObject *self)
 {
     Py_CLEAR(self->iterable);
-    Py_CLEAR(self->argcnt);
+    Py_CLEAR(self->expected_count);
     return BaseException_clear((PyBaseExceptionObject *)self);
 }
 
@@ -2707,25 +2707,20 @@ static int
 UnpackError_traverse(PyUnpackErrorObject *self, visitproc visit, void *arg)
 {
     Py_VISIT(self->iterable);
-    Py_VISIT(self->argcnt);
+    Py_VISIT(self->expected_count);
     return BaseException_traverse((PyBaseExceptionObject *)self, visit, arg);
 }
 
 static PyMemberDef UnpackError_members[] = {
     {"iterable", _Py_T_OBJECT, offsetof(PyUnpackErrorObject, iterable), 0, PyDoc_STR("iterable that failed to unpack")},
-    {"argcnt", _Py_T_OBJECT, offsetof(PyUnpackErrorObject, argcnt), 0, PyDoc_STR("expected iterable length during unpacking")},
-    {NULL}  /* Sentinel */
-};
-
-static PyMethodDef UnpackError_methods[] = {
+    {"expected_count", _Py_T_OBJECT, offsetof(PyUnpackErrorObject, expected_count), 0, PyDoc_STR("expected iterable length during unpacking")},
     {NULL}  /* Sentinel */
 };
 
 ComplexExtendsException(PyExc_ValueError, UnpackError,
                         UnpackError, 0,
-                        UnpackError_methods, UnpackError_members,
-                        /* TODO: custom __str__? */
-                        0, BaseException_str, "Unpacking failed.");
+                        0, UnpackError_members,
+                        0, BaseException_str, "Signal an unpack failure.");
 
 static PyObject *
 get_string(PyObject *attr, const char *name)

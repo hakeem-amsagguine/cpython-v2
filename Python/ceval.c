@@ -2121,9 +2121,7 @@ _PyEval_UnpackIterableStackRef(PyThreadState *tstate, _PyStackRef v_stackref,
             return 1;
         }
         Py_DECREF(w);
-        // TODO: we don't own v but we do own argcnt, that isn't properly handled yet
-        PyObject *args = Py_BuildValue("OO", v, PyLong_FromLong(argcnt));
-        // TODO: what if args is NULL here
+        PyObject *args = Py_BuildValue("Oi", v, argcnt);
         if (args) {
             PyErr_SetObject(PyExc_UnpackError, args);
             Py_DECREF(args);

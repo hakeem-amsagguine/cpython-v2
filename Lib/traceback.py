@@ -1096,7 +1096,7 @@ class TracebackException:
                     else:
                         self._str += f". Did you forget to import '{wrong_name}'?"
         elif exc_value and isinstance(exc_value, UnpackError):
-            lhs_length = exc_value.argcnt
+            lhs_length = exc_value.expected_count
             self._str = f"too many values to unpack (expected {lhs_length})"
             try:
                 rhs_length = len(exc_value.iterable)
