@@ -595,6 +595,10 @@ extern int _PyInstruction_GetLength(PyCodeObject *code, int offset);
 
 extern PyObject *_PyInstrumentation_BranchesIterator(PyCodeObject *code);
 
+struct _PyCode8 _PyCode_DEF(8);
+
+PyAPI_DATA(const struct _PyCode8) _Py_InitCleanup;
+
 #ifdef __cplusplus
 }
 #endif
