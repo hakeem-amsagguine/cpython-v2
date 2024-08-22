@@ -1476,7 +1476,7 @@ codegen_setup_annotations_scope(struct compiler *c, location loc,
     ADDOP_I(c, loc, COMPARE_OP, (Py_NE << 5) | compare_masks[Py_NE]);
     NEW_JUMP_TARGET_LABEL(c, body);
     ADDOP_JUMP(c, loc, POP_JUMP_IF_FALSE, body);
-    ADDOP(c, loc, NOT_TAKEN);
+    ADDOP(c, NO_LOCATION, NOT_TAKEN);
     ADDOP_I(c, loc, LOAD_COMMON_CONSTANT, CONSTANT_NOTIMPLEMENTEDERROR);
     ADDOP_I(c, loc, RAISE_VARARGS, 1);
     USE_LABEL(c, body);
@@ -2806,13 +2806,13 @@ codegen_jump_if(struct compiler *c, location loc,
                 ADDOP_COMPARE(c, LOC(e), asdl_seq_GET(e->v.Compare.ops, i));
                 ADDOP(c, LOC(e), TO_BOOL);
                 ADDOP_JUMP(c, LOC(e), POP_JUMP_IF_FALSE, cleanup);
-                ADDOP(c, loc, NOT_TAKEN);
+                ADDOP(c, NO_LOCATION, NOT_TAKEN);
             }
             VISIT(c, expr, (expr_ty)asdl_seq_GET(e->v.Compare.comparators, n));
             ADDOP_COMPARE(c, LOC(e), asdl_seq_GET(e->v.Compare.ops, n));
             ADDOP(c, LOC(e), TO_BOOL);
             ADDOP_JUMP(c, LOC(e), cond ? POP_JUMP_IF_TRUE : POP_JUMP_IF_FALSE, next);
-            ADDOP(c, LOC(e), NOT_TAKEN);
+            ADDOP(c, NO_LOCATION, NOT_TAKEN);
             NEW_JUMP_TARGET_LABEL(c, end);
             ADDOP_JUMP(c, NO_LOCATION, JUMP_NO_INTERRUPT, end);
 
@@ -2837,7 +2837,7 @@ codegen_jump_if(struct compiler *c, location loc,
     VISIT(c, expr, e);
     ADDOP(c, LOC(e), TO_BOOL);
     ADDOP_JUMP(c, LOC(e), cond ? POP_JUMP_IF_TRUE : POP_JUMP_IF_FALSE, next);
-    ADDOP(c, LOC(e), NOT_TAKEN);
+    ADDOP(c, NO_LOCATION, NOT_TAKEN);
     return SUCCESS;
 }
 
@@ -2961,7 +2961,7 @@ codegen_for(struct compiler *c, stmt_ty s)
 
     USE_LABEL(c, start);
     ADDOP_JUMP(c, loc, FOR_ITER, cleanup);
-    ADDOP(c, loc, NOT_TAKEN);
+    ADDOP(c, NO_LOCATION, NOT_TAKEN);
 
     /* Add NOP to ensure correct line tracing of multiline for statements.
      * It will be removed later if redundant.
@@ -3342,7 +3342,7 @@ codegen_try_except(struct compiler *c, stmt_ty s)
             VISIT(c, expr, handler->v.ExceptHandler.type);
             ADDOP(c, loc, CHECK_EXC_MATCH);
             ADDOP_JUMP(c, loc, POP_JUMP_IF_FALSE, except);
-            ADDOP(c, loc, NOT_TAKEN);
+            ADDOP(c, NO_LOCATION, NOT_TAKEN);
         }
         if (handler->v.ExceptHandler.name) {
             NEW_JUMP_TARGET_LABEL(c, cleanup_end);
@@ -3537,7 +3537,7 @@ codegen_try_star_except(struct compiler *c, stmt_ty s)
             ADDOP(c, loc, CHECK_EG_MATCH);
             ADDOP_I(c, loc, COPY, 1);
             ADDOP_JUMP(c, loc, POP_JUMP_IF_NONE, no_match);
-            ADDOP(c, loc, NOT_TAKEN);
+            ADDOP(c, NO_LOCATION, NOT_TAKEN);
         }
 
         NEW_JUMP_TARGET_LABEL(c, cleanup_end);
@@ -4502,7 +4502,7 @@ codegen_compare(struct compiler *c, expr_ty e)
             ADDOP_I(c, loc, COPY, 1);
             ADDOP(c, loc, TO_BOOL);
             ADDOP_JUMP(c, loc, POP_JUMP_IF_FALSE, cleanup);
-            ADDOP(c, loc, NOT_TAKEN);
+            ADDOP(c, NO_LOCATION, NOT_TAKEN);
             ADDOP(c, loc, POP_TOP);
         }
         VISIT(c, expr, (expr_ty)asdl_seq_GET(e->v.Compare.comparators, n));
@@ -5201,7 +5201,7 @@ compiler_sync_comprehension_generator(struct compiler *c, location loc,
         depth++;
         USE_LABEL(c, start);
         ADDOP_JUMP(c, LOC(gen->iter), FOR_ITER, anchor);
-        ADDOP(c, loc, NOT_TAKEN);
+        ADDOP(c, NO_LOCATION, NOT_TAKEN);
     }
     VISIT(c, expr, gen->target);
 
@@ -6590,7 +6590,7 @@ jump_to_fail_pop(struct compiler *c, location loc,
     RETURN_IF_ERROR(ensure_fail_pop(c, pc, pops));
     ADDOP_JUMP(c, loc, op, pc->fail_pop[pops]);
     if (op != JUMP) {
-        ADDOP(c, loc, NOT_TAKEN);
+        ADDOP(c, NO_LOCATION, NOT_TAKEN);
     }
     return SUCCESS;
 }
