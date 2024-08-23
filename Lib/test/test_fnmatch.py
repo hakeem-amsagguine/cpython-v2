@@ -4,6 +4,8 @@ import unittest
 import os
 import string
 import warnings
+from pathlib import Path
+from test.support.os_helper import FakePath
 
 from fnmatch import fnmatch, fnmatchcase, translate, filter
 
@@ -253,14 +255,26 @@ class TranslateTestCase(unittest.TestCase):
 class FilterTestCase(unittest.TestCase):
 
     def test_filter(self):
-        self.assertEqual(filter(['Python', 'Ruby', 'Perl', 'Tcl'], 'P*'),
-                         ['Python', 'Perl'])
-        self.assertEqual(filter([b'Python', b'Ruby', b'Perl', b'Tcl'], b'P*'),
-                         [b'Python', b'Perl'])
+        for cls in (str, Path, FakePath):
+            names = list(map(cls, ['Python', 'Ruby', 'Perl', 'Tcl']))
+            filtered = list(map(cls, ['Python', 'Perl']))
+            with self.subTest('string pattern', cls=cls, names=names):
+                self.assertListEqual(filter(names, 'P*'), filtered)
+        # We want to test the case when os.path.normcase() returns bytes but
+        # we cannot use pathlib.Path since they only accept string objects.
+        for cls in (bytes, FakePath):
+            names = list(map(cls, [b'Python', b'Ruby', b'Perl', b'Tcl']))
+            filtered = list(map(cls, [b'Python', b'Perl']))
+            with self.subTest('bytes pattern', cls=cls, names=names):
+                self.assertListEqual(filter(names, b'P*'), filtered)
 
     def test_mix_bytes_str(self):
         self.assertRaises(TypeError, filter, ['test'], b'*')
         self.assertRaises(TypeError, filter, [b'test'], '*')
+        # We want to test the case when os.path.normcase() returns bytes but
+        # we cannot use pathlib.Path since they only accept string objects.
+        self.assertRaises(TypeError, filter, [FakePath('test')], b'*')
+        self.assertRaises(TypeError, filter, [FakePath(b'test')], '*')
 
     def test_case(self):
         ignorecase = os.path.normcase('P') == os.path.normcase('p')
