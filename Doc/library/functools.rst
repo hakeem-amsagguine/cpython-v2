@@ -328,6 +328,14 @@ The :mod:`functools` module defines the following functions:
       Returning ``NotImplemented`` from the underlying comparison function for
       unrecognised types is now supported.
 
+.. data:: Placeholder
+
+   A singleton object used as a sentinel to reserve a place
+   for positional arguments when calling :func:`partial`
+   and :func:`partialmethod`.
+
+   .. versionadded:: 3.14
+
 .. function:: partial(func, /, *args, **keywords)
 
    Return a new :ref:`partial object<partial-objects>` which when called
@@ -358,6 +366,43 @@ The :mod:`functools` module defines the following functions:
       >>> basetwo('10010')
       18
 
+   If :data:`Placeholder` sentinels are present in *args*, they will be filled first
+   when :func:`partial` is called. This allows custom selection of positional arguments
+   to be pre-filled when constructing a :ref:`partial object <partial-objects>`.
+
+   If :data:`!Placeholder` sentinels are present, all of them must be filled at call time:
+
+      >>> from functools import partial, Placeholder
+      >>> say_to_world = partial(print, Placeholder, Placeholder, "world!")
+      >>> say_to_world('Hello', 'dear')
+      Hello dear world!
+
+   Calling ``say_to_world('Hello')`` would raise a :exc:`TypeError`, because
+   only one positional argument is provided, while there are two placeholders
+   in :ref:`partial object <partial-objects>`.
+
+   Successive :func:`partial` applications fill :data:`!Placeholder` sentinels
+   of the input :func:`partial` objects with new positional arguments.
+   A place for positional argument can be retained by inserting new
+   :data:`!Placeholder` sentinel to the place held by previous :data:`!Placeholder`:
+
+      >>> from functools import partial, Placeholder as _
+      >>> remove = partial(str.replace, _, _, '')
+      >>> message = 'Hello, dear dear world!'
+      >>> remove(message, ' dear')
+      'Hello, world!'
+      >>> remove_dear = partial(remove, _, ' dear')
+      >>> remove_dear(message)
+      'Hello, world!'
+      >>> remove_first_dear = partial(remove_dear, _, 1)
+      >>> remove_first_dear(message)
+      'Hello, dear world!'
+
+   Note, :data:`!Placeholder` has no special treatment when used for keyword
+   argument of :data:`!Placeholder`.
+
+   .. versionchanged:: 3.14
+      Added support for :data:`Placeholder` in positional arguments.
 
 .. class:: partialmethod(func, /, *args, **keywords)
 
