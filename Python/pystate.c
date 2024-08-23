@@ -3009,6 +3009,7 @@ _PyThreadState_CheckConsistency(PyThreadState *tstate)
 int
 _PyThreadState_MustExit(PyThreadState *tstate)
 {
+    assert(tstate != NULL);
     /* bpo-39877: Access _PyRuntime directly rather than using
        tstate->interp->runtime to support calls from Python daemon threads.
        After Py_Finalize() has been called, tstate can be a dangling pointer:
@@ -3016,7 +3017,7 @@ _PyThreadState_MustExit(PyThreadState *tstate)
     unsigned long finalizing_id = _PyRuntimeState_GetFinalizingID(&_PyRuntime);
     PyThreadState *finalizing = _PyRuntimeState_GetFinalizing(&_PyRuntime);
     if (finalizing == NULL) {
-        // XXX This isn't completely safe from daemon thraeds,
+        // XXX This isn't completely safe from daemon threads,
         // since tstate might be a dangling pointer.
         finalizing = _PyInterpreterState_GetFinalizing(tstate->interp);
         finalizing_id = _PyInterpreterState_GetFinalizingID(tstate->interp);
