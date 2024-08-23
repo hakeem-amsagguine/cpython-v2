@@ -1,0 +1,1 @@
+Bitwise inversion (``~``) is prohibited for :data:`True` and :data:`False`.

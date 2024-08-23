@@ -58,22 +58,32 @@ class BoolTest(unittest.TestCase):
         self.assertEqual(-True, -1)
         self.assertEqual(abs(True), 1)
         self.assertIsNot(abs(True), True)
-        with self.assertWarns(DeprecationWarning):
-            # We need to put the bool in a variable, because the constant
-            # ~False is evaluated at compile time due to constant folding;
-            # consequently the DeprecationWarning would be issued during
-            # module loading and not during test execution.
-            false = False
-            self.assertEqual(~false, -1)
-        with self.assertWarns(DeprecationWarning):
-            # also check that the warning is issued in case of constant
-            # folding at compile time
-            self.assertEqual(eval("~False"), -1)
-        with self.assertWarns(DeprecationWarning):
-            true = True
-            self.assertEqual(~true, -2)
-        with self.assertWarns(DeprecationWarning):
-            self.assertEqual(eval("~True"), -2)
+
+        # Bitwise inversion is prohibited on bool type.
+        with self.assertRaises(TypeError):
+            ~True
+        with self.assertRaises(TypeError):
+            ~False
+
+        true = True
+        false = False
+        with self.assertRaises(TypeError):
+            ~true
+        with self.assertRaises(TypeError):
+            ~false
+        with self.assertRaises(TypeError):
+            eval("~True")
+        with self.assertRaises(TypeError):
+            eval("~False")
+        with self.assertRaises(TypeError):
+            true.__invert__()
+        with self.assertRaises(TypeError):
+            false.__invert__()
+
+        with self.assertRaisesRegex(TypeError, r"Did you mean 'not' instead of '~'\?"):
+            ~true
+        with self.assertRaisesRegex(TypeError, r"Did you mean 'not' instead of '~'\?"):
+            ~false
 
         self.assertEqual(False+2, 2)
         self.assertEqual(True+2, 3)
