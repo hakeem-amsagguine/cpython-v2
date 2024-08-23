@@ -286,14 +286,14 @@ Unpacking sequence too short
     >>> a, *b, c, d, e = Seq()
     Traceback (most recent call last):
       ...
-    ValueError: not enough values to unpack (expected at least 4, got 3)
+    UnpackError: not enough values to unpack (expected at least 4, got 3)
 
 Unpacking sequence too short and target appears last
 
     >>> a, b, c, d, *e = Seq()
     Traceback (most recent call last):
       ...
-    ValueError: not enough values to unpack (expected at least 4, got 3)
+    UnpackError: not enough values to unpack (expected at least 4, got 3)
 
 Unpacking a sequence where the test for too long raises a different kind of
 error

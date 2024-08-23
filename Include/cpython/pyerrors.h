@@ -82,6 +82,13 @@ typedef struct {
     PyObject *name;
 } PyAttributeErrorObject;
 
+typedef struct {
+    PyException_HEAD
+    PyObject *msg;
+    PyObject *iterable;
+    PyObject *expected_count;
+} PyUnpackErrorObject;
+
 /* Compatibility typedefs */
 typedef PyOSErrorObject PyEnvironmentErrorObject;
 #ifdef MS_WINDOWS

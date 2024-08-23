@@ -587,7 +587,8 @@ class CompatPickleTests(unittest.TestCase):
                            EncodingWarning,
                            BaseExceptionGroup,
                            ExceptionGroup,
-                           _IncompleteInputError):
+                           _IncompleteInputError,
+                           UnpackError):
                     continue
                 if exc is not OSError and issubclass(exc, OSError):
                     self.assertEqual(reverse_mapping('builtins', name),

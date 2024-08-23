@@ -226,6 +226,7 @@ Objects/exceptions.c	-	_PyExc_UnicodeWarning	-
 Objects/exceptions.c	-	_PyExc_BytesWarning	-
 Objects/exceptions.c	-	_PyExc_ResourceWarning	-
 Objects/exceptions.c	-	_PyExc_EncodingWarning	-
+Objects/exceptions.c	-	_PyExc_UnpackError	-
 Objects/exceptions.c	-	PyExc_EnvironmentError	-
 Objects/exceptions.c	-	PyExc_IOError	-
 Objects/exceptions.c	-	PyExc_BaseException	-
@@ -296,6 +297,7 @@ Objects/exceptions.c	-	PyExc_UnicodeWarning	-
 Objects/exceptions.c	-	PyExc_BytesWarning	-
 Objects/exceptions.c	-	PyExc_ResourceWarning	-
 Objects/exceptions.c	-	PyExc_EncodingWarning	-
+Objects/exceptions.c	-	PyExc_UnpackError	-
 Python/crossinterp_exceptions.h	-	_PyExc_InterpreterError	-
 Python/crossinterp_exceptions.h	-	_PyExc_InterpreterNotFoundError	-
 Python/crossinterp_exceptions.h	-	PyExc_InterpreterError	-

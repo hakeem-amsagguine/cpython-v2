@@ -2086,22 +2086,31 @@ _PyEval_UnpackIterableStackRef(PyThreadState *tstate, _PyStackRef v_stackref,
         return 0;
     }
 
+    PyObject *errmsg, *unpack_args;
     for (; i < argcnt; i++) {
         w = PyIter_Next(it);
         if (w == NULL) {
             /* Iterator done, via error or exhaustion. */
             if (!_PyErr_Occurred(tstate)) {
                 if (argcntafter == -1) {
-                    _PyErr_Format(tstate, PyExc_ValueError,
-                                  "not enough values to unpack "
-                                  "(expected %d, got %d)",
-                                  argcnt, i);
+                    errmsg = PyUnicode_FromFormat("not enough values to unpack "
+                                                  "(expected %d, got %d)",
+                                                  argcnt, i);
+                    unpack_args = Py_BuildValue("OOi", errmsg, v, argcnt);
+                    if (unpack_args) {
+                        PyErr_SetObject(PyExc_UnpackError, unpack_args);
+                        Py_DECREF(unpack_args);
+                    }
                 }
                 else {
-                    _PyErr_Format(tstate, PyExc_ValueError,
-                                  "not enough values to unpack "
-                                  "(expected at least %d, got %d)",
-                                  argcnt + argcntafter, i);
+                    errmsg = PyUnicode_FromFormat("not enough values to unpack "
+                                                  "(expected at least %d, got %d)",
+                                                  argcnt + argcntafter, i);
+                    unpack_args = Py_BuildValue("OOi", errmsg, v, argcnt + argcntafter);
+                    if (unpack_args) {
+                        PyErr_SetObject(PyExc_UnpackError, unpack_args);
+                        Py_DECREF(unpack_args);
+                    }
                 }
             }
             goto Error;
@@ -2119,9 +2128,11 @@ _PyEval_UnpackIterableStackRef(PyThreadState *tstate, _PyStackRef v_stackref,
             return 1;
         }
         Py_DECREF(w);
-        _PyErr_Format(tstate, PyExc_ValueError,
-                      "too many values to unpack (expected %d)",
-                      argcnt);
+        unpack_args = Py_BuildValue("OOi", Py_None, v, argcnt);
+        if (unpack_args) {
+            PyErr_SetObject(PyExc_UnpackError, unpack_args);
+            Py_DECREF(unpack_args);
+        }
         goto Error;
     }
 
@@ -2133,9 +2144,14 @@ _PyEval_UnpackIterableStackRef(PyThreadState *tstate, _PyStackRef v_stackref,
 
     ll = PyList_GET_SIZE(l);
     if (ll < argcntafter) {
-        _PyErr_Format(tstate, PyExc_ValueError,
-            "not enough values to unpack (expected at least %d, got %zd)",
-            argcnt + argcntafter, argcnt + ll);
+        errmsg = PyUnicode_FromFormat("not enough values to unpack "
+                                        "(expected at least %d, got %zd)",
+                                        argcnt + argcntafter, argcnt + ll);
+        unpack_args = Py_BuildValue("OOi", errmsg, v, argcnt + argcntafter);
+        if (unpack_args) {
+            PyErr_SetObject(PyExc_UnpackError, unpack_args);
+            Py_DECREF(unpack_args);
+        }
         goto Error;
     }
 

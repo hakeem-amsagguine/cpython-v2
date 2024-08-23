@@ -2667,6 +2667,75 @@ SimpleExtendsException(PyExc_Exception, ValueError,
 SimpleExtendsException(PyExc_ValueError, UnicodeError,
                        "Unicode related error.");
 
+/*
+ *    UnpackError extends ValueError
+ */
+
+static int
+UnpackError_init(PyUnpackErrorObject *self, PyObject *args, PyObject *kwds)
+{
+    if (BaseException_init((PyBaseExceptionObject *)self, args, NULL) == -1) {
+        return -1;
+    }
+
+    if (!PyArg_ParseTuple(args, "OOO", &self->msg, &self->iterable, &self->expected_count)) {
+        return -1;
+    }
+
+    Py_INCREF(self->msg);
+    Py_INCREF(self->iterable);
+    Py_INCREF(self->expected_count);
+    return 0;
+}
+
+static PyObject *
+UnpackError_str(PyObject *self)
+{
+    PyUnpackErrorObject *uself = (PyUnpackErrorObject *)self;
+    if (!uself->msg) {
+        return BaseException_str((PyBaseExceptionObject *)self);
+    };
+    return Py_NewRef(uself->msg);
+}
+
+static int
+UnpackError_clear(PyUnpackErrorObject *self)
+{
+    Py_CLEAR(self->msg);
+    Py_CLEAR(self->iterable);
+    Py_CLEAR(self->expected_count);
+    return BaseException_clear((PyBaseExceptionObject *)self);
+}
+
+static void
+UnpackError_dealloc(PyUnpackErrorObject *self)
+{
+    _PyObject_GC_UNTRACK(self);
+    UnpackError_clear(self);
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static int
+UnpackError_traverse(PyUnpackErrorObject *self, visitproc visit, void *arg)
+{
+    Py_VISIT(self->msg);
+    Py_VISIT(self->iterable);
+    Py_VISIT(self->expected_count);
+    return BaseException_traverse((PyBaseExceptionObject *)self, visit, arg);
+}
+
+static PyMemberDef UnpackError_members[] = {
+    {"msg", _Py_T_OBJECT, offsetof(PyUnpackErrorObject, msg), 0, PyDoc_STR("error message")},
+    {"iterable", _Py_T_OBJECT, offsetof(PyUnpackErrorObject, iterable), 0, PyDoc_STR("iterable that failed to unpack")},
+    {"expected_count", _Py_T_OBJECT, offsetof(PyUnpackErrorObject, expected_count), 0, PyDoc_STR("expected iterable length during unpacking")},
+    {NULL}  /* Sentinel */
+};
+
+ComplexExtendsException(PyExc_ValueError, UnpackError,
+                        UnpackError, 0,
+                        0, UnpackError_members,
+                        0, UnpackError_str, "Signal an unpack failure.");
+
 static PyObject *
 get_string(PyObject *attr, const char *name)
 {
@@ -3688,6 +3757,7 @@ static struct static_exception static_exceptions[] = {
     ITEM(RecursionError),  // base: RuntimeError(Exception)
     ITEM(UnboundLocalError), // base: NameError(Exception)
     ITEM(UnicodeError),  // base: ValueError(Exception)
+    ITEM(UnpackError),  // base: ValueError(Exception)
 
     // Level 5: ConnectionError(OSError) subclasses
     ITEM(BrokenPipeError),

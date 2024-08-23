@@ -304,6 +304,7 @@ SYMBOL_NAMES = (
     "PyExc_UnicodeError",
     "PyExc_UnicodeTranslateError",
     "PyExc_UnicodeWarning",
+    "PyExc_UnpackError",
     "PyExc_UserWarning",
     "PyExc_ValueError",
     "PyExc_Warning",
