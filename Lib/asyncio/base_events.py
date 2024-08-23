@@ -812,7 +812,10 @@ class BaseEventLoop(events.AbstractEventLoop):
         timer = events.TimerHandle(when, callback, args, self, context)
         if timer._source_traceback:
             del timer._source_traceback[-1]
-        heapq.heappush(self._scheduled, timer)
+        # The `TimerHandle` is wrapped in a tuple to avoid calling the
+        # `TimerHandle.__lt__` method since the `heapq` operations
+        # will need to compare against many other `TimerHandler` objects.
+        heapq.heappush(self._scheduled, (when, timer))
         timer._scheduled = True
         return timer
 
@@ -1959,28 +1962,32 @@ class BaseEventLoop(events.AbstractEventLoop):
             # Remove delayed calls that were cancelled if their number
             # is too high
             new_scheduled = []
-            for handle in self._scheduled:
+            for when_handle in self._scheduled:
+                handle = when_handle[1]
                 if handle._cancelled:
                     handle._scheduled = False
                 else:
-                    new_scheduled.append(handle)
+                    new_scheduled.append(when_handle)
 
             heapq.heapify(new_scheduled)
             self._scheduled = new_scheduled
             self._timer_cancelled_count = 0
         else:
             # Remove delayed calls that were cancelled from head of queue.
-            while self._scheduled and self._scheduled[0]._cancelled:
+            while self._scheduled and self._scheduled[0][1]._cancelled:
                 self._timer_cancelled_count -= 1
-                handle = heapq.heappop(self._scheduled)
+                _, handle = heapq.heappop(self._scheduled)
                 handle._scheduled = False
 
         timeout = None
-        if self._ready or self._stopping:
+        ready = self._ready
+        scheduled = self._scheduled
+
+        if ready or self._stopping:
             timeout = 0
-        elif self._scheduled:
+        elif scheduled:
             # Compute the desired timeout.
-            timeout = self._scheduled[0]._when - self.time()
+            timeout = scheduled[0][0] - self.time()
             if timeout > MAXIMUM_SELECT_TIMEOUT:
                 timeout = MAXIMUM_SELECT_TIMEOUT
             elif timeout < 0:
@@ -1993,13 +2000,10 @@ class BaseEventLoop(events.AbstractEventLoop):
 
         # Handle 'later' callbacks that are ready.
         end_time = self.time() + self._clock_resolution
-        while self._scheduled:
-            handle = self._scheduled[0]
-            if handle._when >= end_time:
-                break
-            handle = heapq.heappop(self._scheduled)
+        while scheduled and scheduled[0][0] < end_time:
+            _, handle = heapq.heappop(scheduled)
             handle._scheduled = False
-            self._ready.append(handle)
+            ready.append(handle)
 
         # This is the only place where callbacks are actually *called*.
         # All other places just add them to ready.
@@ -2007,9 +2011,10 @@ class BaseEventLoop(events.AbstractEventLoop):
         # callbacks scheduled by callbacks run this time around --
         # they will be run the next time (after another I/O poll).
         # Use an idiom that is thread-safe without using locks.
-        ntodo = len(self._ready)
+        ntodo = len(ready)
+        ready_popleft = ready.popleft
         for i in range(ntodo):
-            handle = self._ready.popleft()
+            handle = ready_popleft()
             if handle._cancelled:
                 continue
             if self._debug:
